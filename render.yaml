@@ -46,4 +46,4 @@ databases:
   - name: ricozbooks-db
     plan: free
     databaseName: ricozbooks_db
-    user: postgres
+    user: ricoz_user
