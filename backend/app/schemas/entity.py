@@ -9,11 +9,34 @@ class EntityBase(BaseModel):
     country: str = "India"
     jurisdiction: Optional[str] = None
     tax_identifier: Optional[str] = None
+    gstin: Optional[str] = None
+    pan: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    financial_year: str = "2025-26"
+    status: str = "ACTIVE"
     base_currency: str = "INR"
     is_active: bool = True
 
 class EntityCreate(EntityBase):
     company_id: int
+
+class EntityUpdate(BaseModel):
+    name: Optional[str] = None
+    legal_name: Optional[str] = None
+    country: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    tax_identifier: Optional[str] = None
+    gstin: Optional[str] = None
+    pan: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    financial_year: Optional[str] = None
+    status: Optional[str] = None
+    base_currency: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class EntityResponse(EntityBase):
     id: int
@@ -23,6 +46,16 @@ class EntityResponse(EntityBase):
 
     class Config:
         from_attributes = True
+
+class EntityUserAssignRequest(BaseModel):
+    user_id: int
+
+class EntityUserResponse(BaseModel):
+    user_id: int
+    email: str
+    first_name: str
+    last_name: str
+    primary_role: str
 
 class CompanyBase(BaseModel):
     name: str
@@ -51,4 +84,3 @@ class CurrencyResponse(BaseModel):
 
     class Config:
         from_attributes = True
-

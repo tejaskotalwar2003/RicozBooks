@@ -10,6 +10,8 @@ from app.api.v1 import auth, entities, users, audit, health, accounts, journals,
 
 # Create tables if not present
 Base.metadata.create_all(bind=engine)
+from app.migrate_entities import migrate_entities
+migrate_entities()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

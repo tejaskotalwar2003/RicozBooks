@@ -28,6 +28,13 @@ class Entity(Base):
     country = Column(String(100), default="India", nullable=False)
     jurisdiction = Column(String(100), nullable=True)
     tax_identifier = Column(String(100), nullable=True)  # GSTIN, VAT, Sales Tax ID
+    gstin = Column(String(50), nullable=True)
+    pan = Column(String(20), nullable=True)
+    address = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    financial_year = Column(String(20), default="2025-26", nullable=False)
+    status = Column(String(50), default="ACTIVE", nullable=False)
     base_currency = Column(String(10), default="INR", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -203,7 +203,7 @@ export interface AuditFilterParams {
   limit?: number;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') + '/api/v1';
+const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || '').replace(/\/$/, '') + '/api/v1';
 
 export const accountingApi = {
   getAccounts: (params?: { entity_id?: number; account_type?: AccountType; is_active?: boolean; search?: string }) => {

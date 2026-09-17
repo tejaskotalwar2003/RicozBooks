@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AppShell } from './components/layout/AppShell';
+import { LandingPage } from './pages/LandingPage';
+import { GetStarted } from './pages/GetStarted';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { EntitiesPage } from './pages/EntitiesPage';
@@ -17,33 +19,24 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Login Route */}
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/get-started" element={<GetStarted />} />
           <Route path="/login" element={<Login />} />
 
-          {/* Authenticated Application Shell Routes */}
-          <Route path="/" element={<AppShell />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="entities" element={<EntitiesPage />} />
-            <Route path="audit-log" element={<AuditLogPage />} />
+          {/* Authenticated Application Workspace Routes (Protected by AppShell) */}
+          <Route element={<AppShell />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/entities" element={<EntitiesPage />} />
+            <Route path="/audit-log" element={<AuditLogPage />} />
+            <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+            <Route path="/journals" element={<JournalEntries />} />
+            <Route path="/approvals" element={<Approvals />} />
+            <Route path="/ledger" element={<GeneralLedger />} />
             
-            {/* Phase 2 Modules */}
-            <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
-            <Route path="journals" element={<JournalEntries />} />
-            <Route path="approvals" element={<Approvals />} />
-            <Route path="ledger" element={<GeneralLedger />} />
+            {/* Future Phases */}
             <Route 
-              path="ledger" 
-              element={
-                <ModulePlaceholder 
-                  moduleName="General Ledger" 
-                  description="Detailed account ledgers with running debit/credit balances and drill-down." 
-                  phase={3} 
-                />
-              } 
-            />
-            <Route 
-              path="reports" 
+              path="/reports" 
               element={
                 <ModulePlaceholder 
                   moduleName="Financial Reports" 
@@ -53,7 +46,7 @@ export const App: React.FC = () => {
               } 
             />
             <Route 
-              path="close-manager" 
+              path="/close-manager" 
               element={
                 <ModulePlaceholder 
                   moduleName="Close Manager" 
@@ -63,7 +56,7 @@ export const App: React.FC = () => {
               } 
             />
             <Route 
-              path="settings" 
+              path="/settings" 
               element={
                 <ModulePlaceholder 
                   moduleName="Accounting Settings" 
@@ -74,8 +67,8 @@ export const App: React.FC = () => {
             />
           </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Catch-all redirects to public Landing Page */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
@@ -83,4 +76,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
