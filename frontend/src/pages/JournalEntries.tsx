@@ -403,8 +403,8 @@ export const JournalEntries: React.FC = () => {
 
       {/* MODAL: CREATE JOURNAL ENTRY (STRICT DOUBLE-ENTRY FORM) */}
       {isNewOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-5 my-4 sm:my-8 max-h-[92vh] overflow-y-auto">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -485,8 +485,9 @@ export const JournalEntries: React.FC = () => {
             </div>
 
             {/* Dynamic Lines Table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
-              <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 font-semibold text-slate-700 grid grid-cols-12 gap-2 items-center">
+            <div className="border border-slate-200 rounded-xl overflow-x-auto text-xs">
+              <div className="min-w-[560px]">
+                <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 font-semibold text-slate-700 grid grid-cols-12 gap-2 items-center">
                 <span className="col-span-4">Account</span>
                 <span className="col-span-4">Description</span>
                 <span className="col-span-2 text-right">Debit ({currency})</span>
@@ -559,8 +560,9 @@ export const JournalEntries: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
 
-              <div className="p-2.5 bg-slate-50/70 border-t border-slate-200 flex items-center justify-between">
+            <div className="p-2.5 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={handleAddLine}

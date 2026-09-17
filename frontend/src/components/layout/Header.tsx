@@ -5,36 +5,52 @@ import {
   Plus, 
   Building, 
   Calendar, 
-  Globe
+  Globe,
+  Menu
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onToggleSidebar?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { user, activeEntity, entities, companies, switchEntity } = useAuth();
   const navigate = useNavigate();
   const activeCompany = companies[0] || { name: 'Ricoz Technologies' };
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-30">
+    <header className="h-14 bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-30">
       
-      {/* LEFT: COMPANY & ENTITY SWITCHER */}
-      <div className="flex items-center space-x-3 text-xs">
+      {/* LEFT: HAMBURGER & COMPANY/ENTITY SWITCHER */}
+      <div className="flex items-center space-x-2 sm:space-x-3 text-xs">
         
-        {/* Company Badge */}
-        <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
+        {/* Mobile Hamburger Toggle Button */}
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="md:hidden p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-[#390003] transition-colors focus:outline-none"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-5 h-5 text-[#390003]" />
+          </button>
+        )}
+
+        {/* Company Badge (Hidden on mobile, visible on sm and up) */}
+        <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
           <Building className="w-3.5 h-3.5 text-slate-500" />
-          <span>{activeCompany.name}</span>
+          <span className="truncate max-w-[120px]">{activeCompany.name}</span>
         </div>
 
         {/* Entity Selector */}
-        <div className="flex items-center space-x-1.5 bg-[#FAF5EE] border border-[#E6B676]/60 rounded-md px-2.5 py-1 text-slate-800">
-          <Globe className="w-3.5 h-3.5 text-[#C58B3E]" />
+        <div className="flex items-center space-x-1.5 bg-[#FAF5EE] border border-[#E6B676]/60 rounded-md px-2 sm:px-2.5 py-1 text-slate-800">
+          <Globe className="w-3.5 h-3.5 text-[#C58B3E] shrink-0" />
           <select
             aria-label="Select Entity"
             value={activeEntity?.id || ''}
             onChange={(e) => switchEntity(Number(e.target.value))}
-            className="bg-transparent text-xs font-bold text-[#390003] focus:outline-none cursor-pointer pr-1"
+            className="bg-transparent text-xs font-bold text-[#390003] focus:outline-none cursor-pointer pr-1 max-w-[130px] sm:max-w-none truncate"
           >
             {entities.map((ent) => (
               <option key={ent.id} value={ent.id}>
@@ -44,7 +60,7 @@ export const Header: React.FC = () => {
           </select>
         </div>
 
-        {/* Fiscal Year Indicator */}
+        {/* Fiscal Year Indicator (Hidden on small & medium screens) */}
         <div className="hidden lg:flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
           <Calendar className="w-3.5 h-3.5 text-emerald-600" />
           <span>FY 2026-27 (Active)</span>
@@ -52,14 +68,14 @@ export const Header: React.FC = () => {
       </div>
 
       {/* RIGHT: SEARCH, ACTIONS, NOTIFICATIONS, USER */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3">
         
-        {/* Global Omni-Search */}
+        {/* Global Omni-Search (Desktop only) */}
         <div className="relative hidden md:block">
           <input
             type="text"
             placeholder="Search accounts, journals, entities (Ctrl+K)..."
-            className="w-64 pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-slate-50 text-slate-800"
+            className="w-48 lg:w-64 pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-slate-50 text-slate-800"
           />
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
         </div>
@@ -67,10 +83,11 @@ export const Header: React.FC = () => {
         {/* Quick Action Button */}
         <button 
           onClick={() => navigate('/journals')}
-          className="px-3 py-1.5 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all cursor-pointer"
+          className="px-2.5 sm:px-3 py-1.5 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1 transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-3.5 h-3.5 text-[#E6B676]" />
-          <span>+ New Transaction</span>
+          <span className="hidden sm:inline">+ New Transaction</span>
+          <span className="sm:hidden">New</span>
         </button>
 
         {/* Notification Icon */}
@@ -83,16 +100,16 @@ export const Header: React.FC = () => {
         </button>
 
         {/* User Pill with Role */}
-        <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+        <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200">
           <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-slate-900 leading-tight">
+            <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[100px]">
               {user?.first_name} {user?.last_name}
             </div>
             <div className="text-[10px] uppercase font-semibold text-[#781019] tracking-wider">
               {user?.roles[0] || 'User'}
             </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs">
+          <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs shrink-0">
             {user?.first_name ? user.first_name[0] : 'U'}
           </div>
         </div>
@@ -102,4 +119,3 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-

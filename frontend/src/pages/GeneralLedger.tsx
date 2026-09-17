@@ -230,7 +230,7 @@ export const GeneralLedger: React.FC = () => {
         </div>
 
         {/* TOP CONTROLS & TAB SWITCHER */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200/70 text-xs font-semibold">
             <button
               onClick={() => setViewMode('detail')}

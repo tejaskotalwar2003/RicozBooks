@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export const AppShell: React.FC = () => {
   const { user, isLoading } = useAuth();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -23,19 +24,30 @@ export const AppShell: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F7F7F5]">
-      {/* Persistent Left Sidebar */}
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-[#F7F7F5] relative">
+      {/* Mobile Drawer Backdrop Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Persistent Desktop / Drawer Mobile Sidebar */}
+      <Sidebar 
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+      />
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <Header />
+        <Header onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)} />
         
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
     </div>
   );
 };
-

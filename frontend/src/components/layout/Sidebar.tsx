@@ -12,11 +12,17 @@ import {
   ShieldCheck, 
   Settings, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { user, activeEntity, entities, switchEntity, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -34,36 +40,55 @@ export const Sidebar: React.FC = () => {
   ];
 
   const handleLogout = () => {
+    if (onClose) onClose();
     logout();
     navigate('/login');
   };
 
   return (
-    <aside className="w-64 bg-[#260002] text-slate-200 flex flex-col justify-between border-r border-[#390003] shrink-0 h-screen sticky top-0 select-none">
+    <aside className={`
+      fixed inset-y-0 left-0 z-50 w-64 bg-[#260002] text-slate-200 flex flex-col justify-between 
+      border-r border-[#390003] shrink-0 h-screen select-none transition-transform duration-300 ease-in-out
+      md:static md:translate-x-0
+      ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+    `}>
       <div className="flex flex-col flex-1 overflow-y-auto">
         
         {/* LOGO & BRAND HEADER */}
         <div className="p-4 border-b border-[#390003]/90 bg-[#1E0002]">
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/logo.jpg" 
-              alt="RicozBooks Logo" 
-              className="h-10 w-10 rounded-lg object-cover shadow-sm border border-[#C58B3E]/30 shrink-0" 
-            />
-            <div className="leading-tight">
-              <div className="flex items-center space-x-1">
-                <span className="font-bold text-lg tracking-tight text-white">
-                  Ricoz<span className="text-[#E6B676]">Books</span>
-                </span>
-              </div>
-              <div className="flex items-center space-x-1.5 mt-0.5">
-                <span className="text-[10px] uppercase tracking-widest text-[#EEC68B] font-semibold">
-                  by ricoz
-                </span>
-                <span className="text-[10px] text-slate-500">•</span>
-                <span className="text-[10px] text-slate-400">Enterprise</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/logo.jpg" 
+                alt="RicozBooks Logo" 
+                className="h-10 w-10 rounded-lg object-cover shadow-sm border border-[#C58B3E]/30 shrink-0" 
+              />
+              <div className="leading-tight">
+                <div className="flex items-center space-x-1">
+                  <span className="font-bold text-lg tracking-tight text-white">
+                    Ricoz<span className="text-[#E6B676]">Books</span>
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1.5 mt-0.5">
+                  <span className="text-[10px] uppercase tracking-widest text-[#EEC68B] font-semibold">
+                    by ricoz
+                  </span>
+                  <span className="text-[10px] text-slate-500">•</span>
+                  <span className="text-[10px] text-slate-400">Enterprise</span>
+                </div>
               </div>
             </div>
+
+            {/* Mobile close button */}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 md:hidden"
+                aria-label="Close sidebar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* ACTIVE ENTITY PICKER IN SIDEBAR */}
@@ -106,6 +131,7 @@ export const Sidebar: React.FC = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={() => onClose && onClose()}
                 className={({ isActive }) =>
                   `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
                     isActive
@@ -155,7 +181,7 @@ export const Sidebar: React.FC = () => {
           <button
             onClick={handleLogout}
             title="Sign Out"
-            className="text-slate-400 hover:text-rose-400 p-1.5 rounded-md hover:bg-white/5 transition-colors"
+            className="text-slate-400 hover:text-rose-400 p-1.5 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -164,4 +190,3 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
-
