@@ -25,7 +25,7 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. NAVBAR */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-50 bg-[#260002]/95 backdrop-blur-md border-b border-[#390003] text-white">
+      <header className="sticky top-0 z-50 bg-[#0E0103]/85 backdrop-blur-xl border-b border-white/10 text-white transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           
           {/* Logo */}
@@ -33,7 +33,7 @@ export const LandingPage: React.FC = () => {
             <img 
               src="/logo.jpg" 
               alt="RicozBooks Logo" 
-              className="w-11 h-11 rounded-xl object-cover shadow-md border border-[#C58B3E]/40 group-hover:scale-105 transition-transform" 
+              className="w-11 h-11 rounded-xl object-cover shadow-lg border border-[#E6B676]/40 group-hover:scale-105 transition-transform" 
             />
             <div>
               <span className="text-2xl font-black tracking-tight text-white">
@@ -46,7 +46,7 @@ export const LandingPage: React.FC = () => {
           </Link>
 
           {/* Navigation Anchors */}
-          <nav className="hidden md:flex items-center space-x-8 text-xs font-semibold tracking-wide text-slate-200">
+          <nav className="hidden md:flex items-center space-x-8 text-xs font-semibold tracking-wide text-slate-300">
             <a href="#features" className="hover:text-[#E6B676] transition-colors">Features</a>
             <a href="#multi-entity" className="hover:text-[#E6B676] transition-colors">Multi-Entity</a>
             <a href="#roles" className="hover:text-[#E6B676] transition-colors">Roles & RBAC</a>
@@ -58,13 +58,13 @@ export const LandingPage: React.FC = () => {
           <div className="flex items-center space-x-3">
             <Link
               to="/login"
-              className="px-4 py-2 text-xs font-bold text-[#EEC68B] hover:text-white hover:bg-[#390003] rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-bold text-slate-200 hover:text-[#E6B676] hover:bg-white/5 rounded-lg transition-all"
             >
               Sign In
             </Link>
             <Link
               to="/get-started"
-              className="px-4 py-2 text-xs font-bold bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] rounded-lg shadow-sm hover:shadow-md transition-all flex items-center space-x-1.5"
+              className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-[#E6B676] to-[#D89F57] hover:from-[#EEC68B] hover:to-[#E6B676] text-[#1A0103] rounded-lg shadow-[0_0_20px_rgba(230,182,118,0.25)] hover:shadow-[0_0_25px_rgba(230,182,118,0.4)] transition-all flex items-center space-x-1.5 font-sans"
             >
               <span>Get Started</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -77,10 +77,12 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. HERO SECTION */}
       {/* ========================================================================= */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#260002] via-[#2F0003] to-[#1A0002] text-white pt-16 pb-24 lg:pt-24 lg:pb-32">
-        {/* Glow Highlights */}
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#E6B676]/10 blur-3xl pointer-events-none"></div>
-        <div className="absolute top-1/2 -right-40 w-96 h-96 rounded-full bg-[#781019]/25 blur-3xl pointer-events-none"></div>
+      <section className="relative overflow-hidden bg-[#0A0102] text-white pt-16 pb-24 lg:pt-24 lg:pb-32">
+        {/* Subtle Ambient Radial Glows & Grid Mesh */}
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[850px] h-[400px] bg-gradient-to-r from-[#781019]/30 via-[#E6B676]/15 to-[#781019]/25 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="absolute -top-32 -left-32 w-80 h-80 rounded-full bg-[#E6B676]/10 blur-[100px] pointer-events-none"></div>
+        <div className="absolute top-1/2 -right-32 w-96 h-96 rounded-full bg-[#781019]/20 blur-[120px] pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -88,16 +90,20 @@ export const LandingPage: React.FC = () => {
             {/* Left Column: Messaging */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#390003] text-[#EEC68B] border border-[#C58B3E]/30">
+              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/[0.04] text-[#EEC68B] border border-[#E6B676]/30 backdrop-blur-md shadow-[0_0_15px_rgba(230,182,118,0.1)]">
+                <span className="w-2 h-2 rounded-full bg-[#E6B676] animate-pulse"></span>
                 <Sparkles className="w-3.5 h-3.5 text-[#E6B676]" />
                 <span>Enterprise Finance & Accounting SaaS</span>
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
-                Simplify Your Business Accounting with <span className="text-[#E6B676]">RicozBooks</span>
+                Simplify Your Business Accounting with{" "}
+                <span className="bg-gradient-to-r from-[#FFF0D4] via-[#E6B676] to-[#D4A05B] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(230,182,118,0.25)]">
+                  RicozBooks
+                </span>
               </h1>
 
-              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
                 A modern, production-grade accounting platform built for high-growth enterprises. Seamlessly manage multi-entity books, enforce strict double-entry ledger integrity, and automate supervisory maker-checker approvals.
               </p>
 
@@ -105,7 +111,7 @@ export const LandingPage: React.FC = () => {
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <Link
                   to="/get-started"
-                  className="w-full sm:w-auto px-7 py-3.5 bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] text-sm font-black rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2"
+                  className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-[#E6B676] via-[#EEC68B] to-[#D4A05B] hover:from-[#EEC68B] hover:to-[#E6B676] text-[#1A0103] text-sm font-black rounded-xl shadow-[0_10px_30px_-5px_rgba(230,182,118,0.4)] hover:shadow-[0_15px_35px_-5px_rgba(230,182,118,0.6)] transition-all hover:scale-[1.02] flex items-center justify-center space-x-2"
                 >
                   <span>Get Started Free</span>
                   <ArrowRight className="w-4 h-4" />
@@ -113,7 +119,7 @@ export const LandingPage: React.FC = () => {
 
                 <Link
                   to="/login"
-                  className="w-full sm:w-auto px-7 py-3.5 bg-[#390003] hover:bg-[#4E0004] text-white text-sm font-bold rounded-xl border border-[#C58B3E]/30 transition-all flex items-center justify-center space-x-2"
+                  className="w-full sm:w-auto px-7 py-3.5 bg-white/[0.05] hover:bg-white/[0.1] text-white text-sm font-bold rounded-xl border border-white/15 backdrop-blur-md transition-all hover:border-[#E6B676]/40 flex items-center justify-center space-x-2 shadow-sm"
                 >
                   <span>1-Click Demo Login</span>
                   <ChevronRight className="w-4 h-4 text-[#EEC68B]" />
@@ -140,17 +146,17 @@ export const LandingPage: React.FC = () => {
 
             {/* Right Column: Visual Product Showcase Mock */}
             <div className="lg:col-span-5">
-              <div className="relative rounded-2xl bg-[#1E0002] border border-[#C58B3E]/40 p-6 shadow-2xl shadow-black/50 text-white space-y-4">
+              <div className="relative rounded-2xl bg-gradient-to-b from-[#1E0104]/90 via-[#130002]/95 to-[#0A0001]/95 border border-white/15 p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_35px_rgba(230,182,118,0.12)] backdrop-blur-xl text-white space-y-4">
                 
                 {/* Mock Card Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div className="flex items-center space-x-2.5">
-                    <div className="w-3 h-3 rounded-full bg-rose-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-rose-500/80 shadow-sm shadow-rose-500/50"></div>
+                    <div className="w-3 h-3 rounded-full bg-amber-500/80 shadow-sm shadow-amber-500/50"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/80 shadow-sm shadow-emerald-500/50"></div>
                     <span className="text-xs font-mono text-slate-400 ml-2">Voucher: JE-2026-0001</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-700">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
                     POSTED
                   </span>
                 </div>
@@ -159,39 +165,42 @@ export const LandingPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400">Legal Entity</span>
-                    <span className="font-bold text-white">Ricoz Technologies Pvt. Ltd. (INR)</span>
+                    <span className="font-bold text-slate-100">Ricoz Technologies Pvt. Ltd. (INR)</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400">Status Check</span>
-                    <span className="text-emerald-400 font-bold flex items-center space-x-1">
+                    <span className="text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center space-x-1">
                       <Scale className="w-3.5 h-3.5 mr-1" />
                       <span>Balanced (Difference: ₹ 0.00)</span>
                     </span>
                   </div>
 
                   {/* Lines preview */}
-                  <div className="bg-[#260002] rounded-xl border border-white/10 overflow-hidden text-[11px]">
-                    <div className="grid grid-cols-12 bg-[#390003]/80 p-2 font-bold text-[#EEC68B] border-b border-white/10">
+                  <div className="bg-black/40 rounded-xl border border-white/10 overflow-hidden text-[11px]">
+                    <div className="grid grid-cols-12 bg-white/[0.04] p-2.5 font-bold text-[#EEC68B] border-b border-white/10">
                       <span className="col-span-6">Account</span>
                       <span className="col-span-3 text-right">Debit</span>
                       <span className="col-span-3 text-right">Credit</span>
                     </div>
-                    <div className="grid grid-cols-12 p-2 border-b border-white/5 font-mono">
-                      <span className="col-span-6 truncate">1100 — Operating Bank</span>
+                    <div className="grid grid-cols-12 p-2.5 border-b border-white/5 font-mono">
+                      <span className="col-span-6 truncate text-slate-200">1100 — Operating Bank</span>
                       <span className="col-span-3 text-right text-emerald-400 font-bold">₹ 2,50,000</span>
                       <span className="col-span-3 text-right text-slate-500">—</span>
                     </div>
-                    <div className="grid grid-cols-12 p-2 font-mono">
-                      <span className="col-span-6 truncate">4000 — Sales Revenue</span>
+                    <div className="grid grid-cols-12 p-2.5 font-mono">
+                      <span className="col-span-6 truncate text-slate-200">4000 — Sales Revenue</span>
                       <span className="col-span-3 text-right text-slate-500">—</span>
                       <span className="col-span-3 text-right text-rose-400 font-bold">₹ 2,50,000</span>
                     </div>
                   </div>
 
                   {/* Maker-Checker Stamp */}
-                  <div className="p-2.5 rounded-lg bg-[#390003]/50 border border-[#C58B3E]/20 flex items-center justify-between text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-white/[0.03] border border-[#E6B676]/25 flex items-center justify-between text-[11px]">
                     <span className="text-slate-300">Maker-Checker Authorization</span>
-                    <span className="text-[#E6B676] font-semibold">Reviewed & Approved</span>
+                    <span className="text-[#EEC68B] font-semibold flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mr-1 inline" />
+                      <span>Reviewed & Approved</span>
+                    </span>
                   </div>
                 </div>
 
