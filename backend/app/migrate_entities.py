@@ -26,3 +26,4 @@ def migrate_entities():
 
 if __name__ == "__main__":
     migrate_entities()
+

@@ -79,3 +79,4 @@ def test_user_entity_assignment_workflow():
     # Unassign user
     del_res = client.delete(f"/api/v1/entities/{entity_id}/users/{acct_id}", headers=admin_headers)
     assert del_res.status_code == 200
+

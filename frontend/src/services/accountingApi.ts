@@ -1,4 +1,4 @@
-import { apiRequest } from './api';
+import { apiRequest, API_BASE } from './api';
 
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
 export type NormalBalance = 'DEBIT' | 'CREDIT';
@@ -203,7 +203,6 @@ export interface AuditFilterParams {
   limit?: number;
 }
 
-const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || '').replace(/\/$/, '') + '/api/v1';
 
 export const accountingApi = {
   getAccounts: (params?: { entity_id?: number; account_type?: AccountType; is_active?: boolean; search?: string }) => {

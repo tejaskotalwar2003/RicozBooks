@@ -1,4 +1,13 @@
-const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || '').replace(/\/$/, '') + '/api/v1';
+const getApiBase = (): string => {
+  const raw = (((import.meta as any).env?.VITE_API_URL as string) || '').trim();
+  if (!raw) return '/api/v1';
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw.replace(/\/$/, '') + '/api/v1';
+  }
+  return `https://${raw.replace(/\/$/, '')}/api/v1`;
+};
+
+export const API_BASE = getApiBase();
 
 export interface UserAuthSummary {
   id: number;

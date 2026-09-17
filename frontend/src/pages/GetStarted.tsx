@@ -194,3 +194,4 @@ export const GetStarted: React.FC = () => {
     </div>
   );
 };
+
