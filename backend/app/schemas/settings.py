@@ -146,3 +146,4 @@ class EntityTaxProfileUpdate(BaseModel):
     state: Optional[str] = None
     financial_year: Optional[str] = None
     base_currency: Optional[str] = None
+

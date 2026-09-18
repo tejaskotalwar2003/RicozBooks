@@ -161,3 +161,4 @@ def test_entity_tax_profile():
     assert updated["legal_name"] == "Ricoz India Enterprise Ltd"
     assert updated["gstin"] == "27AAACB9999F1Z1"
     assert updated["city"] == "Mumbai"
+

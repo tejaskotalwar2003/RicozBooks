@@ -319,3 +319,4 @@ def update_entity_tax_profile(
     )
 
     return entity
+
