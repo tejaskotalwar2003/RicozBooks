@@ -26,11 +26,11 @@ def get_user_entities(
     # Admin / Superuser has access to all entities
     user_roles = [r.name for r in current_user.roles]
     if current_user.is_superuser or "ADMIN" in user_roles:
-        entities = db.query(Entity).filter(Entity.is_active == True).all()
+        entities = db.query(Entity).filter(Entity.is_active == True).order_by(Entity.id.asc()).all()
         return entities
         
     # Return user-specific assigned entities
-    return [e for e in current_user.entities if e.is_active]
+    return sorted([e for e in current_user.entities if e.is_active], key=lambda x: x.id)
 
 @router.get("/entities/{entity_id}", response_model=EntityResponse)
 def get_entity_detail(

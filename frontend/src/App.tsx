@@ -14,7 +14,7 @@ import { Approvals } from './pages/Approvals';
 import { GeneralLedger } from './pages/GeneralLedger';
 import { ReportsPage } from './pages/ReportsPage';
 import { CloseManagerPage } from './pages/CloseManagerPage';
-import { ModulePlaceholder } from './pages/ModulePlaceholder';
+import { SettingsPage } from './pages/SettingsPage';
 
 export const App: React.FC = () => {
   return (
@@ -38,16 +38,7 @@ export const App: React.FC = () => {
             
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/close-manager" element={<CloseManagerPage />} />
-            <Route 
-              path="/settings" 
-              element={
-                <ModulePlaceholder 
-                  moduleName="Accounting Settings" 
-                  description="Currencies, exchange rates, fiscal years, and role permissions." 
-                  phase={6} 
-                />
-              } 
-            />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           {/* Catch-all redirects to public Landing Page */}

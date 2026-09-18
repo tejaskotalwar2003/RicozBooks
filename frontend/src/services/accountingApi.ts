@@ -572,6 +572,59 @@ export const accountingApi = {
     apiRequest<ClosePeriod>(`/close/periods/${periodId}/reopen`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  // ==========================================
+  // ACCOUNTING SETTINGS (PHASE 6)
+  // ==========================================
+  getExchangeRates: (params?: { from_currency?: string; to_currency?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.from_currency) query.append('from_currency', params.from_currency);
+    if (params?.to_currency) query.append('to_currency', params.to_currency);
+    return apiRequest<ExchangeRate[]>(`/settings/exchange-rates?${query.toString()}`);
+  },
+
+  upsertExchangeRate: (data: { from_currency: string; to_currency: string; rate: number; effective_date?: string }) =>
+    apiRequest<ExchangeRate>('/settings/exchange-rates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateExchangeRate: (rateId: number, data: { rate: number; effective_date?: string }) =>
+    apiRequest<ExchangeRate>(`/settings/exchange-rates/${rateId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getFiscalPeriodsSetting: (params?: { entity_id?: number; fiscal_year?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.entity_id) query.append('entity_id', params.entity_id.toString());
+    if (params?.fiscal_year) query.append('fiscal_year', params.fiscal_year);
+    return apiRequest<FiscalPeriodSetting[]>(`/settings/fiscal-periods?${query.toString()}`);
+  },
+
+  generateFiscalYearPeriods: (data: { entity_id: number; fiscal_year: string; start_month?: number }) =>
+    apiRequest<FiscalPeriodSetting[]>('/settings/fiscal-periods/generate-year', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getRolesMatrix: () =>
+    apiRequest<RolePermissionMatrix>('/settings/roles-matrix'),
+
+  updateRolePermissions: (data: { role_name: string; permission_codes: string[] }) =>
+    apiRequest<RoleDetail>('/settings/roles-matrix', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getEntityTaxProfile: (entityId: number) =>
+    apiRequest<EntityTaxProfile>(`/settings/entity-profile/${entityId}`),
+
+  updateEntityTaxProfile: (entityId: number, data: Partial<EntityTaxProfile>) =>
+    apiRequest<EntityTaxProfile>(`/settings/entity-profile/${entityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     })
 };
 
@@ -694,5 +747,69 @@ export interface ClosePeriod {
   total_tasks: number;
   completed_tasks: number;
   tasks?: CloseTask[];
+}
+
+// ==========================================
+// ACCOUNTING SETTINGS INTERFACES (PHASE 6)
+// ==========================================
+export interface ExchangeRate {
+  id: number;
+  from_currency: string;
+  to_currency: string;
+  rate: number;
+  effective_date: string;
+  created_at: string;
+}
+
+export interface FiscalPeriodSetting {
+  id: number;
+  entity_id?: number;
+  fiscal_year: string;
+  period_number: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_closed: boolean;
+  closed_at?: string;
+  created_at: string;
+}
+
+export interface PermissionItem {
+  id: number;
+  code: string;
+  name: string;
+  module: string;
+  description?: string;
+}
+
+export interface RoleDetail {
+  id: number;
+  name: string;
+  description?: string;
+  permissions: PermissionItem[];
+}
+
+export interface RolePermissionMatrix {
+  roles: RoleDetail[];
+  all_permissions: PermissionItem[];
+}
+
+export interface EntityTaxProfile {
+  id: number;
+  name: string;
+  code: string;
+  legal_name?: string;
+  country: string;
+  jurisdiction?: string;
+  tax_identifier?: string;
+  gstin?: string;
+  pan?: string;
+  base_currency: string;
+  financial_year: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  status: string;
+  is_active: boolean;
 }
 
