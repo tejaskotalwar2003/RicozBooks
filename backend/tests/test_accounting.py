@@ -31,8 +31,9 @@ def test_chart_of_accounts_create():
     tokens = get_tokens()
     headers = {"Authorization": f"Bearer {tokens['accountant']}"}
     
+    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
     # Get entity
-    ent_res = client.get("/api/v1/entities", headers=headers)
+    ent_res = client.get("/api/v1/entities", headers=admin_headers)
     entity_id = ent_res.json()[0]["id"]
     
     new_acc = {

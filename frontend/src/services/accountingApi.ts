@@ -386,6 +386,225 @@ export const accountingApi = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // ==========================================
+  // FINANCIAL REPORTS (PHASE 4)
+  // ==========================================
+  getTrialBalance: (params: {
+    entity_id: number;
+    start_date?: string;
+    end_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.start_date) query.append('start_date', params.start_date);
+    if (params.end_date) query.append('end_date', params.end_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    return apiRequest<TrialBalanceResponse>(`/reports/trial-balance?${query.toString()}`);
+  },
+
+  downloadTrialBalanceCsv: async (params: {
+    entity_id: number;
+    start_date?: string;
+    end_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const token = localStorage.getItem('ricozbooks_token');
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.start_date) query.append('start_date', params.start_date);
+    if (params.end_date) query.append('end_date', params.end_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/reports/trial-balance/export?${query.toString()}`, { headers });
+    if (!res.ok) throw new Error('Failed to export Trial Balance CSV');
+    const blob = await res.blob();
+    const filename = `trial_balance_${params.start_date || 'start'}_${params.end_date || 'end'}.csv`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  getProfitLoss: (params: {
+    entity_id: number;
+    start_date?: string;
+    end_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.start_date) query.append('start_date', params.start_date);
+    if (params.end_date) query.append('end_date', params.end_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    return apiRequest<ProfitLossResponse>(`/reports/profit-loss?${query.toString()}`);
+  },
+
+  downloadProfitLossCsv: async (params: {
+    entity_id: number;
+    start_date?: string;
+    end_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const token = localStorage.getItem('ricozbooks_token');
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.start_date) query.append('start_date', params.start_date);
+    if (params.end_date) query.append('end_date', params.end_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/reports/profit-loss/export?${query.toString()}`, { headers });
+    if (!res.ok) throw new Error('Failed to export Profit & Loss CSV');
+    const blob = await res.blob();
+    const filename = `profit_loss_${params.start_date || 'start'}_${params.end_date || 'end'}.csv`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  getBalanceSheet: (params: {
+    entity_id: number;
+    as_of_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.as_of_date) query.append('as_of_date', params.as_of_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    return apiRequest<BalanceSheetResponse>(`/reports/balance-sheet?${query.toString()}`);
+  },
+
+  downloadBalanceSheetCsv: async (params: {
+    entity_id: number;
+    as_of_date?: string;
+    include_unposted?: boolean;
+  }) => {
+    const token = localStorage.getItem('ricozbooks_token');
+    const query = new URLSearchParams();
+    query.append('entity_id', params.entity_id.toString());
+    if (params.as_of_date) query.append('as_of_date', params.as_of_date);
+    if (params.include_unposted !== undefined) {
+      query.append('include_unposted', params.include_unposted.toString());
+    }
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/reports/balance-sheet/export?${query.toString()}`, { headers });
+    if (!res.ok) throw new Error('Failed to export Balance Sheet CSV');
+    const blob = await res.blob();
+    const filename = `balance_sheet_${params.as_of_date || 'today'}.csv`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 };
+
+export interface TrialBalanceItem {
+  account_id: number;
+  account_code: string;
+  account_name: string;
+  account_type: string;
+  normal_balance: string;
+  opening_debit: number;
+  opening_credit: number;
+  period_debit: number;
+  period_credit: number;
+  closing_debit: number;
+  closing_credit: number;
+}
+
+export interface TrialBalanceResponse {
+  entity_id: number;
+  entity_name: string;
+  currency: string;
+  start_date: string;
+  end_date: string;
+  include_unposted: boolean;
+  items: TrialBalanceItem[];
+  total_opening_debit: number;
+  total_opening_credit: number;
+  total_period_debit: number;
+  total_period_credit: number;
+  total_closing_debit: number;
+  total_closing_credit: number;
+  is_balanced: boolean;
+  difference: number;
+}
+
+export interface ProfitLossAccountItem {
+  account_id: number;
+  account_code: string;
+  account_name: string;
+  amount: number;
+  percentage_of_revenue: number;
+}
+
+export interface ProfitLossResponse {
+  entity_id: number;
+  entity_name: string;
+  currency: string;
+  start_date: string;
+  end_date: string;
+  include_unposted: boolean;
+  revenue_accounts: ProfitLossAccountItem[];
+  total_revenue: number;
+  expense_accounts: ProfitLossAccountItem[];
+  total_expense: number;
+  gross_profit: number;
+  net_profit_loss: number;
+  net_margin_pct: number;
+}
+
+export interface BalanceSheetAccountItem {
+  account_id: number;
+  account_code: string;
+  account_name: string;
+  amount: number;
+}
+
+export interface BalanceSheetResponse {
+  entity_id: number;
+  entity_name: string;
+  currency: string;
+  as_of_date: string;
+  include_unposted: boolean;
+  asset_accounts: BalanceSheetAccountItem[];
+  total_assets: number;
+  liability_accounts: BalanceSheetAccountItem[];
+  total_liabilities: number;
+  equity_accounts: BalanceSheetAccountItem[];
+  total_equity_before_earnings: number;
+  current_period_earnings: number;
+  total_equity: number;
+  total_liabilities_and_equity: number;
+  is_balanced: boolean;
+  difference: number;
+}
 

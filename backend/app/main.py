@@ -7,6 +7,7 @@ import app.models  # Ensure all models are registered with Base.metadata
 
 from app.api.v1 import auth, entities, users, audit, health, accounts, journals
 from app.api.v1 import auth, entities, users, audit, health, accounts, journals, ledger
+from app.api.v1 import auth, entities, users, audit, health, accounts, journals, ledger, reports
 
 # Create tables if not present
 Base.metadata.create_all(bind=engine)
@@ -39,6 +40,7 @@ app.include_router(journals.router, prefix=settings.API_V1_STR, tags=["Journal E
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["Users & Roles"])
 app.include_router(audit.router, prefix=settings.API_V1_STR, tags=["Audit Trail"])
 app.include_router(ledger.router, prefix=settings.API_V1_STR, tags=["General Ledger"])
+app.include_router(reports.router, prefix=settings.API_V1_STR, tags=["Financial Reports"])
 
 @app.get("/")
 def root():

@@ -21,7 +21,8 @@ def test_ledger_summary():
     tokens = get_tokens()
     headers = {"Authorization": f"Bearer {tokens['accountant']}"}
 
-    ent_res = client.get("/api/v1/entities", headers=headers)
+    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    ent_res = client.get("/api/v1/entities", headers=admin_headers)
     assert ent_res.status_code == 200
     entity_id = ent_res.json()[0]["id"]
 
@@ -39,7 +40,7 @@ def test_account_ledger_details_and_running_balance():
     acct_headers = {"Authorization": f"Bearer {tokens['accountant']}"}
     admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
 
-    ent_res = client.get("/api/v1/entities", headers=acct_headers)
+    ent_res = client.get("/api/v1/entities", headers=admin_headers)
     entity_id = ent_res.json()[0]["id"]
 
     acc_res = client.get("/api/v1/accounts", headers=acct_headers)
@@ -106,7 +107,8 @@ def test_ledger_csv_export():
     tokens = get_tokens()
     headers = {"Authorization": f"Bearer {tokens['accountant']}"}
 
-    ent_res = client.get("/api/v1/entities", headers=headers)
+    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    ent_res = client.get("/api/v1/entities", headers=admin_headers)
     entity_id = ent_res.json()[0]["id"]
 
     acc_res = client.get("/api/v1/accounts", headers=headers)

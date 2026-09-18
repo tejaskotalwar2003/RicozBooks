@@ -12,6 +12,7 @@ import { ChartOfAccounts } from './pages/ChartOfAccounts';
 import { JournalEntries } from './pages/JournalEntries';
 import { Approvals } from './pages/Approvals';
 import { GeneralLedger } from './pages/GeneralLedger';
+import { ReportsPage } from './pages/ReportsPage';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
 export const App: React.FC = () => {
@@ -34,17 +35,7 @@ export const App: React.FC = () => {
             <Route path="/approvals" element={<Approvals />} />
             <Route path="/ledger" element={<GeneralLedger />} />
             
-            {/* Future Phases */}
-            <Route 
-              path="/reports" 
-              element={
-                <ModulePlaceholder 
-                  moduleName="Financial Reports" 
-                  description="Trial Balance, Profit & Loss, and Balance Sheet calculated strictly from posted transactions." 
-                  phase={4} 
-                />
-              } 
-            />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route 
               path="/close-manager" 
               element={
