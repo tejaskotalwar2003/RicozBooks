@@ -89,6 +89,19 @@ def validate_period_open(db: Session, entity_id: int, entry_date: date):
             detail=f"Posting forbidden: The fiscal period '{closed_period.name}' covering {entry_date} is permanently closed."
         )
 
+    from app.models.close import ClosePeriod
+    closed_close = db.query(ClosePeriod).filter(
+        ClosePeriod.entity_id == entity_id,
+        ClosePeriod.month == entry_date.month,
+        ClosePeriod.status == "CLOSED"
+    ).first()
+
+    if closed_close:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Posting forbidden: The accounting period '{closed_close.period_name}' is locked and closed by management."
+        )
+
 def generate_entry_number(db: Session, entity_id: int, prefix: str = "JE") -> str:
     """
     Generates sequential journal entry numbers (e.g. JE-2026-0001).

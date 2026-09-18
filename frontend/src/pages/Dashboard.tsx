@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -180,14 +181,18 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-6">
           
           {/* Close Status Card */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+          <Link 
+            to="/close-manager" 
+            className="block bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 hover:border-[#C58B3E]/50 hover:shadow-md transition-all group cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <CalendarCheck className="w-4 h-4 text-[#C58B3E]" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Close Status</h3>
+                <CalendarCheck className="w-4 h-4 text-[#C58B3E] group-hover:scale-110 transition-transform" />
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider group-hover:text-[#781019] transition-colors">Close Status</h3>
               </div>
-              <span className="text-xs font-bold text-[#390003] bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                September 2026
+              <span className="text-xs font-bold text-[#390003] bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
+                <span>September 2026</span>
+                <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-[#C58B3E] transition-colors" />
               </span>
             </div>
 
@@ -215,7 +220,7 @@ export const Dashboard: React.FC = () => {
                 <div className="text-[10px] text-slate-500">Blocked</div>
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Journal Entry Status Breakdown */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">

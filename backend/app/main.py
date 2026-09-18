@@ -5,9 +5,7 @@ from app.core.config import settings
 from app.database.session import Base, engine
 import app.models  # Ensure all models are registered with Base.metadata
 
-from app.api.v1 import auth, entities, users, audit, health, accounts, journals
-from app.api.v1 import auth, entities, users, audit, health, accounts, journals, ledger
-from app.api.v1 import auth, entities, users, audit, health, accounts, journals, ledger, reports
+from app.api.v1 import auth, entities, users, audit, health, accounts, journals, ledger, reports, close
 
 # Create tables if not present
 Base.metadata.create_all(bind=engine)
@@ -41,6 +39,7 @@ app.include_router(users.router, prefix=settings.API_V1_STR, tags=["Users & Role
 app.include_router(audit.router, prefix=settings.API_V1_STR, tags=["Audit Trail"])
 app.include_router(ledger.router, prefix=settings.API_V1_STR, tags=["General Ledger"])
 app.include_router(reports.router, prefix=settings.API_V1_STR, tags=["Financial Reports"])
+app.include_router(close.router, prefix=f"{settings.API_V1_STR}/close", tags=["Period-End Close Manager"])
 
 @app.get("/")
 def root():

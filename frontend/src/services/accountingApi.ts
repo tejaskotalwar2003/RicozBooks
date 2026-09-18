@@ -523,7 +523,56 @@ export const accountingApi = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-  }
+  },
+
+  // ==========================================
+  // PERIOD-END CLOSE MANAGER (PHASE 5)
+  // ==========================================
+  getClosePeriods: (params?: { entity_id?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.entity_id) query.append('entity_id', params.entity_id.toString());
+    return apiRequest<ClosePeriod[]>(`/close/periods?${query.toString()}`);
+  },
+
+  getClosePeriodDetail: (periodId: number) =>
+    apiRequest<ClosePeriod>(`/close/periods/${periodId}`),
+
+  createClosePeriod: (data: {
+    entity_id: number;
+    period_name: string;
+    fiscal_year: string;
+    month: number;
+    target_date: string;
+  }) =>
+    apiRequest<ClosePeriod>('/close/periods', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateCloseTask: (taskId: number, data: Partial<{
+    task_name: string;
+    description: string;
+    status: CloseStatus;
+    notes: string;
+    assigned_to_id: number;
+    due_date: string;
+  }>) =>
+    apiRequest<CloseTask>(`/close/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  lockClosePeriod: (periodId: number, data: { notes?: string }) =>
+    apiRequest<ClosePeriod>(`/close/periods/${periodId}/lock`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  reopenClosePeriod: (periodId: number, data: { reason: string }) =>
+    apiRequest<ClosePeriod>(`/close/periods/${periodId}/reopen`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
 };
 
 export interface TrialBalanceItem {
@@ -606,5 +655,44 @@ export interface BalanceSheetResponse {
   total_liabilities_and_equity: number;
   is_balanced: boolean;
   difference: number;
+}
+
+// ==========================================
+// CLOSE MANAGER INTERFACES (PHASE 5)
+// ==========================================
+export type CloseStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'READY_FOR_REVIEW' | 'APPROVED' | 'BLOCKED';
+
+export interface CloseTask {
+  id: number;
+  close_period_id: number;
+  task_name: string;
+  description?: string;
+  due_date: string;
+  status: CloseStatus;
+  notes?: string;
+  assigned_to_id?: number;
+  assigned_to_name?: string;
+  reviewer_id?: number;
+  reviewer_name?: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface ClosePeriod {
+  id: number;
+  entity_id: number;
+  period_name: string;
+  fiscal_year: string;
+  month: number;
+  target_date: string;
+  status: string;
+  completion_percentage: number;
+  closed_at?: string;
+  closed_by_id?: number;
+  created_at: string;
+  updated_at: string;
+  total_tasks: number;
+  completed_tasks: number;
+  tasks?: CloseTask[];
 }
 

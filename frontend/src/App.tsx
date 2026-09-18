@@ -13,6 +13,7 @@ import { JournalEntries } from './pages/JournalEntries';
 import { Approvals } from './pages/Approvals';
 import { GeneralLedger } from './pages/GeneralLedger';
 import { ReportsPage } from './pages/ReportsPage';
+import { CloseManagerPage } from './pages/CloseManagerPage';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
 export const App: React.FC = () => {
@@ -36,16 +37,7 @@ export const App: React.FC = () => {
             <Route path="/ledger" element={<GeneralLedger />} />
             
             <Route path="/reports" element={<ReportsPage />} />
-            <Route 
-              path="/close-manager" 
-              element={
-                <ModulePlaceholder 
-                  moduleName="Close Manager" 
-                  description="Period-end checklist, task assignments, and period locking." 
-                  phase={5} 
-                />
-              } 
-            />
+            <Route path="/close-manager" element={<CloseManagerPage />} />
             <Route 
               path="/settings" 
               element={
