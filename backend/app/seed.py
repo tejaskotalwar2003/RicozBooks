@@ -42,7 +42,7 @@ def seed():
             if not existing:
                 db.add(r)
         db.commit()
-        print("✓ Exchange rates seeded.")
+        print("[OK] Exchange rates seeded.")
 
         # 3. Seed Roles & Permissions
         roles_data = {
@@ -59,7 +59,7 @@ def seed():
                 db.commit()
                 db.refresh(role)
             roles_dict[role_name] = role
-        print("✓ Roles seeded.")
+        print("[OK] Roles seeded.")
 
         # Permissions
         perms_data = [
@@ -97,7 +97,7 @@ def seed():
                 if p not in roles_dict["REVIEWER"].permissions:
                     roles_dict["REVIEWER"].permissions.append(p)
         db.commit()
-        print("✓ Permissions seeded.")
+        print("[OK] Permissions seeded.")
 
         # 4. Seed Company: Ricoz Technologies
         company = db.query(Company).filter(Company.code == "RICOZ_TECH").first()
@@ -112,7 +112,7 @@ def seed():
             db.add(company)
             db.commit()
             db.refresh(company)
-        print(f"✓ Company '{company.name}' seeded.")
+        print(f"[OK] Company '{company.name}' seeded.")
 
         # 5. Seed Entities: Ricoz India, Ricoz US, Ricoz UK
         entities_data = [
@@ -163,7 +163,7 @@ def seed():
                 db.commit()
                 db.refresh(ent)
             entities_dict[ed["code"]] = ent
-        print("✓ Entities seeded.")
+        print("[OK] Entities seeded.")
 
         # 6. Seed Users: Admin, Accountant, Reviewer
         users_data = [
@@ -219,7 +219,7 @@ def seed():
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-        print("✓ Users seeded with secure credentials.")
+        print("[OK] Users seeded with secure credentials.")
 
         # 7. Seed Chart of Accounts for Ricoz India (INR)
         standard_accounts = [
@@ -256,7 +256,7 @@ def seed():
                     )
                     db.add(acc)
             db.commit()
-        print("✓ Standard Chart of Accounts seeded across all entities.")
+        print("[OK] Standard Chart of Accounts seeded across all entities.")
 
         # 8. Seed Fiscal Periods & September 2026 Close
         ind_ent = entities_dict["RICOZ_IN"]
@@ -315,7 +315,7 @@ def seed():
                 )
                 db.add(task)
             db.commit()
-        print("✓ Close Manager periods and tasks seeded.")
+        print("[OK] Close Manager periods and tasks seeded.")
 
         # 9. Record Initial System Audit Event
         admin_user = db.query(User).filter(User.email == "admin@ricozbooks.com").first()
@@ -330,7 +330,7 @@ def seed():
         )
         db.add(init_audit)
         db.commit()
-        print("✓ System audit log recorded.")
+        print("[OK] System audit log recorded.")
 
         print("\n=======================================================")
         print(" RicozBooks Database Seed Completed Successfully!")
