@@ -34,10 +34,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: ricozbooks-api
-          property: host
+        value: https://ricozbooks-api.onrender.com
 
 databases:
   # ==========================================

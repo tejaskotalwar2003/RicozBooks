@@ -1,6 +1,21 @@
 const getApiBase = (): string => {
-  const raw = (((import.meta as any).env?.VITE_API_URL as string) || '').trim();
+  let raw = (((import.meta as any).env?.VITE_API_URL as string) || '').trim();
+
+  // If running in browser on Render cloud domain, ensure pointing to live backend
+  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+    if (!raw || raw === 'ricozbooks-api' || !raw.includes('.')) {
+      return 'https://ricozbooks-api.onrender.com/api/v1';
+    }
+  }
+
+  // If not configured, default to relative '/api/v1' for local dev proxy
   if (!raw) return '/api/v1';
+
+  // If raw is an internal service name without domain, append onrender.com
+  if (!raw.includes('.') && !raw.includes('localhost')) {
+    raw = `${raw}.onrender.com`;
+  }
+
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
     return raw.replace(/\/$/, '') + '/api/v1';
   }
