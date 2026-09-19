@@ -289,8 +289,10 @@ export const JournalEntries: React.FC = () => {
           <button
             onClick={() => setIsNewOpen(true)}
             className="px-4 py-2 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all"
+            className="px-4 py-2 bg-[#781019] hover:bg-[#600C13] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 text-[#E6B676]" />
+            <Plus className="w-4 h-4 text-white" />
             <span>+ New Journal Entry</span>
           </button>
         )}
@@ -306,8 +308,10 @@ export const JournalEntries: React.FC = () => {
               key={f.value}
               onClick={() => setStatusFilter(f.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 statusFilter === f.value
                   ? 'bg-[#390003] text-white shadow-xs'
+                  ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
@@ -638,6 +642,7 @@ export const JournalEntries: React.FC = () => {
                 disabled={isSubmitting || !isBalanced}
                 onClick={() => handleSaveJournal(false)}
                 className="px-4 py-2 bg-[#390003] hover:bg-[#55080E] text-white rounded-lg font-semibold text-xs disabled:opacity-50 flex items-center space-x-1.5"
+                className="px-4 py-2 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg font-semibold text-xs disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
               >
                 <span>Submit for Review</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#E6B676]" />
@@ -783,6 +788,7 @@ export const JournalEntries: React.FC = () => {
                       openJournalDetail(selectedJournal.id);
                     }}
                     className="px-3 py-1.5 bg-[#390003] hover:bg-[#55080E] text-white rounded-lg text-xs font-semibold"
+                    className="px-3 py-1.5 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
                   >
                     Submit for Review
                   </button>
@@ -794,6 +800,7 @@ export const JournalEntries: React.FC = () => {
                     <button
                       onClick={() => setRejectingId(selectedJournal.id)}
                       className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center space-x-1"
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-pointer"
                     >
                       <Ban className="w-3.5 h-3.5" />
                       <span>Reject</span>
@@ -801,6 +808,7 @@ export const JournalEntries: React.FC = () => {
                     <button
                       onClick={() => handleApprove(selectedJournal.id)}
                       className="px-3 py-1.5 bg-[#390003] hover:bg-[#55080E] text-white rounded-lg text-xs font-semibold flex items-center space-x-1"
+                      className="px-3 py-1.5 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-pointer shadow-xs"
                     >
                       <Check className="w-3.5 h-3.5 text-[#E6B676]" />
                       <span>Approve</span>

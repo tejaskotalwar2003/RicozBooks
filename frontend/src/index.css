@@ -5,6 +5,7 @@
 @layer base {
   body {
     @apply bg-[#F7F7F5] text-[#1F1F1F] font-sans antialiased;
+    @apply bg-[#F8FAFC] text-slate-900 font-sans antialiased;
   }
 }
 

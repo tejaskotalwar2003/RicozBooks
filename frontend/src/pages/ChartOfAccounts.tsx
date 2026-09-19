@@ -144,8 +144,10 @@ export const ChartOfAccounts: React.FC = () => {
           <button
             onClick={() => setIsCreateOpen(true)}
             className="px-4 py-2 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all"
+            className="px-4 py-2 bg-[#781019] hover:bg-[#600C13] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all"
           >
             <Plus className="w-4 h-4 text-[#E6B676]" />
+            <Plus className="w-4 h-4 text-white" />
             <span>+ New Account</span>
           </button>
         )}
@@ -163,6 +165,7 @@ export const ChartOfAccounts: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 activeTab === cat.value
                   ? 'bg-[#390003] text-white shadow-xs'
+                  ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
@@ -385,6 +388,7 @@ export const ChartOfAccounts: React.FC = () => {
                   type="submit"
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-[#390003] hover:bg-[#55080E] text-white rounded-lg font-semibold disabled:opacity-50"
+                  className="px-4 py-2 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg font-semibold disabled:opacity-50"
                 >
                   {isSubmitting ? 'Creating...' : 'Save Account'}
                 </button>
@@ -437,6 +441,7 @@ export const ChartOfAccounts: React.FC = () => {
                     checked={editActive}
                     onChange={(e) => setEditActive(e.target.checked)}
                     className="rounded border-slate-300 text-[#390003] focus:ring-[#781019]"
+                    className="rounded border-slate-300 text-[#781019] focus:ring-[#781019]"
                   />
                   <span className="font-semibold">Account is active for journal postings</span>
                 </label>
@@ -453,6 +458,7 @@ export const ChartOfAccounts: React.FC = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-[#390003] hover:bg-[#55080E] text-white rounded-lg font-semibold"
+                  className="px-4 py-2 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg font-semibold"
                 >
                   Save Changes
                 </button>

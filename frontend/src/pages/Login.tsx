@@ -41,9 +41,11 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F7F7F5]">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC]">
       
       {/* LEFT COLUMN: BRAND HERO (IMPERIAL BURGUNDY) */}
       <div className="w-full md:w-5/12 bg-[#260002] text-white p-8 md:p-12 flex flex-col justify-between border-r border-[#390003] relative overflow-hidden">
+      <div className="w-full md:w-5/12 bg-[#0B0F17] text-white p-8 md:p-12 flex flex-col justify-between border-r border-slate-800 relative overflow-hidden">
         
         {/* Subtle background glow */}
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#E6B676]/10 blur-3xl pointer-events-none"></div>
@@ -56,6 +58,7 @@ export const Login: React.FC = () => {
               src="/logo.jpg" 
               alt="RicozBooks Logo" 
               className="w-16 h-16 rounded-xl object-cover shadow-lg border border-[#C58B3E]/40" 
+              className="w-16 h-16 rounded-xl object-cover shadow-lg border border-slate-700/60" 
             />
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-white">
@@ -69,6 +72,7 @@ export const Login: React.FC = () => {
 
           <div className="mt-12 space-y-4">
             <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#390003] text-[#EEC68B] border border-[#C58B3E]/30">
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-900/90 text-[#EEC68B] border border-[#C58B3E]/30">
               Enterprise Finance & Accounting SaaS
             </div>
             
@@ -105,6 +109,7 @@ export const Login: React.FC = () => {
 
         {/* Left Footer: Trust & Security Badges */}
         <div className="relative z-10 pt-8 border-t border-[#390003]/80 text-[11px] text-slate-400 flex items-center justify-between">
+        <div className="relative z-10 pt-8 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Shield className="w-4 h-4 text-[#E6B676]" />
             <span>Bank-Grade 256-bit Encryption</span>
@@ -195,6 +200,7 @@ export const Login: React.FC = () => {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded border-slate-300 text-[#390003] focus:ring-[#781019]"
+                  className="rounded border-slate-300 text-[#781019] focus:ring-[#781019]"
                 />
                 <span>Remember this device for 30 days</span>
               </label>
@@ -205,6 +211,7 @@ export const Login: React.FC = () => {
               type="submit"
               disabled={isSubmitting}
               className="w-full py-2.5 px-4 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-bold rounded-lg shadow-md border border-[#781019] flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-[#781019] hover:bg-[#600C13] text-white text-xs font-bold rounded-lg shadow-md border border-[#781019] flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
             >
               {isSubmitting ? (
                 <span>Authenticating...</span>
@@ -227,8 +234,10 @@ export const Login: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('admin@ricozbooks.com', 'admin123')}
                 className="p-2 bg-slate-50 hover:bg-[#FAF5EE] border border-slate-200 hover:border-[#E6B676] rounded-lg text-left transition-all"
+                className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-[#781019]/40 cursor-pointer rounded-lg text-left transition-all"
               >
                 <div className="text-[11px] font-bold text-[#390003]">Admin (CFO)</div>
+                <div className="text-[11px] font-bold text-[#781019]">Admin (CFO)</div>
                 <div className="text-[9px] text-slate-500">Full Access</div>
               </button>
 
@@ -236,8 +245,10 @@ export const Login: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('accountant@ricozbooks.com', 'accountant123')}
                 className="p-2 bg-slate-50 hover:bg-[#FAF5EE] border border-slate-200 hover:border-[#E6B676] rounded-lg text-left transition-all"
+                className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-[#781019]/40 cursor-pointer rounded-lg text-left transition-all"
               >
                 <div className="text-[11px] font-bold text-[#390003]">Accountant</div>
+                <div className="text-[11px] font-bold text-[#781019]">Accountant</div>
                 <div className="text-[9px] text-slate-500">Create & Submit</div>
               </button>
 
@@ -245,8 +256,10 @@ export const Login: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('reviewer@ricozbooks.com', 'reviewer123')}
                 className="p-2 bg-slate-50 hover:bg-[#FAF5EE] border border-slate-200 hover:border-[#E6B676] rounded-lg text-left transition-all"
+                className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-[#781019]/40 cursor-pointer rounded-lg text-left transition-all"
               >
                 <div className="text-[11px] font-bold text-[#390003]">Reviewer</div>
+                <div className="text-[11px] font-bold text-[#781019]">Reviewer</div>
                 <div className="text-[9px] text-slate-500">Approve & Post</div>
               </button>
             </div>

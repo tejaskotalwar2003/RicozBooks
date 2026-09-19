@@ -98,6 +98,7 @@ export const AuditLogPage: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-[#260002] text-[#E6B676]">
+            <div className="p-2 rounded-lg bg-[#0B0F17] text-[#E6B676] border border-slate-800">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -311,6 +312,7 @@ export const AuditLogPage: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 bg-[#260002] text-white flex items-center justify-between border-b border-[#390003]">
+            <div className="p-4 bg-[#0B0F17] text-white flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center space-x-2.5">
                 <ShieldCheck className="w-5 h-5 text-[#E6B676]" />
                 <h3 className="text-sm font-bold tracking-tight text-white">

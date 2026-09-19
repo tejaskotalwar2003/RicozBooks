@@ -216,6 +216,7 @@ export const CloseManagerPage: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2.5">
             <div className="p-2 bg-[#260002] text-[#E6B676] rounded-xl shadow-xs">
+            <div className="p-2 bg-[#0B0F17] text-[#E6B676] border border-slate-800 rounded-xl shadow-xs">
               <CalendarCheck className="w-5 h-5" />
             </div>
             <div>
@@ -264,6 +265,7 @@ export const CloseManagerPage: React.FC = () => {
               <button
                 onClick={() => setShowLockModal(true)}
                 className="flex items-center space-x-1.5 px-4 py-2 text-xs font-bold text-white bg-[#260002] hover:bg-[#390003] border border-[#C58B3E]/40 rounded-xl transition-colors shadow-sm cursor-pointer"
+                className="flex items-center space-x-1.5 px-4 py-2 text-xs font-bold text-white bg-[#781019] hover:bg-[#600C13] border border-[#781019] rounded-xl transition-colors shadow-sm cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5 text-[#EEC68B]" />
                 <span>Lock & Close Books</span>
@@ -394,18 +396,21 @@ export const CloseManagerPage: React.FC = () => {
             <button
               onClick={() => setFilterTab('ALL')}
               className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'ALL' ? 'bg-[#260002] text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'ALL' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
               All Procedures ({tasks.length})
             </button>
             <button
               onClick={() => setFilterTab('PENDING')}
               className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'PENDING' ? 'bg-[#260002] text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'PENDING' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Pending ({pendingCount})
             </button>
             <button
               onClick={() => setFilterTab('APPROVED')}
               className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'APPROVED' ? 'bg-[#260002] text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterTab === 'APPROVED' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Approved ({approvedCount})
             </button>
@@ -616,6 +621,7 @@ export const CloseManagerPage: React.FC = () => {
                 disabled={submittingLock}
                 onClick={handleLockPeriod}
                 className="px-4 py-2 text-xs font-bold text-white bg-[#260002] hover:bg-[#390003] border border-[#C58B3E]/40 rounded-xl transition-colors shadow-sm cursor-pointer flex items-center space-x-1.5"
+                className="px-4 py-2 text-xs font-bold text-white bg-[#781019] hover:bg-[#600C13] border border-[#781019] rounded-xl transition-colors shadow-sm cursor-pointer flex items-center space-x-1.5"
               >
                 <Lock className="w-3.5 h-3.5 text-[#EEC68B]" />
                 <span>{submittingLock ? 'Locking Period...' : 'Confirm Hard Lock & Close'}</span>
@@ -711,6 +717,7 @@ export const CloseManagerPage: React.FC = () => {
                 type="button"
                 onClick={handleSaveNotes}
                 className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#260002] hover:bg-[#390003] rounded-lg cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#781019] hover:bg-[#600C13] rounded-lg cursor-pointer"
               >
                 Save Remarks
               </button>
@@ -793,6 +800,7 @@ export const CloseManagerPage: React.FC = () => {
                 type="submit"
                 disabled={submittingLock}
                 className="px-4 py-2 text-xs font-bold text-white bg-[#260002] hover:bg-[#390003] rounded-xl cursor-pointer shadow-sm"
+                className="px-4 py-2 text-xs font-bold text-white bg-[#781019] hover:bg-[#600C13] rounded-xl cursor-pointer shadow-sm"
               >
                 {submittingLock ? 'Creating...' : 'Initialize Period'}
               </button>

@@ -161,6 +161,7 @@ export const ReportsPage: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-[#260002] text-[#E6B676]">
+            <div className="p-2 rounded-lg bg-[#0B0F17] text-[#E6B676] border border-slate-800">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
@@ -255,6 +256,7 @@ export const ReportsPage: React.FC = () => {
                   className={`px-2.5 py-1 text-xs rounded-md font-medium border transition-colors cursor-pointer ${
                     datePreset === p.id
                       ? 'bg-[#260002] text-[#E6B676] border-[#260002]'
+                      ? 'bg-[#0B0F17] text-[#EEC68B] border-slate-800 shadow-xs'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -333,6 +335,7 @@ export const ReportsPage: React.FC = () => {
       {loading && (
         <div className="bg-white p-12 rounded-xl border border-slate-200 flex flex-col items-center justify-center space-y-3">
           <div className="w-8 h-8 border-3 border-[#390003] border-t-[#E6B676] rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-3 border-slate-300 border-t-[#781019] rounded-full animate-spin"></div>
           <span className="text-xs text-slate-500 font-semibold">Calculating financial statements from ledger...</span>
         </div>
       )}
@@ -419,9 +422,11 @@ export const ReportsPage: React.FC = () => {
                         {item.period_credit > 0 ? Number(item.period_credit).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}
                       </td>
                       <td className="py-2.5 px-4 text-right font-mono tnum font-bold text-[#260002]">
+                      <td className="py-2.5 px-4 text-right font-mono tnum font-bold text-slate-900">
                         {item.closing_debit > 0 ? Number(item.closing_debit).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}
                       </td>
                       <td className="py-2.5 px-4 text-right font-mono tnum font-bold text-[#260002]">
+                      <td className="py-2.5 px-4 text-right font-mono tnum font-bold text-slate-900">
                         {item.closing_credit > 0 ? Number(item.closing_credit).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '—'}
                       </td>
                     </tr>
@@ -429,6 +434,7 @@ export const ReportsPage: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#1E0002] text-white font-bold border-t border-[#390003]">
+                  <tr className="bg-[#0B0F17] text-white font-bold border-t border-slate-800">
                     <td colSpan={3} className="py-3 px-4 uppercase tracking-wider text-xs text-[#EEC68B]">Grand Totals</td>
                     <td className="py-3 px-4 text-right font-mono tnum text-xs">{currencySymbol} {Number(trialBalance.total_opening_debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="py-3 px-4 text-right font-mono tnum text-xs">{currencySymbol} {Number(trialBalance.total_opening_credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -483,6 +489,7 @@ export const ReportsPage: React.FC = () => {
             </div>
 
             <div className="bg-[#260002] text-white p-5 rounded-xl border border-[#390003] shadow-md">
+            <div className="bg-[#0B0F17] text-white p-5 rounded-xl border border-slate-800 shadow-md">
               <span className="text-xs font-semibold text-[#EEC68B] uppercase tracking-wider">Net Margin %</span>
               <div className="text-2xl font-extrabold text-white mt-2 font-mono">
                 {Number(profitLoss.net_margin_pct).toFixed(2)}%
@@ -627,6 +634,7 @@ export const ReportsPage: React.FC = () => {
               </div>
 
               <div className="p-4 bg-[#260002] text-white flex items-center justify-between font-bold text-sm">
+              <div className="p-4 bg-[#0B0F17] text-white flex items-center justify-between font-bold text-sm border-t border-slate-800">
                 <span className="uppercase tracking-wider text-[#EEC68B]">Total Assets</span>
                 <span className="font-mono text-base text-white">{currencySymbol} {Number(balanceSheet.total_assets).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
@@ -686,6 +694,7 @@ export const ReportsPage: React.FC = () => {
               </div>
 
               <div className="p-4 bg-[#260002] text-white flex items-center justify-between font-bold text-sm">
+              <div className="p-4 bg-[#0B0F17] text-white flex items-center justify-between font-bold text-sm border-t border-slate-800">
                 <span className="uppercase tracking-wider text-[#EEC68B]">Total Liabilities & Equity</span>
                 <span className="font-mono text-base text-white">{currencySymbol} {Number(balanceSheet.total_liabilities_and_equity).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
