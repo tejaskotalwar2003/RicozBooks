@@ -47,8 +47,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
   return (
     <aside className={`
-      fixed inset-y-0 left-0 z-50 w-64 bg-[#260002] text-slate-200 flex flex-col justify-between 
-      border-r border-[#390003] shrink-0 h-screen select-none transition-transform duration-300 ease-in-out
       fixed inset-y-0 left-0 z-50 w-64 bg-[#0B0F17] text-slate-200 flex flex-col justify-between 
       border-r border-slate-800 shrink-0 h-screen select-none transition-transform duration-300 ease-in-out
       md:static md:translate-x-0
@@ -57,14 +55,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       <div className="flex flex-col flex-1 overflow-y-auto">
         
         {/* LOGO & BRAND HEADER */}
-        <div className="p-4 border-b border-[#390003]/90 bg-[#1E0002]">
         <div className="p-4 border-b border-slate-800/90 bg-[#0B0F17]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img 
                 src="/logo.jpg" 
                 alt="RicozBooks Logo" 
-                className="h-10 w-10 rounded-lg object-cover shadow-sm border border-[#C58B3E]/30 shrink-0" 
                 className="h-10 w-10 rounded-lg object-cover shadow-sm border border-slate-700/60 shrink-0" 
               />
               <div className="leading-tight">
@@ -87,7 +83,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 md:hidden"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 md:hidden"
                 aria-label="Close sidebar"
               >
@@ -106,11 +101,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                 aria-label="Active Legal Entity"
                 value={activeEntity?.id || ''}
                 onChange={(e) => switchEntity(Number(e.target.value))}
-                className="w-full appearance-none bg-[#2D0205] text-white text-xs font-semibold rounded-lg border border-[#55080E] px-2.5 py-2 pr-7 hover:border-[#C58B3E]/50 focus:outline-none focus:ring-1 focus:ring-[#C58B3E] cursor-pointer"
                 className="w-full appearance-none bg-slate-900/90 text-white text-xs font-semibold rounded-lg border border-slate-800 px-2.5 py-2 pr-7 hover:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[#C58B3E] cursor-pointer"
               >
                 {entities.map((ent) => (
-                  <option key={ent.id} value={ent.id} className="bg-[#1E0002] text-white">
                   <option key={ent.id} value={ent.id} className="bg-[#0B0F17] text-white">
                     {ent.name} ({ent.base_currency})
                   </option>
@@ -142,8 +135,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                 className={({ isActive }) =>
                   `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
                     isActive
-                      ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
-                      : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
                       ? 'bg-slate-800/80 text-white border-l-4 border-[#781019] shadow-xs'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                   }`
@@ -154,7 +145,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#55080E] text-[#EEC68B] font-mono border border-[#C58B3E]/20">
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-[#EEC68B] font-mono border border-slate-700">
                     {item.badge}
                   </span>
@@ -166,7 +156,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       </div>
 
       {/* FOOTER: RICOZBOOKS INFO & USER PROFILE */}
-      <div className="border-t border-[#390003] bg-[#1E0002]/90 p-3 shrink-0">
       <div className="border-t border-slate-800 bg-[#0B0F17]/90 p-3 shrink-0">
         <div className="mb-2 px-1 text-[10px] text-slate-400 flex items-center justify-between">
           <span className="font-semibold text-slate-300">RicozBooks</span>
@@ -175,7 +164,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-[#E6B676] text-[#260002] font-bold text-xs flex items-center justify-center shrink-0">
             <div className="w-8 h-8 rounded-full bg-[#781019] text-[#E6B676] border border-[#C58B3E]/30 font-bold text-xs flex items-center justify-center shrink-0">
               {user?.first_name ? user.first_name[0] : 'U'}
               {user?.last_name ? user.last_name[0] : ''}
@@ -193,7 +181,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           <button
             onClick={handleLogout}
             title="Sign Out"
-            className="text-slate-400 hover:text-rose-400 p-1.5 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
             className="text-slate-400 hover:text-rose-400 p-1.5 rounded-md hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />

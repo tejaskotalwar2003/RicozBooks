@@ -10,10 +10,8 @@ export const AppShell: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F7F7F5] flex items-center justify-center">
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-4 border-[#390003] border-t-[#E6B676] rounded-full animate-spin mx-auto"></div>
           <div className="w-10 h-10 border-4 border-slate-300 border-t-[#781019] rounded-full animate-spin mx-auto"></div>
           <p className="text-xs font-semibold text-slate-600">Loading RicozBooks...</p>
         </div>
@@ -26,7 +24,6 @@ export const AppShell: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F7F7F5] relative">
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC] relative">
       {/* Mobile Drawer Backdrop Overlay */}
       {isMobileSidebarOpen && (

@@ -29,7 +29,6 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. NAVBAR */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-50 bg-[#260002]/95 backdrop-blur-md border-b border-[#390003] text-white">
       <header className="sticky top-0 z-50 bg-[#0B0F17]/95 backdrop-blur-md border-b border-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           
@@ -63,14 +62,12 @@ export const LandingPage: React.FC = () => {
           <div className="hidden sm:flex items-center space-x-3">
             <Link
               to="/login"
-              className="px-4 py-2 text-xs font-bold text-[#EEC68B] hover:text-white hover:bg-[#390003] rounded-lg transition-colors"
               className="px-4 py-2 text-xs font-bold text-[#EEC68B] hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
             >
               Sign In
             </Link>
             <Link
               to="/get-started"
-              className="px-4 py-2 text-xs font-bold bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] rounded-lg shadow-sm hover:shadow-md transition-all flex items-center space-x-1.5"
               className="px-4 py-2 text-xs font-bold bg-[#781019] hover:bg-[#600C13] text-white rounded-lg shadow-sm hover:shadow-md transition-all flex items-center space-x-1.5"
             >
               <span>Get Started</span>
@@ -91,7 +88,6 @@ export const LandingPage: React.FC = () => {
 
         {/* Mobile Navigation Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-[#1E0002] border-b border-[#390003] px-4 py-4 space-y-3 shadow-xl">
           <div className="md:hidden bg-[#0B0F17] border-b border-slate-800 px-4 py-4 space-y-3 shadow-xl">
             <nav className="flex flex-col space-y-2 text-sm font-semibold tracking-wide text-slate-200">
               <a 
@@ -141,7 +137,6 @@ export const LandingPage: React.FC = () => {
               <Link
                 to="/get-started"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full text-center py-2.5 text-xs font-bold bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] rounded-lg shadow-sm transition-all"
                 className="w-full text-center py-2.5 text-xs font-bold bg-[#781019] hover:bg-[#600C13] text-white rounded-lg shadow-sm transition-all"
               >
                 Get Started Free
@@ -154,7 +149,6 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. HERO SECTION */}
       {/* ========================================================================= */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#260002] via-[#2F0003] to-[#1A0002] text-white pt-16 pb-24 lg:pt-24 lg:pb-32">
       <section className="relative overflow-hidden bg-gradient-to-b from-[#0B0F17] via-[#0F172A] to-[#0B0F17] text-white pt-16 pb-24 lg:pt-24 lg:pb-32">
         {/* Glow Highlights */}
         <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#E6B676]/10 blur-3xl pointer-events-none"></div>
@@ -166,7 +160,6 @@ export const LandingPage: React.FC = () => {
             {/* Left Column: Messaging */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#390003] text-[#EEC68B] border border-[#C58B3E]/30">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-slate-900/90 text-[#EEC68B] border border-[#C58B3E]/30">
                 <Sparkles className="w-3.5 h-3.5 text-[#E6B676]" />
                 <span>Enterprise Finance & Accounting SaaS</span>
@@ -184,7 +177,6 @@ export const LandingPage: React.FC = () => {
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <Link
                   to="/get-started"
-                  className="w-full sm:w-auto px-7 py-3.5 bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] text-sm font-black rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2"
                   className="w-full sm:w-auto px-7 py-3.5 bg-[#781019] hover:bg-[#600C13] text-white text-sm font-black rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2"
                 >
                   <span>Get Started Free</span>
@@ -193,7 +185,6 @@ export const LandingPage: React.FC = () => {
 
                 <Link
                   to="/login"
-                  className="w-full sm:w-auto px-7 py-3.5 bg-[#390003] hover:bg-[#4E0004] text-white text-sm font-bold rounded-xl border border-[#C58B3E]/30 transition-all flex items-center justify-center space-x-2"
                   className="w-full sm:w-auto px-7 py-3.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-sm font-bold rounded-xl border border-[#C58B3E]/30 transition-all flex items-center justify-center space-x-2"
                 >
                   <span>1-Click Demo Login</span>
@@ -221,7 +212,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Right Column: Visual Product Showcase Mock */}
             <div className="lg:col-span-5">
-              <div className="relative rounded-2xl bg-[#1E0002] border border-[#C58B3E]/40 p-6 shadow-2xl shadow-black/50 text-white space-y-4">
               <div className="relative rounded-2xl bg-[#0B0F17] border border-[#C58B3E]/40 p-6 shadow-2xl shadow-black/50 text-white space-y-4">
                 
                 {/* Mock Card Header */}
@@ -252,7 +242,6 @@ export const LandingPage: React.FC = () => {
                   </div>
 
                   {/* Lines preview */}
-                  <div className="bg-[#260002] rounded-xl border border-white/10 overflow-hidden text-[11px]">
                   <div className="bg-[#0B0F17] rounded-xl border border-white/10 overflow-hidden text-[11px]">
                     <div className="grid grid-cols-12 bg-[#390003]/80 p-2 font-bold text-[#EEC68B] border-b border-white/10">
                       <span className="col-span-6">Account</span>
@@ -307,7 +296,6 @@ export const LandingPage: React.FC = () => {
             
             {/* Feature 1 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <Building2 className="w-5 h-5" />
               </div>
@@ -319,7 +307,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 2 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <Scale className="w-5 h-5" />
               </div>
@@ -331,7 +318,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 3 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <FileText className="w-5 h-5" />
               </div>
@@ -343,7 +329,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 4 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <Users className="w-5 h-5" />
               </div>
@@ -355,7 +340,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 5 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
@@ -367,7 +351,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 6 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <BookOpen className="w-5 h-5" />
               </div>
@@ -379,7 +362,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 7 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <Lock className="w-5 h-5" />
               </div>
@@ -391,7 +373,6 @@ export const LandingPage: React.FC = () => {
 
             {/* Feature 8 */}
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-[#C58B3E] hover:shadow-md transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center">
               <div className="w-10 h-10 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center">
                 <Layers className="w-5 h-5" />
               </div>
@@ -463,7 +444,6 @@ export const LandingPage: React.FC = () => {
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
                 
                 {/* Organization Node */}
-                <div className="p-3.5 rounded-xl bg-[#260002] text-white flex items-center justify-between border border-[#390003]">
                 <div className="p-3.5 rounded-xl bg-[#0B0F17] text-white flex items-center justify-between border border-slate-800">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-lg bg-[#390003] text-[#E6B676] flex items-center justify-center font-black text-sm">
@@ -547,7 +527,6 @@ export const LandingPage: React.FC = () => {
             {/* Role 1: Admin / CFO */}
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 flex flex-col justify-between space-y-6 hover:shadow-md transition-shadow">
               <div className="space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center font-bold">
                 <div className="w-12 h-12 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center font-bold">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
@@ -587,7 +566,6 @@ export const LandingPage: React.FC = () => {
             {/* Role 2: Accountant */}
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 flex flex-col justify-between space-y-6 hover:shadow-md transition-shadow">
               <div className="space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center font-bold">
                 <div className="w-12 h-12 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center font-bold">
                   <FileText className="w-6 h-6" />
                 </div>
@@ -627,7 +605,6 @@ export const LandingPage: React.FC = () => {
             {/* Role 3: Reviewer */}
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 flex flex-col justify-between space-y-6 hover:shadow-md transition-shadow">
               <div className="space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-[#260002] text-[#E6B676] flex items-center justify-center font-bold">
                 <div className="w-12 h-12 rounded-xl bg-[#0B0F17] text-[#E6B676] flex items-center justify-center font-bold">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
@@ -758,7 +735,6 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* Golden Rule Callout */}
-          <div className="mt-8 p-4 rounded-xl bg-[#260002] border border-[#C58B3E]/40 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="mt-8 p-4 rounded-xl bg-[#0B0F17] border border-[#C58B3E]/40 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Scale className="w-6 h-6 text-[#E6B676] shrink-0" />
@@ -851,7 +827,6 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 8. FINAL CTA SECTION */}
       {/* ========================================================================= */}
-      <section className="py-20 bg-[#260002] text-white relative overflow-hidden text-center">
       <section className="py-20 bg-[#0B0F17] text-white relative overflow-hidden text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
           
@@ -866,7 +841,6 @@ export const LandingPage: React.FC = () => {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/get-started"
-              className="w-full sm:w-auto px-8 py-3.5 bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] text-sm font-black rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2"
               className="w-full sm:w-auto px-8 py-3.5 bg-[#781019] hover:bg-[#600C13] text-white text-sm font-black rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2"
             >
               <span>Get Started Now</span>
@@ -875,7 +849,6 @@ export const LandingPage: React.FC = () => {
 
             <Link
               to="/login"
-              className="w-full sm:w-auto px-8 py-3.5 bg-[#390003] hover:bg-[#4E0004] text-white text-sm font-bold rounded-xl border border-[#C58B3E]/30 transition-all"
               className="w-full sm:w-auto px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-sm font-bold rounded-xl border border-[#C58B3E]/30 transition-all"
             >
               Sign In to Your Account
@@ -888,7 +861,6 @@ export const LandingPage: React.FC = () => {
       {/* ========================================================================= */}
       {/* 9. FOOTER */}
       {/* ========================================================================= */}
-      <footer className="bg-[#180002] border-t border-[#390003] text-slate-400 py-12 text-xs">
       <footer className="bg-[#070A0F] border-t border-slate-800 text-slate-400 py-12 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           

@@ -341,7 +341,6 @@ export const SettingsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#260002] to-[#781019] flex items-center justify-center text-[#E6B676] shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-[#0B0F17] border border-slate-800 flex items-center justify-center text-[#E6B676] shadow-sm">
               <SettingsIcon className="w-5 h-5" />
             </div>
@@ -357,7 +356,6 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#260002]/5 text-[#781019] border border-[#781019]/20">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#781019]/10 text-[#781019] border border-[#781019]/20">
             Phase 6 Enterprise Core
           </span>
@@ -523,7 +521,6 @@ export const SettingsPage: React.FC = () => {
                         setRateInput('83.50');
                         setShowRateModal(true);
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold bg-[#781019] text-white hover:bg-[#260002] rounded-lg transition-all flex items-center space-x-1.5 shadow-xs"
                       className="px-3 py-1.5 text-xs font-semibold bg-[#781019] text-white hover:bg-[#600C13] rounded-lg transition-all flex items-center space-x-1.5 shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -667,7 +664,6 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#260002] to-[#781019] text-white space-y-1 shadow-xs">
                   <div className="p-4 rounded-xl bg-[#0B0F17] border border-slate-800 text-white space-y-1 shadow-xs">
                     <span className="text-[10px] uppercase font-bold text-[#E6B676] tracking-wider">
                       Converted Estimate
@@ -748,7 +744,6 @@ export const SettingsPage: React.FC = () => {
                 <button
                   onClick={handleGenerateYear}
                   disabled={generatingYear}
-                  className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#260002] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                   className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#600C13] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                 >
                   {generatingYear ? (
@@ -819,7 +814,6 @@ export const SettingsPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           {period.is_closed ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#260002]/10 text-[#781019] border border-[#781019]/20">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#781019]/10 text-[#781019] border border-[#781019]/20">
                               <Lock className="w-3 h-3 mr-1" />
                               CLOSED & LOCKED
@@ -928,7 +922,6 @@ export const SettingsPage: React.FC = () => {
                 <button
                   onClick={handleSaveRbac}
                   disabled={savingRbac}
-                  className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#260002] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                   className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#600C13] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                 >
                   {savingRbac ? (
@@ -1170,7 +1163,6 @@ export const SettingsPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={savingTax}
-                      className="px-6 py-2.5 text-xs font-semibold bg-[#781019] text-white hover:bg-[#260002] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                       className="px-6 py-2.5 text-xs font-semibold bg-[#781019] text-white hover:bg-[#600C13] rounded-lg transition-all flex items-center space-x-2 shadow-xs"
                     >
                       {savingTax ? (
@@ -1282,7 +1274,6 @@ export const SettingsPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#260002] rounded-lg shadow-xs"
                   className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#600C13] rounded-lg shadow-xs"
                 >
                   Save Rate

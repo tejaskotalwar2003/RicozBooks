@@ -243,7 +243,6 @@ export const Approvals: React.FC = () => {
                             <button
                               onClick={() => handleApprove(je.id)}
                               title="Approve Journal"
-                              className="px-2.5 py-1 bg-[#390003] hover:bg-[#55080E] text-white rounded font-semibold text-[11px] flex items-center space-x-1"
                               className="px-2.5 py-1 bg-[#781019] hover:bg-[#600C13] text-white rounded font-semibold text-[11px] flex items-center space-x-1 cursor-pointer transition-colors shadow-xs"
                             >
                               <Check className="w-3 h-3 text-[#E6B676]" />
@@ -344,7 +343,6 @@ export const Approvals: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleApprove(selectedJournal.id)}
-                    className="px-3 py-1.5 bg-[#390003] text-white rounded-lg text-xs font-semibold"
                     className="px-3.5 py-1.5 bg-[#781019] hover:bg-[#600C13] text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-xs"
                   >
                     Authorize & Approve

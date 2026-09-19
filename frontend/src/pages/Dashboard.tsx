@@ -80,21 +80,16 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Net Profit */}
-        <div className="bg-[#FAF5EE] p-5 rounded-xl border border-[#E6B676]/60 shadow-xs">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#390003] uppercase tracking-wider">Net Profit</span>
-            <div className="w-8 h-8 rounded-lg bg-[#E6B676]/30 text-[#390003] flex items-center justify-center">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Net Profit</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-[#C58B3E] flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-bold text-[#390003] mt-3 tnum">
           <div className="text-2xl font-bold text-slate-900 mt-3 tnum">
             {currencySymbol}4,64,600.00
           </div>
-          <div className="flex items-center text-xs font-bold text-emerald-700 mt-1">
           <div className="flex items-center text-xs font-semibold text-emerald-600 mt-1">
             <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
             <span>↑ 22% vs last month</span>
@@ -195,7 +190,6 @@ export const Dashboard: React.FC = () => {
                 <CalendarCheck className="w-4 h-4 text-[#C58B3E] group-hover:scale-110 transition-transform" />
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider group-hover:text-[#781019] transition-colors">Close Status</h3>
               </div>
-              <span className="text-xs font-bold text-[#390003] bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
               <span className="text-xs font-bold text-slate-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
                 <span>September 2026</span>
                 <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-[#C58B3E] transition-colors" />
@@ -205,11 +199,9 @@ export const Dashboard: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-semibold">
                 <span className="text-slate-600">Overall Progress</span>
-                <span className="text-[#390003] font-bold">80% completed</span>
                 <span className="text-slate-900 font-bold">80% completed</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-[#390003] to-[#E6B676] h-2.5 rounded-full" style={{ width: '80%' }}></div>
                 <div className="bg-gradient-to-r from-[#781019] to-[#C58B3E] h-2.5 rounded-full" style={{ width: '80%' }}></div>
               </div>
             </div>
