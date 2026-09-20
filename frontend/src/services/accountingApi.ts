@@ -885,10 +885,17 @@ export interface InvitationAcceptData {
 }
 
 export const registerCompany = async (data: CompanyRegistrationData): Promise<CompanyRegistrationResponse> => {
-  return apiRequest<CompanyRegistrationResponse>('/auth/register-company', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  try {
+    return await apiRequest<CompanyRegistrationResponse>('/tenants/register-company', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  } catch (err: any) {
+    return await apiRequest<CompanyRegistrationResponse>('/auth/register-company', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 };
 
 export const getTenantCompany = async (): Promise<any> => {

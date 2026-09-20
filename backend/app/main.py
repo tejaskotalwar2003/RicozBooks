@@ -25,6 +25,11 @@ from app.api.v1 import (
 Base.metadata.create_all(bind=engine)
 from app.migrate_entities import migrate_entities
 migrate_entities()
+try:
+    from app.seed import seed
+    seed()
+except Exception as e:
+    print(f"Startup database seed status: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
