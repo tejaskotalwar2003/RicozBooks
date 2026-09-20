@@ -52,6 +52,12 @@ export interface Entity {
   country: string;
   jurisdiction?: string;
   tax_identifier?: string;
+  gstin?: string;
+  pan?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  financial_year?: string;
   base_currency: string;
   is_active: boolean;
 }

@@ -60,8 +60,8 @@ def test_balanced_journal_creation_and_workflow():
     acc_res = client.get("/api/v1/accounts", headers=acct_headers)
     accounts = acc_res.json()
     cash_acc = next(a for a in accounts if a["code"] == "1000")
-    sales_acc = next(a for a in accounts if a["code"] == "4000")
     entity_id = cash_acc["entity_id"]
+    sales_acc = next(a for a in accounts if a["code"] == "4000" and a["entity_id"] == entity_id)
 
     # 1. Balanced journal creation (Debit 10,000 == Credit 10,000)
     journal_payload = {
@@ -170,6 +170,8 @@ def test_reviewer_rejection_workflow():
     accounts = acc_res.json()
     cash_acc = next(a for a in accounts if a["code"] == "1000")
     rent_acc = next(a for a in accounts if a["code"] == "5100")
+    entity_id = cash_acc["entity_id"]
+    rent_acc = next(a for a in accounts if a["code"] == "5100" and a["entity_id"] == entity_id)
 
     # Create & submit directly
     payload = {

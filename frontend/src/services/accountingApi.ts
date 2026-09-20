@@ -994,4 +994,359 @@ export const getDashboardMetrics = async (entity_id?: number): Promise<Dashboard
   return apiRequest<DashboardMetricsResponse>(`/dashboard/metrics${query}`);
 };
 
+// =========================================================================
+// SALES & ACCOUNTS RECEIVABLE (AR)
+// =========================================================================
+
+export interface Customer {
+  id: number;
+  entity_id: number;
+  name: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  gstin?: string;
+  pan?: string;
+  billing_address?: string;
+  shipping_address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  payment_terms_days: number;
+  opening_balance: number;
+  current_balance: number;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerCreateData {
+  entity_id: number;
+  name: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  gstin?: string;
+  pan?: string;
+  billing_address?: string;
+  shipping_address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  payment_terms_days?: number;
+  opening_balance?: number;
+  currency?: string;
+}
+
+export interface CustomerLedgerEntry {
+  id: number;
+  date: string;
+  type: string;
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  running_balance: number;
+}
+
+export interface CustomerStatement {
+  customer_id: number;
+  customer_name: string;
+  company_name?: string;
+  gstin?: string;
+  currency: string;
+  opening_balance: number;
+  total_invoiced: number;
+  total_paid: number;
+  current_balance: number;
+  statement_period: string;
+  entries: CustomerLedgerEntry[];
+}
+
+export interface Product {
+  id: number;
+  entity_id: number;
+  name: string;
+  sku?: string;
+  product_type: 'GOODS' | 'SERVICE';
+  unit: string;
+  selling_price: number;
+  purchase_price: number;
+  hsn_sac_code?: string;
+  tax_rate: number;
+  income_account_id?: number;
+  expense_account_id?: number;
+  current_stock: number;
+  min_stock_alert: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductCreateData {
+  entity_id: number;
+  name: string;
+  sku?: string;
+  product_type?: string;
+  unit?: string;
+  selling_price?: number;
+  purchase_price?: number;
+  hsn_sac_code?: string;
+  tax_rate?: number;
+  income_account_id?: number;
+  expense_account_id?: number;
+  current_stock?: number;
+  min_stock_alert?: number;
+}
+
+export interface InvoiceLine {
+  id?: number;
+  product_id?: number;
+  description: string;
+  hsn_sac?: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  discount_pct: number;
+  taxable_amount: number;
+  tax_rate: number;
+  cgst_rate: number;
+  cgst_amount: number;
+  sgst_rate: number;
+  sgst_amount: number;
+  igst_rate: number;
+  igst_amount: number;
+  total_amount: number;
+}
+
+export interface Invoice {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  supply_state?: string;
+  status: 'DRAFT' | 'SENT' | 'POSTED' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+  subtotal: number;
+  discount_amount: number;
+  taxable_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_tax: number;
+  total_amount: number;
+  paid_amount: number;
+  balance_amount: number;
+  currency: string;
+  notes?: string;
+  terms?: string;
+  journal_entry_id?: number;
+  created_at: string;
+  lines?: InvoiceLine[];
+}
+
+export interface InvoiceCreateData {
+  entity_id: number;
+  customer_id: number;
+  invoice_number?: string;
+  invoice_date: string;
+  due_date: string;
+  supply_state?: string;
+  notes?: string;
+  terms?: string;
+  lines: {
+    product_id?: number;
+    description: string;
+    hsn_sac?: string;
+    quantity: number;
+    unit?: string;
+    unit_price: number;
+    discount_pct?: number;
+    tax_rate?: number;
+  }[];
+}
+
+export interface CustomerPayment {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  invoice_id?: number;
+  invoice_number?: string;
+  payment_number: string;
+  payment_date: string;
+  amount: number;
+  payment_mode: 'BANK_TRANSFER' | 'CHEQUE' | 'CASH' | 'CREDIT_CARD' | 'UPI' | 'OTHER';
+  deposit_account_id: number;
+  deposit_account_name?: string;
+  reference_number?: string;
+  notes?: string;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface CustomerPaymentCreateData {
+  entity_id: number;
+  customer_id: number;
+  invoice_id?: number;
+  payment_number?: string;
+  payment_date: string;
+  amount: number;
+  payment_mode?: string;
+  deposit_account_id?: number;
+  reference_number?: string;
+  notes?: string;
+}
+
+export interface Estimate {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  estimate_number: string;
+  estimate_date: string;
+  expiry_date: string;
+  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED';
+  subtotal: number;
+  discount_amount: number;
+  taxable_amount: number;
+  total_tax: number;
+  total_amount: number;
+  converted_invoice_id?: number;
+  notes?: string;
+  terms?: string;
+  created_at: string;
+}
+
+export interface EstimateCreateData {
+  entity_id: number;
+  customer_id: number;
+  estimate_number?: string;
+  estimate_date: string;
+  expiry_date?: string;
+  notes?: string;
+  terms?: string;
+  lines: {
+    product_id?: number;
+    description: string;
+    hsn_sac?: string;
+    quantity: number;
+    unit?: string;
+    unit_price: number;
+    discount_pct?: number;
+    tax_rate?: number;
+  }[];
+}
+
+// Customers API
+export const getCustomers = async (entityId?: number, search?: string): Promise<Customer[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<Customer[]>(`/customers${q}`);
+};
+
+export const createCustomer = async (data: CustomerCreateData): Promise<Customer> => {
+  return apiRequest<Customer>('/customers', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const updateCustomer = async (id: number, data: Partial<CustomerCreateData>): Promise<Customer> => {
+  return apiRequest<Customer>(`/customers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getCustomerStatement = async (customerId: number): Promise<CustomerStatement> => {
+  return apiRequest<CustomerStatement>(`/customers/${customerId}/statement`);
+};
+
+// Products API
+export const getProducts = async (entityId?: number, search?: string): Promise<Product[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<Product[]>(`/products${q}`);
+};
+
+export const createProduct = async (data: ProductCreateData): Promise<Product> => {
+  return apiRequest<Product>('/products', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+// Invoices API
+export const getInvoices = async (entityId?: number, customerId?: number, status?: string): Promise<Invoice[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (customerId) params.append('customer_id', customerId.toString());
+  if (status) params.append('status', status);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<Invoice[]>(`/invoices${q}`);
+};
+
+export const getInvoiceDetail = async (id: number): Promise<Invoice> => {
+  return apiRequest<Invoice>(`/invoices/${id}`);
+};
+
+export const createInvoice = async (data: InvoiceCreateData): Promise<Invoice> => {
+  return apiRequest<Invoice>('/invoices', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const postInvoiceToLedger = async (id: number): Promise<Invoice> => {
+  return apiRequest<Invoice>(`/invoices/${id}/post`, {
+    method: 'POST'
+  });
+};
+
+// Customer Payments API
+export const getCustomerPayments = async (entityId?: number, customerId?: number): Promise<CustomerPayment[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (customerId) params.append('customer_id', customerId.toString());
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<CustomerPayment[]>(`/payments${q}`);
+};
+
+export const recordCustomerPayment = async (data: CustomerPaymentCreateData): Promise<CustomerPayment> => {
+  return apiRequest<CustomerPayment>('/payments', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+// Estimates API
+export const getEstimates = async (entityId?: number): Promise<Estimate[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<Estimate[]>(`/estimates${q}`);
+};
+
+export const createEstimate = async (data: EstimateCreateData): Promise<Estimate> => {
+  return apiRequest<Estimate>('/estimates', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const convertEstimateToInvoice = async (estimateId: number): Promise<Invoice> => {
+  return apiRequest<Invoice>(`/estimates/${estimateId}/convert`, {
+    method: 'POST'
+  });
+};
+
+
 

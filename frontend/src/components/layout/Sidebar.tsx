@@ -13,7 +13,9 @@ import {
   Settings, 
   LogOut,
   ChevronDown,
-  X
+  X,
+  Receipt,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -26,14 +28,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const { user, activeEntity, entities, switchEntity, logout } = useAuth();
   const navigate = useNavigate();
 
-  const navItems = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  const salesItems = [
+    { to: '/invoices', label: 'Invoices', icon: Receipt },
+    { to: '/customers', label: 'Customers', icon: Users },
+  ];
+
+  const financeItems = [
     { to: '/ledger', label: 'General Ledger', icon: BookOpen },
     { to: '/chart-of-accounts', label: 'Chart of Accounts', icon: Layers },
     { to: '/journals', label: 'Journal Entries', icon: FileText },
     { to: '/approvals', label: 'Approvals', icon: CheckSquare, badge: '3' },
     { to: '/close-manager', label: 'Close Manager', icon: CalendarCheck, badge: 'Sep' },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
+  ];
+
+  const adminItems = [
     { to: '/entities', label: 'Entities', icon: Building2 },
     { to: '/audit-log', label: 'Audit Log', icon: ShieldCheck },
     { to: '/settings', label: 'Settings', icon: Settings },
@@ -121,11 +130,56 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
         {/* NAVIGATION LINKS */}
         <nav className="p-3 space-y-1 text-xs">
-          <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-            Finance & Accounting
-          </div>
+          {/* Dashboard */}
+          <NavLink
+            to="/dashboard"
+            onClick={() => onClose && onClose()}
+            className={({ isActive }) =>
+              `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                isActive
+                  ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+              }`
+            }
+          >
+            <div className="flex items-center space-x-2.5">
+              <LayoutDashboard className="w-4 h-4 text-slate-300" />
+              <span>Dashboard</span>
+            </div>
+          </NavLink>
 
-          {navItems.map((item) => {
+          {/* Sales & Receivables */}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-[#E6B676] uppercase">
+            Sales & Receivables
+          </div>
+          {salesItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => onClose && onClose()}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                    isActive
+                      ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+                  }`
+                }
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Icon className="w-4 h-4 text-slate-300" />
+                  <span>{item.label}</span>
+                </div>
+              </NavLink>
+            );
+          })}
+
+          {/* Finance & General Ledger */}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            Finance & Ledger
+          </div>
+          {financeItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -149,6 +203,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                     {item.badge}
                   </span>
                 )}
+              </NavLink>
+            );
+          })}
+
+          {/* Administration */}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            Administration
+          </div>
+          {adminItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => onClose && onClose()}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                    isActive
+                      ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+                  }`
+                }
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Icon className="w-4 h-4 text-slate-300" />
+                  <span>{item.label}</span>
+                </div>
               </NavLink>
             );
           })}

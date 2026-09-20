@@ -1,0 +1,293 @@
+from typing import List, Optional
+from datetime import date, datetime
+from decimal import Decimal
+from pydantic import BaseModel, Field
+
+# =========================================================================
+# 1. CUSTOMER SCHEMAS
+# =========================================================================
+class CustomerBase(BaseModel):
+    name: str = Field(..., min_length=2, max_length=150)
+    company_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    gstin: Optional[str] = None
+    pan: Optional[str] = None
+    billing_address: Optional[str] = None
+    shipping_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: str = "India"
+    payment_terms_days: int = 30
+    opening_balance: Decimal = Decimal("0.00")
+    currency: str = "INR"
+
+class CustomerCreate(CustomerBase):
+    entity_id: int
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    gstin: Optional[str] = None
+    pan: Optional[str] = None
+    billing_address: Optional[str] = None
+    shipping_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    payment_terms_days: Optional[int] = None
+    currency: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class CustomerResponse(CustomerBase):
+    id: int
+    entity_id: int
+    current_balance: Decimal
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CustomerLedgerEntry(BaseModel):
+    id: int
+    date: date
+    type: str  # "INVOICE", "PAYMENT", "OPENING_BALANCE", "CREDIT_NOTE"
+    reference: str
+    description: str
+    debit: Decimal   # Invoices increase receivable (Debit)
+    credit: Decimal  # Payments decrease receivable (Credit)
+    running_balance: Decimal
+
+class CustomerStatementResponse(BaseModel):
+    customer_id: int
+    customer_name: str
+    company_name: Optional[str]
+    gstin: Optional[str]
+    currency: str
+    opening_balance: Decimal
+    total_invoiced: Decimal
+    total_paid: Decimal
+    current_balance: Decimal
+    statement_period: str
+    entries: List[CustomerLedgerEntry]
+
+# =========================================================================
+# 2. PRODUCT / ITEM SCHEMAS
+# =========================================================================
+class ProductBase(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    sku: Optional[str] = None
+    product_type: str = "GOODS"
+    unit: str = "PCS"
+    selling_price: Decimal = Decimal("0.00")
+    purchase_price: Decimal = Decimal("0.00")
+    hsn_sac_code: Optional[str] = None
+    tax_rate: Decimal = Decimal("18.00")
+    income_account_id: Optional[int] = None
+    expense_account_id: Optional[int] = None
+    current_stock: Decimal = Decimal("0.00")
+    min_stock_alert: Decimal = Decimal("0.00")
+
+class ProductCreate(ProductBase):
+    entity_id: int
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    sku: Optional[str] = None
+    product_type: Optional[str] = None
+    unit: Optional[str] = None
+    selling_price: Optional[Decimal] = None
+    purchase_price: Optional[Decimal] = None
+    hsn_sac_code: Optional[str] = None
+    tax_rate: Optional[Decimal] = None
+    income_account_id: Optional[int] = None
+    expense_account_id: Optional[int] = None
+    current_stock: Optional[Decimal] = None
+    min_stock_alert: Optional[Decimal] = None
+    is_active: Optional[bool] = None
+
+class ProductResponse(ProductBase):
+    id: int
+    entity_id: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# =========================================================================
+# 3. INVOICE SCHEMAS
+# =========================================================================
+class InvoiceLineCreate(BaseModel):
+    product_id: Optional[int] = None
+    description: str
+    hsn_sac: Optional[str] = None
+    quantity: Decimal = Decimal("1.00")
+    unit_price: Decimal = Decimal("0.00")
+    discount_pct: Decimal = Decimal("0.00")
+    tax_rate: Decimal = Decimal("18.00")
+
+class InvoiceLineResponse(InvoiceLineCreate):
+    id: int
+    invoice_id: int
+    taxable_amount: Decimal
+    cgst_rate: Decimal
+    cgst_amount: Decimal
+    sgst_rate: Decimal
+    sgst_amount: Decimal
+    igst_rate: Decimal
+    igst_amount: Decimal
+    total_amount: Decimal
+
+    class Config:
+        from_attributes = True
+
+class InvoiceCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    invoice_number: Optional[str] = None  # Auto-generated if omitted
+    invoice_date: date
+    due_date: Optional[date] = None       # Calculated from terms if omitted
+    currency: Optional[str] = "INR"
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    lines: List[InvoiceLineCreate] = Field(..., min_length=1)
+
+class InvoiceUpdate(BaseModel):
+    customer_id: Optional[int] = None
+    invoice_date: Optional[date] = None
+    due_date: Optional[date] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    lines: Optional[List[InvoiceLineCreate]] = None
+
+class InvoiceResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    invoice_number: str
+    invoice_date: date
+    due_date: date
+    status: str
+    subtotal: Decimal
+    discount_amount: Decimal
+    taxable_amount: Decimal
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+    total_tax: Decimal
+    total_amount: Decimal
+    paid_amount: Decimal
+    balance_amount: Decimal
+    currency: str
+    journal_entry_id: Optional[int] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InvoiceDetailResponse(InvoiceResponse):
+    lines: List[InvoiceLineResponse] = []
+
+# =========================================================================
+# 4. CUSTOMER PAYMENT SCHEMAS
+# =========================================================================
+class CustomerPaymentCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    invoice_id: Optional[int] = None
+    payment_number: Optional[str] = None  # Auto-generated if omitted
+    payment_date: date
+    amount: Decimal = Field(..., gt=Decimal("0.00"))
+    payment_mode: str = "BANK_TRANSFER"
+    deposit_account_id: int  # Must be a Bank (1100) or Cash (1000) account
+    deposit_account_id: Optional[int] = None  # Defaults to Bank account (1100) if omitted
+    reference_number: Optional[str] = None
+    notes: Optional[str] = None
+
+class CustomerPaymentResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    invoice_id: Optional[int] = None
+    invoice_number: Optional[str] = None
+    payment_number: str
+    payment_date: date
+    amount: Decimal
+    payment_mode: str
+    deposit_account_id: int
+    deposit_account_name: Optional[str] = None
+    reference_number: Optional[str] = None
+    notes: Optional[str] = None
+    journal_entry_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# =========================================================================
+# 5. ESTIMATE / QUOTE SCHEMAS
+# =========================================================================
+class EstimateLineCreate(BaseModel):
+    product_id: Optional[int] = None
+    description: str
+    hsn_sac: Optional[str] = None
+    quantity: Decimal = Decimal("1.00")
+    unit_price: Decimal = Decimal("0.00")
+    discount_pct: Decimal = Decimal("0.00")
+    tax_rate: Decimal = Decimal("18.00")
+
+class EstimateLineResponse(EstimateLineCreate):
+    id: int
+    estimate_id: int
+    taxable_amount: Decimal
+    total_amount: Decimal
+
+    class Config:
+        from_attributes = True
+
+class EstimateCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    estimate_number: Optional[str] = None
+    estimate_date: date
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    lines: List[EstimateLineCreate] = Field(..., min_length=1)
+
+class EstimateResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    estimate_number: str
+    estimate_date: date
+    expiry_date: date
+    status: str
+    subtotal: Decimal
+    discount_amount: Decimal
+    taxable_amount: Decimal
+    total_tax: Decimal
+    total_amount: Decimal
+    converted_invoice_id: Optional[int] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    created_at: datetime
+    lines: List[EstimateLineResponse] = []
+
+    class Config:
+        from_attributes = True
+

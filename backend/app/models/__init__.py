@@ -4,6 +4,19 @@ from app.models.account import Account, AccountType, NormalBalance, AccountDimen
 from app.models.journal import JournalEntry, JournalEntryLine, Approval, JournalStatus
 from app.models.audit import AuditLog
 from app.models.close import ClosePeriod, CloseTask, CloseStatus
+from app.models.sales import (
+    Customer,
+    Product,
+    ProductType,
+    Invoice,
+    InvoiceLine,
+    InvoiceStatus,
+    CustomerPayment,
+    PaymentMode,
+    Estimate,
+    EstimateLine,
+    EstimateStatus
+)
 
 __all__ = [
     "User",
@@ -32,5 +45,17 @@ __all__ = [
     "ClosePeriod",
     "CloseTask",
     "CloseStatus"
+    "CloseStatus",
+    "Customer",
+    "Product",
+    "ProductType",
+    "Invoice",
+    "InvoiceLine",
+    "InvoiceStatus",
+    "CustomerPayment",
+    "PaymentMode",
+    "Estimate",
+    "EstimateLine",
+    "EstimateStatus"
 ]
 

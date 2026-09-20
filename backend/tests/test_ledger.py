@@ -45,6 +45,7 @@ def test_account_ledger_details_and_running_balance():
     cash_account = next(a for a in accounts if a["code"] == "1000")
     sales_account = next(a for a in accounts if a["code"] == "4000")
     entity_id = cash_account["entity_id"]
+    sales_account = next(a for a in accounts if a["code"] == "4000" and a["entity_id"] == entity_id)
 
     # Post a guaranteed journal entry so we can test running balance progression
     je_payload = {

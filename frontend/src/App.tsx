@@ -17,6 +17,8 @@ import { CloseManagerPage } from './pages/CloseManagerPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { CompanyRegistrationPage } from './pages/CompanyRegistrationPage';
 import { AcceptInvitationPage } from './pages/AcceptInvitationPage';
+import { InvoicesPage } from './pages/InvoicesPage';
+import { CustomersPage } from './pages/CustomersPage';
 
 export const App: React.FC = () => {
   return (
@@ -33,6 +35,8 @@ export const App: React.FC = () => {
           {/* Authenticated Application Workspace Routes (Protected by AppShell) */}
           <Route element={<AppShell />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
             <Route path="/entities" element={<EntitiesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
