@@ -927,4 +927,64 @@ export const acceptTenantInvitation = async (data: InvitationAcceptData): Promis
   });
 };
 
+export interface MonthlyTrajectoryItem {
+  month: string;
+  month_num: number;
+  year: number;
+  revenue: number;
+  expense: number;
+}
+
+export interface CloseStatusSummary {
+  has_period: boolean;
+  period_id?: number;
+  period_name: string;
+  completion_percentage: number;
+  completed_tasks: number;
+  pending_tasks: number;
+  blocked_tasks: number;
+  status: string;
+}
+
+export interface JournalStatusCounts {
+  total: number;
+  draft: number;
+  pending: number;
+  approved: number;
+  posted: number;
+  rejected: number;
+}
+
+export interface RecentJournalItem {
+  id: number;
+  entry_number: string;
+  entry_date: string;
+  description: string;
+  entity_name: string;
+  amount: number;
+  status: string;
+}
+
+export interface DashboardMetricsResponse {
+  entity_id: number;
+  entity_name: string;
+  currency: string;
+  currency_symbol: string;
+  total_revenue: number;
+  total_expense: number;
+  net_profit: number;
+  net_margin_pct: number;
+  total_assets: number;
+  is_balanced: boolean;
+  monthly_trajectory: MonthlyTrajectoryItem[];
+  close_status: CloseStatusSummary;
+  journal_counts: JournalStatusCounts;
+  recent_journals: RecentJournalItem[];
+}
+
+export const getDashboardMetrics = async (entity_id?: number): Promise<DashboardMetricsResponse> => {
+  const query = entity_id ? `?entity_id=${entity_id}` : '';
+  return apiRequest<DashboardMetricsResponse>(`/dashboard/metrics${query}`);
+};
+
 

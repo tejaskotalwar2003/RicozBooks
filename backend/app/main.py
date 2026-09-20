@@ -17,7 +17,8 @@ from app.api.v1 import (
     reports, 
     close, 
     settings as settings_api,
-    tenants
+    tenants,
+    dashboard
 )
 
 # Create tables if not present
@@ -55,6 +56,7 @@ app.include_router(reports.router, prefix=settings.API_V1_STR, tags=["Financial 
 app.include_router(close.router, prefix=f"{settings.API_V1_STR}/close", tags=["Period-End Close Manager"])
 app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["Accounting Settings"])
 app.include_router(tenants.router, prefix=f"{settings.API_V1_STR}/tenants", tags=["B2B Multi-Tenant Management"])
+app.include_router(dashboard.router, prefix=settings.API_V1_STR, tags=["Executive Dashboard"])
 
 @app.get("/")
 def root():

@@ -368,3 +368,4 @@ export const AcceptInvitationPage: React.FC = () => {
     </div>
   );
 };
+

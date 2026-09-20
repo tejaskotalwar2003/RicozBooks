@@ -645,3 +645,4 @@ export const CompanyRegistrationPage: React.FC = () => {
     </div>
   );
 };
+
