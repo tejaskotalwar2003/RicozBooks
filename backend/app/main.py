@@ -21,22 +21,30 @@ from app.api.v1 import (
     dashboard
 )
 
-# Create tables if not present
-Base.metadata.create_all(bind=engine)
-from app.migrate_entities import migrate_entities
-migrate_entities()
-try:
-    from app.seed import seed
-    seed()
-except Exception as e:
-    print(f"Startup database seed status: {e}")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        Base.metadata.create_all(bind=engine)
+        from app.migrate_entities import migrate_entities
+        migrate_entities()
+    except Exception as e:
+        print(f"Startup database migration status: {e}")
+    try:
+        from app.seed import seed
+        seed()
+    except Exception as e:
+        print(f"Startup database seed status: {e}")
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Set up CORS

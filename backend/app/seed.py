@@ -11,6 +11,8 @@ from app.models.audit import AuditLog
 def seed():
     print("Creating all database tables...")
     Base.metadata.create_all(bind=engine)
+    from app.migrate_entities import migrate_entities
+    migrate_entities()
     db = SessionLocal()
     
     try:
