@@ -52,3 +52,4 @@ class DashboardMetricsResponse(BaseModel):
     close_status: CloseStatusSummary
     journal_counts: JournalStatusCounts
     recent_journals: List[RecentJournalItem]
+

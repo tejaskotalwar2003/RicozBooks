@@ -45,3 +45,4 @@ def test_dashboard_metrics_endpoint():
     assert "approved" in counts
     assert "posted" in counts
     assert "rejected" in counts
+
