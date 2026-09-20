@@ -8,6 +8,7 @@ interface AuthContextType {
   companies: Company[];
   isLoading: boolean;
   login: (email: string, password: string, entityId?: number) => Promise<void>;
+  setSession: (token: string, user: UserAuthSummary) => Promise<void>;
   logout: () => void;
   switchEntity: (entityId: number) => void;
 }
@@ -84,6 +85,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setSession = async (token: string, userSummary: UserAuthSummary) => {
+    setIsLoading(true);
+    try {
+      localStorage.setItem('ricozbooks_token', token);
+      setUser(userSummary);
+
+      const [userEntities, compList] = await Promise.all([
+        api.getEntities(),
+        api.getCompanies(),
+      ]);
+      setEntities(userEntities);
+      setCompanies(compList);
+
+      const targetId = userSummary.active_entity_id || userSummary.default_entity_id;
+      const match = userEntities.find(e => e.id === targetId) || userEntities[0] || null;
+      setActiveEntity(match);
+      if (match) {
+        localStorage.setItem('ricozbooks_active_entity_id', match.id.toString());
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('ricozbooks_token');
     localStorage.removeItem('ricozbooks_active_entity_id');
@@ -109,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         companies,
         isLoading,
         login,
+        setSession,
         logout,
         switchEntity,
       }}

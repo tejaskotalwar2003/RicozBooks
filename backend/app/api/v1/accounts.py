@@ -7,7 +7,7 @@ from app.database.session import get_db
 from app.models.user import User
 from app.models.account import Account, AccountType, NormalBalance
 from app.schemas.account import AccountResponse, AccountCreate, AccountUpdate
-from app.api.deps import get_current_user, require_roles, log_audit
+from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access, get_tenant_entity_ids
 
 router = APIRouter()
 
@@ -22,8 +22,12 @@ def get_accounts(
 ):
     query = db.query(Account)
     
+    tenant_entity_ids = get_tenant_entity_ids(current_user, db)
     if entity_id:
+        verify_entity_access(entity_id, current_user, db)
         query = query.filter(Account.entity_id == entity_id)
+    elif tenant_entity_ids:
+        query = query.filter(Account.entity_id.in_(tenant_entity_ids))
     elif current_user.default_entity_id:
         query = query.filter(Account.entity_id == current_user.default_entity_id)
 
@@ -48,14 +52,16 @@ def get_account_by_id(
     account = db.query(Account).filter(Account.id == id).first()
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    verify_entity_access(account.entity_id, current_user, db)
     return account
 
 @router.post("/accounts", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
 def create_account(
     account_in: AccountCreate,
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(account_in.entity_id, current_user, db)
     # Check if code already exists in this entity
     existing = db.query(Account).filter(
         Account.entity_id == account_in.entity_id,
@@ -99,12 +105,13 @@ def create_account(
 def update_account(
     id: int,
     account_in: AccountUpdate,
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
     account = db.query(Account).filter(Account.id == id).first()
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    verify_entity_access(account.entity_id, current_user, db)
 
     if account_in.name is not None:
         account.name = account_in.name.strip()

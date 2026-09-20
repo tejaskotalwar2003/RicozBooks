@@ -28,7 +28,7 @@ from app.services.accounting_engine import (
     post_journal_to_ledger,
     reverse_posted_journal
 )
-from app.api.deps import get_current_user, require_roles, log_audit
+from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access, get_tenant_entity_ids
 
 router = APIRouter()
 
@@ -84,8 +84,12 @@ def get_journal_entries(
         joinedload(JournalEntry.entity)
     )
 
+    tenant_entity_ids = get_tenant_entity_ids(current_user, db)
     if entity_id:
+        verify_entity_access(entity_id, current_user, db)
         query = query.filter(JournalEntry.entity_id == entity_id)
+    elif tenant_entity_ids:
+        query = query.filter(JournalEntry.entity_id.in_(tenant_entity_ids))
     elif current_user.default_entity_id:
         query = query.filter(JournalEntry.entity_id == current_user.default_entity_id)
 
@@ -127,14 +131,17 @@ def get_journal_entry_detail(
     if not journal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
 
+    verify_entity_access(journal.entity_id, current_user, db)
+
     return _enrich_journal_detail(journal)
 
 @router.post("/journal-entries", response_model=JournalEntryDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_journal_entry(
     entry_in: JournalEntryCreate,
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entry_in.entity_id, current_user, db)
     # Strict validation of double-entry rules
     total_dr, total_cr = validate_journal_balance(entry_in.lines)
     validate_period_open(db, entry_in.entity_id, entry_in.entry_date)
@@ -220,12 +227,13 @@ def create_journal_entry(
 def update_draft_journal_entry(
     id: int,
     entry_in: JournalEntryUpdate,
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
     journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
     if not journal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
 
     if journal.status not in [JournalStatus.DRAFT, JournalStatus.REJECTED]:
         raise HTTPException(
@@ -294,9 +302,14 @@ def update_draft_journal_entry(
 @router.post("/journal-entries/{id}/submit", response_model=JournalEntryDetailResponse)
 def submit_journal(
     id: int,
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
     journal = submit_journal_for_review(db, id, current_user)
     return get_journal_entry_detail(journal.id, current_user, db)
 
@@ -304,9 +317,14 @@ def submit_journal(
 def approve_journal(
     id: int,
     action_in: Optional[JournalActionRequest] = None,
-    current_user: User = Depends(require_roles(["ADMIN", "REVIEWER"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"])),
     db: Session = Depends(get_db)
 ):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
     comments = action_in.comments if action_in else None
     journal = approve_journal_entry(db, id, current_user, comments)
     return get_journal_entry_detail(journal.id, current_user, db)
@@ -315,9 +333,14 @@ def approve_journal(
 def reject_journal(
     id: int,
     action_in: JournalActionRequest,
-    current_user: User = Depends(require_roles(["ADMIN", "REVIEWER"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"])),
     db: Session = Depends(get_db)
 ):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
     reason = action_in.reason or action_in.comments
     if not reason:
         raise HTTPException(
@@ -330,9 +353,14 @@ def reject_journal(
 @router.post("/journal-entries/{id}/post", response_model=JournalEntryDetailResponse)
 def post_journal(
     id: int,
-    current_user: User = Depends(require_roles(["ADMIN", "REVIEWER"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"])),
     db: Session = Depends(get_db)
 ):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
     journal = post_journal_to_ledger(db, id, current_user)
     return get_journal_entry_detail(journal.id, current_user, db)
 
@@ -340,9 +368,14 @@ def post_journal(
 def reverse_journal(
     id: int,
     action_in: Optional[JournalActionRequest] = None,
-    current_user: User = Depends(require_roles(["ADMIN"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"])),
     db: Session = Depends(get_db)
 ):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
     reason = action_in.reason or (action_in.comments if action_in else None)
     reversal_entry = reverse_posted_journal(db, id, current_user, reason)
     return get_journal_entry_detail(reversal_entry.id, current_user, db)

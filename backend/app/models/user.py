@@ -24,6 +24,13 @@ user_entities = Table(
     Column("entity_id", Integer, ForeignKey("entities.id", ondelete="CASCADE"), primary_key=True)
 )
 
+user_companies = Table(
+    "user_companies",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("company_id", Integer, ForeignKey("companies.id", ondelete="CASCADE"), primary_key=True)
+)
+
 class Permission(Base):
     __tablename__ = "permissions"
     
@@ -64,6 +71,7 @@ class User(Base):
     
     roles = relationship("Role", secondary=user_roles, backref="users", lazy="joined")
     entities = relationship("Entity", secondary=user_entities, backref="authorized_users")
+    companies = relationship("Company", secondary=user_companies, backref="members")
 
     @property
     def full_name(self) -> str:

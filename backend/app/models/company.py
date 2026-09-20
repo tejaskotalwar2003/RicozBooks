@@ -1,5 +1,6 @@
+import enum
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Numeric, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Numeric, ForeignKey, Text, Enum
 from sqlalchemy.orm import relationship
 from app.database.session import Base
 
@@ -12,10 +13,19 @@ class Company(Base):
     legal_name = Column(String(255), nullable=True)
     tax_identifier = Column(String(100), nullable=True)  # PAN, EIN, etc.
     base_currency = Column(String(10), default="INR", nullable=False)
+    business_email = Column(String(255), nullable=True)
+    phone_number = Column(String(50), nullable=True)
+    country = Column(String(100), default="India", nullable=False)
+    address = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    timezone = Column(String(50), default="Asia/Kolkata", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     entities = relationship("Entity", back_populates="company", cascade="all, delete-orphan")
+    invitations = relationship("OrganizationInvitation", back_populates="company", cascade="all, delete-orphan")
 
 class Entity(Base):
     __tablename__ = "entities"
@@ -77,4 +87,27 @@ class FiscalPeriod(Base):
     is_closed = Column(Boolean, default=False, nullable=False)
     closed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class InvitationStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+
+class OrganizationInvitation(Base):
+    __tablename__ = "organization_invitations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    role = Column(String(50), nullable=False)  # ORG_ADMIN, MANAGER, ACCOUNTANT, REVIEWER
+    token = Column(String(128), unique=True, nullable=False, index=True)
+    invited_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    accepted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    company = relationship("Company", back_populates="invitations")
+    invited_by = relationship("User", foreign_keys=[invited_by_id])
 

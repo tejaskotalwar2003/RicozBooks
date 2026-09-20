@@ -120,3 +120,15 @@ def get_current_user_profile(
         active_entity_id=active_entity
     )
 
+from app.schemas.tenant import CompanyRegistrationRequest, CompanyRegistrationResponse
+from app.api.v1.tenants import register_company as handle_register_company
+
+@router.post("/register-company", response_model=CompanyRegistrationResponse, status_code=status.HTTP_201_CREATED)
+def auth_register_company(
+    reg_in: CompanyRegistrationRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    return handle_register_company(reg_in, request, db)
+
+

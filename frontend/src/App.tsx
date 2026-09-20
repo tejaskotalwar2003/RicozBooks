@@ -15,6 +15,8 @@ import { GeneralLedger } from './pages/GeneralLedger';
 import { ReportsPage } from './pages/ReportsPage';
 import { CloseManagerPage } from './pages/CloseManagerPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { CompanyRegistrationPage } from './pages/CompanyRegistrationPage';
+import { AcceptInvitationPage } from './pages/AcceptInvitationPage';
 
 export const App: React.FC = () => {
   return (
@@ -25,6 +27,8 @@ export const App: React.FC = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<CompanyRegistrationPage />} />
+          <Route path="/invite/:token" element={<AcceptInvitationPage />} />
 
           {/* Authenticated Application Workspace Routes (Protected by AppShell) */}
           <Route element={<AppShell />}>

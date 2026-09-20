@@ -108,7 +108,7 @@ def test_hard_period_lock_enforcement_and_emergency_reopen():
     assert locked_period["closed_at"] is not None
     
     # 4. HARD LOCK ENFORCEMENT: Attempting to create journal entry dated September 2026 is blocked
-    acc_res = client.get("/api/v1/accounts", headers=admin_headers)
+    acc_res = client.get(f"/api/v1/accounts?entity_id={entity_id}", headers=admin_headers)
     accounts = acc_res.json()
     cash_acc = next(a for a in accounts if a["code"] == "1000")
     sales_acc = next(a for a in accounts if a["code"] == "4000")

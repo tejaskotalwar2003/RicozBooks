@@ -57,8 +57,31 @@ export const GetStarted: React.FC = () => {
           </p>
         </div>
 
+        {/* Self-Serve Organization Registration Banner */}
+        <div className="bg-gradient-to-r from-[#260002] via-[#390003] to-[#781019] rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-[#C58B3E]/30">
+          <div className="space-y-2 text-center md:text-left">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#E6B676]/20 text-[#EEC68B] border border-[#E6B676]/30">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Self-Serve Business Onboarding</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white">
+              Starting Fresh? Register Your Business
+            </h2>
+            <p className="text-xs text-slate-300 max-w-xl">
+              Create an isolated organization tenant with automated Chart of Accounts, custom base currency, and full Organization Admin ownership in under a minute.
+            </p>
+          </div>
+          <Link
+            to="/register"
+            className="px-6 py-3 bg-[#E6B676] hover:bg-[#EEC68B] text-[#260002] font-black text-xs rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 shrink-0"
+          >
+            <span>Register Organization</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
         {/* 3 Interactive Persona Launch Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           
           {/* Card 1: Admin / CFO */}
           <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-[#781019] p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5">

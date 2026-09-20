@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.user import User
-from app.api.deps import get_current_user, require_roles, log_audit
+from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access
 from app.schemas.report import (
     TrialBalanceResponse,
     ProfitLossResponse,
@@ -48,6 +48,7 @@ def get_trial_balance_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     report = generate_trial_balance(
         db=db,
@@ -67,6 +68,7 @@ def export_trial_balance_csv_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     report = generate_trial_balance(
         db=db,
@@ -109,6 +111,7 @@ def get_profit_and_loss_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     report = generate_profit_and_loss(
         db=db,
@@ -128,6 +131,7 @@ def export_profit_loss_csv_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     report = generate_profit_and_loss(
         db=db,
@@ -169,6 +173,7 @@ def get_balance_sheet_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     target_date = as_of_date or date.today()
     report = generate_balance_sheet(
         db=db,
@@ -186,6 +191,7 @@ def export_balance_sheet_csv_report(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     target_date = as_of_date or date.today()
     report = generate_balance_sheet(
         db=db,

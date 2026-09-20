@@ -40,13 +40,11 @@ def test_account_ledger_details_and_running_balance():
     acct_headers = {"Authorization": f"Bearer {tokens['accountant']}"}
     admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
 
-    ent_res = client.get("/api/v1/entities", headers=admin_headers)
-    entity_id = ent_res.json()[0]["id"]
-
     acc_res = client.get("/api/v1/accounts", headers=acct_headers)
     accounts = acc_res.json()
     cash_account = next(a for a in accounts if a["code"] == "1000")
     sales_account = next(a for a in accounts if a["code"] == "4000")
+    entity_id = cash_account["entity_id"]
 
     # Post a guaranteed journal entry so we can test running balance progression
     je_payload = {

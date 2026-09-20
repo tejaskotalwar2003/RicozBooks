@@ -104,14 +104,18 @@ def validate_period_open(db: Session, entity_id: int, entry_date: date):
 
 def generate_entry_number(db: Session, entity_id: int, prefix: str = "JE") -> str:
     """
-    Generates sequential journal entry numbers (e.g. JE-2026-0001).
+    Generates non-colliding sequential journal entry numbers (e.g. JE-2026-0001).
     """
     year = date.today().year
-    count = db.query(JournalEntry).filter(
-        JournalEntry.entity_id == entity_id,
+    # Find the next sequence number that doesn't exist
+    seq = db.query(JournalEntry).filter(
         JournalEntry.entry_number.like(f"{prefix}-{year}-%")
-    ).count()
-    return f"{prefix}-{year}-{(count + 1):04d}"
+    ).count() + 1
+    while True:
+        candidate = f"{prefix}-{year}-{seq:04d}"
+        if not db.query(JournalEntry.id).filter(JournalEntry.entry_number == candidate).first():
+            return candidate
+        seq += 1
 
 def submit_journal_for_review(db: Session, journal_id: int, user: User) -> JournalEntry:
     journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).first()

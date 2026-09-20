@@ -102,8 +102,11 @@ export async function apiRequest<T>(
   if (response.status === 401) {
     // Session expired or invalid
     localStorage.removeItem('ricozbooks_token');
-    localStorage.removeItem('ricozbooks_user');
-    if (!window.location.pathname.includes('/login')) {
+    if (
+      !window.location.pathname.includes('/login') &&
+      !window.location.pathname.includes('/invite') &&
+      !window.location.pathname.includes('/register')
+    ) {
       window.location.href = '/login';
     }
     throw new Error('Unauthorized');

@@ -14,7 +14,7 @@ from app.schemas.entity import (
     CompanyResponse, 
     CurrencyResponse
 )
-from app.api.deps import get_current_user, require_roles, log_audit
+from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access, get_tenant_entity_ids
 
 router = APIRouter()
 
@@ -23,14 +23,24 @@ def get_user_entities(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Admin / Superuser has access to all entities
     user_roles = [r.name for r in current_user.roles]
-    if current_user.is_superuser or "ADMIN" in user_roles:
-        entities = db.query(Entity).filter(Entity.is_active == True).order_by(Entity.id.asc()).all()
-        return entities
+    tenant_id = current_user.default_company_id or (current_user.companies[0].id if current_user.companies else None)
+    
+    # Superuser with no specific tenant sees all
+    if current_user.is_superuser and not tenant_id:
+        return db.query(Entity).filter(Entity.is_active == True).order_by(Entity.id.asc()).all()
+
+    # Admin / Org Admin sees all active entities belonging to their company tenant
+    if any(r in ["ADMIN", "ORG_ADMIN"] for r in user_roles):
+        if tenant_id:
+            return db.query(Entity).filter(Entity.company_id == tenant_id, Entity.is_active == True).order_by(Entity.id.asc()).all()
+        return db.query(Entity).filter(Entity.is_active == True).order_by(Entity.id.asc()).all()
         
-    # Return user-specific assigned entities
-    return sorted([e for e in current_user.entities if e.is_active], key=lambda x: x.id)
+    # Standard user sees assigned entities within tenant
+    return sorted([
+        e for e in current_user.entities 
+        if e.is_active and (not tenant_id or e.company_id == tenant_id)
+    ], key=lambda x: x.id)
 
 @router.get("/entities/{entity_id}", response_model=EntityResponse)
 def get_entity_detail(
@@ -38,22 +48,15 @@ def get_entity_detail(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
-
+    entity = verify_entity_access(entity_id, current_user, db)
     user_roles = [r.name for r in current_user.roles]
-    if not current_user.is_superuser and "ADMIN" not in user_roles:
+    if not current_user.is_superuser and not any(r in ["ADMIN", "ORG_ADMIN"] for r in user_roles):
         assigned_ids = [e.id for e in current_user.entities]
         if entity.id not in assigned_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to view this entity."
             )
-
     return entity
 
 @router.post("/entities", response_model=EntityResponse, status_code=status.HTTP_201_CREATED)
@@ -108,15 +111,10 @@ def create_entity(
 def update_entity(
     entity_id: int,
     entity_update: EntityUpdate,
-    current_user: User = Depends(require_roles(["ADMIN"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
+    entity = verify_entity_access(entity_id, current_user, db)
 
     update_data = entity_update.dict(exclude_unset=True)
     for field, value in update_data.items():
@@ -144,15 +142,10 @@ def update_entity(
 @router.delete("/entities/{entity_id}")
 def delete_entity(
     entity_id: int,
-    current_user: User = Depends(require_roles(["ADMIN"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
+    entity = verify_entity_access(entity_id, current_user, db)
 
     # Soft-delete to preserve immutable accounting history
     entity.is_active = False
@@ -178,15 +171,10 @@ def delete_entity(
 @router.get("/entities/{entity_id}/users", response_model=List[EntityUserResponse])
 def get_entity_users(
     entity_id: int,
-    current_user: User = Depends(require_roles(["ADMIN", "REVIEWER"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"])),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
+    entity = verify_entity_access(entity_id, current_user, db)
 
     return [
         EntityUserResponse(
@@ -203,15 +191,10 @@ def get_entity_users(
 def assign_user_to_entity(
     entity_id: int,
     assign_in: EntityUserAssignRequest,
-    current_user: User = Depends(require_roles(["ADMIN"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
+    entity = verify_entity_access(entity_id, current_user, db)
 
     user = db.query(User).filter(User.id == assign_in.user_id).first()
     if not user:
@@ -249,15 +232,10 @@ def assign_user_to_entity(
 def unassign_user_from_entity(
     entity_id: int,
     user_id: int,
-    current_user: User = Depends(require_roles(["ADMIN"])),
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    if not entity:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Entity with ID {entity_id} not found."
-        )
+    entity = verify_entity_access(entity_id, current_user, db)
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -291,8 +269,12 @@ def get_companies(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    companies = db.query(Company).all()
-    return companies
+    tenant_id = current_user.default_company_id or (current_user.companies[0].id if current_user.companies else None)
+    if current_user.is_superuser and not tenant_id:
+        return db.query(Company).all()
+    if tenant_id:
+        return db.query(Company).filter(Company.id == tenant_id).all()
+    return db.query(Company).all()
 
 @router.get("/currencies", response_model=List[CurrencyResponse])
 def get_currencies(

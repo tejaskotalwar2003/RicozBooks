@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 
 from app.database.session import get_db
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import get_current_user, require_roles, verify_entity_access, get_tenant_entity_ids
 from app.models.user import User
 from app.models.company import FiscalPeriod, Entity
 from app.models.close import ClosePeriod, CloseTask, CloseStatus
@@ -48,8 +48,14 @@ def get_close_periods(
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(ClosePeriod)
+    tenant_entity_ids = get_tenant_entity_ids(current_user, db)
     if entity_id:
+        verify_entity_access(entity_id, current_user, db)
         query = query.filter(ClosePeriod.entity_id == entity_id)
+    elif tenant_entity_ids:
+        query = query.filter(ClosePeriod.entity_id.in_(tenant_entity_ids))
+    elif current_user.default_entity_id:
+        query = query.filter(ClosePeriod.entity_id == current_user.default_entity_id)
     
     periods = query.order_by(desc(ClosePeriod.created_at)).all()
     
@@ -79,6 +85,7 @@ def get_close_period_detail(
     period = db.query(ClosePeriod).filter(ClosePeriod.id == period_id).first()
     if not period:
         raise HTTPException(status_code=404, detail="Close period not found")
+    verify_entity_access(period.entity_id, current_user, db)
         
     recalculate_period_progress(db, period)
     tasks = db.query(CloseTask).filter(CloseTask.close_period_id == period.id).order_by(CloseTask.id).all()
@@ -109,11 +116,9 @@ def get_close_period_detail(
 def create_close_period(
     payload: ClosePeriodCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["ADMIN", "ACCOUNTANT"]))
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "ACCOUNTANT"]))
 ):
-    entity = db.query(Entity).filter(Entity.id == payload.entity_id).first()
-    if not entity:
-        raise HTTPException(status_code=404, detail="Entity not found")
+    entity = verify_entity_access(payload.entity_id, current_user, db)
         
     existing = db.query(ClosePeriod).filter(
         ClosePeriod.entity_id == payload.entity_id,
@@ -239,11 +244,12 @@ def lock_close_period(
     period_id: int,
     payload: PeriodLockRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["ADMIN"]))
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"]))
 ):
     period = db.query(ClosePeriod).filter(ClosePeriod.id == period_id).first()
     if not period:
         raise HTTPException(status_code=404, detail="Close period not found")
+    verify_entity_access(period.entity_id, current_user, db)
         
     if period.status == "CLOSED":
         raise HTTPException(status_code=400, detail="Period is already locked and closed.")
@@ -255,13 +261,12 @@ def lock_close_period(
     period.completion_percentage = 100
     
     # Mark corresponding FiscalPeriod as permanently closed
-    fiscal_period = db.query(FiscalPeriod).filter(
-        FiscalPeriod.entity_id == period.entity_id,
-        FiscalPeriod.fiscal_year == period.fiscal_year,
-        FiscalPeriod.period_number == period.month
-    ).first()
-    if fiscal_period:
-        fiscal_period.is_closed = True
+    fps = db.query(FiscalPeriod).filter(
+        FiscalPeriod.entity_id == period.entity_id
+    ).all()
+    for fp in fps:
+        if fp.start_date.month == period.month or fp.period_number == period.month:
+            fp.is_closed = True
         
     db.commit()
     db.refresh(period)
@@ -295,11 +300,12 @@ def reopen_close_period(
     period_id: int,
     payload: PeriodReopenRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["ADMIN"]))
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN"]))
 ):
     period = db.query(ClosePeriod).filter(ClosePeriod.id == period_id).first()
     if not period:
         raise HTTPException(status_code=404, detail="Close period not found")
+    verify_entity_access(period.entity_id, current_user, db)
         
     if period.status != "CLOSED":
         raise HTTPException(status_code=400, detail="Period is not currently closed.")
@@ -310,13 +316,13 @@ def reopen_close_period(
     period.closed_by_id = None
     
     # Unlock FiscalPeriod
-    fiscal_period = db.query(FiscalPeriod).filter(
+    fps = db.query(FiscalPeriod).filter(
         FiscalPeriod.entity_id == period.entity_id,
-        FiscalPeriod.fiscal_year == period.fiscal_year,
-        FiscalPeriod.period_number == period.month
-    ).first()
-    if fiscal_period:
-        fiscal_period.is_closed = False
+        FiscalPeriod.is_closed == True
+    ).all()
+    for fp in fps:
+        if fp.start_date.month == period.month or fp.period_number == period.month:
+            fp.is_closed = False
         
     recalculate_period_progress(db, period)
     db.commit()

@@ -47,6 +47,8 @@ def seed():
         # 3. Seed Roles & Permissions
         roles_data = {
             "ADMIN": "Full system administrator access across all entities and modules",
+            "ORG_ADMIN": "Organization Admin / Owner: full control over company workspace, team, settings, and financial operations",
+            "MANAGER": "Finance Manager: approvals, period close, account governance, and reports",
             "ACCOUNTANT": "Operational accounting access: create & submit journals, view ledgers & reports",
             "REVIEWER": "Supervisory review access: review, approve, reject journals and close tasks"
         }
@@ -77,6 +79,7 @@ def seed():
             ("entities:manage", "Manage Legal Entities", "entities"),
             ("users:manage", "Manage Users & Roles", "users"),
             ("audit:view", "View Audit Logs", "audit"),
+            ("tenants:manage", "Manage Organization, Members & Invitations", "tenants"),
         ]
         for code, name, module in perms_data:
             p = db.query(Permission).filter(Permission.code == code).first()
@@ -85,14 +88,20 @@ def seed():
                 db.add(p)
                 db.commit()
                 db.refresh(p)
-            # Assign to admin
+            # Assign to ADMIN & ORG_ADMIN (all permissions)
             if p not in roles_dict["ADMIN"].permissions:
                 roles_dict["ADMIN"].permissions.append(p)
-            # Assign to accountant
+            if p not in roles_dict["ORG_ADMIN"].permissions:
+                roles_dict["ORG_ADMIN"].permissions.append(p)
+            # Assign to MANAGER
+            if module in ["journals", "ledger", "reports", "close", "audit", "entities"]:
+                if p not in roles_dict["MANAGER"].permissions:
+                    roles_dict["MANAGER"].permissions.append(p)
+            # Assign to ACCOUNTANT
             if module in ["journals", "ledger", "reports", "close"] and "approve" not in code and "reject" not in code and "post" not in code:
                 if p not in roles_dict["ACCOUNTANT"].permissions:
                     roles_dict["ACCOUNTANT"].permissions.append(p)
-            # Assign to reviewer
+            # Assign to REVIEWER
             if "review" in code or "approve" in code or "reject" in code or "post" in code or code in ["ledger:view", "reports:view", "audit:view"]:
                 if p not in roles_dict["REVIEWER"].permissions:
                     roles_dict["REVIEWER"].permissions.append(p)

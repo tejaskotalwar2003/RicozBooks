@@ -30,10 +30,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="md:hidden p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors focus:outline-none"
+            className="md:hidden p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-[#390003] transition-colors focus:outline-none"
             aria-label="Toggle navigation menu"
           >
-            <Menu className="w-5 h-5 text-slate-700" />
+            <Menu className="w-5 h-5 text-[#390003]" />
           </button>
         )}
 
@@ -44,13 +44,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* Entity Selector */}
-        <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-md px-2 sm:px-2.5 py-1 text-slate-800 transition-colors">
+        <div className="flex items-center space-x-1.5 bg-[#FAF5EE] border border-[#E6B676]/60 rounded-md px-2 sm:px-2.5 py-1 text-slate-800">
           <Globe className="w-3.5 h-3.5 text-[#C58B3E] shrink-0" />
           <select
             aria-label="Select Entity"
             value={activeEntity?.id || ''}
             onChange={(e) => switchEntity(Number(e.target.value))}
-            className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer pr-1 max-w-[130px] sm:max-w-none truncate"
+            className="bg-transparent text-xs font-bold text-[#390003] focus:outline-none cursor-pointer pr-1 max-w-[130px] sm:max-w-none truncate"
           >
             {entities.map((ent) => (
               <option key={ent.id} value={ent.id}>
@@ -83,9 +83,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         {/* Quick Action Button */}
         <button 
           onClick={() => navigate('/journals')}
-          className="px-2.5 sm:px-3 py-1.5 bg-[#781019] hover:bg-[#600C13] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all cursor-pointer shrink-0"
+          className="px-2.5 sm:px-3 py-1.5 bg-[#390003] hover:bg-[#55080E] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1 transition-all cursor-pointer shrink-0"
         >
-          <Plus className="w-3.5 h-3.5 text-white" />
+          <Plus className="w-3.5 h-3.5 text-[#E6B676]" />
           <span className="hidden sm:inline">+ New Transaction</span>
           <span className="sm:hidden">New</span>
         </button>
@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               {user?.roles[0] || 'User'}
             </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#0B0F17] text-[#EEC68B] font-bold text-xs flex items-center justify-center border border-slate-200 shadow-xs shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs shrink-0">
             {user?.first_name ? user.first_name[0] : 'U'}
           </div>
         </div>

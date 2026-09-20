@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.user import User
-from app.api.deps import get_current_user, require_roles, log_audit
+from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access
 from app.schemas.ledger import AccountLedgerResponse, LedgerSummaryResponse
 from app.services.ledger_engine import (
     get_account_ledger,
@@ -38,6 +38,7 @@ def get_ledger_summary(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     return get_entity_ledger_summary(
         db=db,
@@ -57,6 +58,7 @@ def get_account_ledger_details(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     return get_account_ledger(
         db=db,
@@ -77,6 +79,7 @@ def export_account_ledger_csv(
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
+    verify_entity_access(entity_id, current_user, db)
     s_date, e_date = get_default_dates(start_date, end_date)
     ledger = get_account_ledger(
         db=db,

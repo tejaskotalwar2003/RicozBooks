@@ -813,3 +813,118 @@ export interface EntityTaxProfile {
   is_active: boolean;
 }
 
+export interface CompanyRegistrationData {
+  company_name: string;
+  legal_name?: string;
+  business_email: string;
+  phone_number?: string;
+  country?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  base_currency: string;
+  timezone: string;
+  tax_identifier?: string;
+  admin_name: string;
+  admin_email: string;
+  password: string;
+}
+
+export interface CompanyRegistrationResponse {
+  access_token: string;
+  token_type: string;
+  user: any;
+  company_id: number;
+  company_name: string;
+  company_code: string;
+  entity_id: number;
+  entity_name: string;
+}
+
+export interface TenantInvitation {
+  id: number;
+  email: string;
+  role: string;
+  status: string;
+  token: string;
+  invite_url: string;
+  expires_at: string;
+  created_at: string;
+  invited_by_name?: string;
+}
+
+export interface TenantMember {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  job_title?: string;
+  roles: string[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface InvitationPublicInfo {
+  token: string;
+  email: string;
+  role: string;
+  company_name: string;
+  company_currency: string;
+  inviter_name?: string;
+  is_valid: boolean;
+  message?: string;
+}
+
+export interface InvitationAcceptData {
+  token: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+}
+
+export const registerCompany = async (data: CompanyRegistrationData): Promise<CompanyRegistrationResponse> => {
+  return apiRequest<CompanyRegistrationResponse>('/auth/register-company', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const getTenantCompany = async (): Promise<any> => {
+  return apiRequest<any>('/tenants/company');
+};
+
+export const getTenantMembers = async (): Promise<TenantMember[]> => {
+  return apiRequest<TenantMember[]>('/tenants/members');
+};
+
+export const getTenantInvitations = async (): Promise<TenantInvitation[]> => {
+  return apiRequest<TenantInvitation[]>('/tenants/invitations');
+};
+
+export const createTenantInvitation = async (email: string, role: string): Promise<TenantInvitation> => {
+  return apiRequest<TenantInvitation>('/tenants/invitations', {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  });
+};
+
+export const revokeTenantInvitation = async (invitationId: number): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>(`/tenants/invitations/${invitationId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const validateInvitationToken = async (token: string): Promise<InvitationPublicInfo> => {
+  return apiRequest<InvitationPublicInfo>(`/tenants/invitations/validate/${encodeURIComponent(token)}`);
+};
+
+export const acceptTenantInvitation = async (data: InvitationAcceptData): Promise<any> => {
+  return apiRequest<any>('/tenants/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+
