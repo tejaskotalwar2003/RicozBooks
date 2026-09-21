@@ -2158,6 +2158,244 @@ export const settleGstReturn = async (data: { entity_id: number; return_period: 
   });
 };
 
+// ==========================================
+// PROJECTS & PROFITABILITY (PHASE 5)
+// ==========================================
+export interface ProjectProfitability {
+  project_id: number;
+  project_name: string;
+  project_code: string;
+  billing_type: string;
+  status: string;
+  budget_amount: number | string;
+  total_billable_hours: number | string;
+  total_non_billable_hours: number | string;
+  total_hours_logged: number | string;
+  total_invoiced_revenue: number | string;
+  unbilled_revenue: number | string;
+  total_recognized_revenue: number | string;
+  total_labor_cost: number | string;
+  total_direct_expenses: number | string;
+  total_project_cost: number | string;
+  gross_profit: number | string;
+  gross_margin_pct: number | string;
+  budget_consumed_pct: number | string;
+}
+
+export interface ProjectTask {
+  id: number;
+  project_id: number;
+  name: string;
+  description?: string;
+  estimated_hours: number | string;
+  status: string;
+  created_at: string;
+}
+
+export interface TimesheetEntry {
+  id: number;
+  entity_id: number;
+  project_id: number;
+  task_id?: number;
+  user_id?: number;
+  user_name?: string;
+  entry_date: string;
+  hours: number | string;
+  hourly_billable_rate: number | string;
+  hourly_cost_rate: number | string;
+  total_billable_amount: number | string;
+  total_cost_amount: number | string;
+  is_billable: boolean;
+  is_invoiced: boolean;
+  notes?: string;
+  created_at: string;
+}
+
+export interface ProjectDetail {
+  id: number;
+  entity_id: number;
+  customer_id?: number;
+  customer_name?: string;
+  name: string;
+  code: string;
+  description?: string;
+  billing_type: 'FIXED_COST' | 'TIME_AND_MATERIALS' | 'NON_BILLABLE';
+  status: 'PLANNING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
+  budget_amount: number | string;
+  default_hourly_rate: number | string;
+  start_date: string;
+  end_date?: string;
+  created_at: string;
+  tasks_count: number;
+  total_hours_logged: number | string;
+  profitability?: ProjectProfitability;
+}
+
+export const getProjects = async (entityId: number, statusFilter?: string): Promise<ProjectDetail[]> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (statusFilter && statusFilter !== 'ALL') params.append('status_filter', statusFilter);
+  return apiRequest<ProjectDetail[]>(`/projects?${params.toString()}`);
+};
+
+export const createProject = async (data: {
+  entity_id: number;
+  customer_id?: number;
+  name: string;
+  code: string;
+  description?: string;
+  billing_type?: string;
+  status?: string;
+  budget_amount?: number;
+  default_hourly_rate?: number;
+  start_date: string;
+  end_date?: string;
+}): Promise<ProjectDetail> => {
+  return apiRequest<ProjectDetail>('/projects', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getProjectProfitability = async (projectId: number): Promise<ProjectProfitability> => {
+  return apiRequest<ProjectProfitability>(`/projects/${projectId}/profitability`);
+};
+
+export const createProjectTask = async (projectId: number, data: {
+  name: string;
+  description?: string;
+  estimated_hours?: number;
+  status?: string;
+}): Promise<ProjectTask> => {
+  return apiRequest<ProjectTask>(`/projects/${projectId}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getProjectTimesheets = async (projectId: number): Promise<TimesheetEntry[]> => {
+  return apiRequest<TimesheetEntry[]>(`/projects/${projectId}/timesheets`);
+};
+
+export const logTimesheet = async (data: {
+  entity_id: number;
+  project_id: number;
+  task_id?: number;
+  entry_date: string;
+  hours: number;
+  hourly_billable_rate?: number;
+  hourly_cost_rate?: number;
+  is_billable?: boolean;
+  notes?: string;
+}): Promise<TimesheetEntry> => {
+  return apiRequest<TimesheetEntry>('/projects/timesheets', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+// ==========================================
+// NOTIFICATIONS & AUTOMATION ALERTS (PHASE 5)
+// ==========================================
+export interface AppNotification {
+  id: number;
+  entity_id: number;
+  user_id?: number;
+  notification_type: string;
+  title: string;
+  message: string;
+  link_url?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationSummary {
+  unread_count: number;
+  total_count: number;
+  notifications: AppNotification[];
+}
+
+export const getNotifications = async (entityId: number, limit = 20): Promise<NotificationSummary> => {
+  return apiRequest<NotificationSummary>(`/notifications?entity_id=${entityId}&limit=${limit}`);
+};
+
+export const markNotificationRead = async (notificationId: number): Promise<AppNotification> => {
+  return apiRequest<AppNotification>(`/notifications/${notificationId}/read`, {
+    method: 'PUT'
+  });
+};
+
+export const markAllNotificationsRead = async (entityId: number): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>(`/notifications/mark-all-read?entity_id=${entityId}`, {
+    method: 'PUT'
+  });
+};
+
+export const triggerAutomationChecks = async (entityId: number): Promise<{
+  message: string;
+  new_alerts_count: number;
+  recurring_invoices_generated: number;
+}> => {
+  return apiRequest(`/notifications/trigger-checks?entity_id=${entityId}`, {
+    method: 'POST'
+  });
+};
+
+// ==========================================
+// SAAS SUBSCRIPTIONS & QUOTAS (PHASE 5)
+// ==========================================
+export interface SubscriptionPlan {
+  id: number;
+  tier: string;
+  name: string;
+  description?: string;
+  monthly_price: number | string;
+  annual_price: number | string;
+  currency: string;
+  max_entities: number;
+  max_users: number;
+  max_invoices_per_month: number;
+  features: string[];
+  is_active: boolean;
+}
+
+export interface CompanySubscription {
+  id: number;
+  company_id: number;
+  company_name: string;
+  plan: SubscriptionPlan;
+  status: string;
+  billing_cycle: string;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  entities_used: number;
+  entities_limit: number;
+  users_used: number;
+  users_limit: number;
+}
+
+export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
+  return apiRequest<SubscriptionPlan[]>('/subscriptions/plans');
+};
+
+export const getCurrentSubscription = async (companyId?: number): Promise<CompanySubscription> => {
+  const url = companyId ? `/subscriptions/current?company_id=${companyId}` : '/subscriptions/current';
+  return apiRequest<CompanySubscription>(url);
+};
+
+export const upgradeSubscription = async (data: {
+  tier: string;
+  billing_cycle?: string;
+  company_id?: number;
+}): Promise<CompanySubscription> => {
+  return apiRequest<CompanySubscription>('/subscriptions/upgrade', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+
 
 
 

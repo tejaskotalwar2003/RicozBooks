@@ -15,7 +15,15 @@ from app.models.sales import (
     PaymentMode,
     Estimate,
     EstimateLine,
-    EstimateStatus
+    EstimateStatus,
+    SalesOrder,
+    SalesOrderLine,
+    SalesOrderStatus,
+    RecurringFrequency,
+    RecurringInvoice,
+    CreditNote,
+    CreditNoteLine,
+    CreditNoteStatus
 )
 from app.models.purchases import (
     Vendor,
@@ -27,7 +35,8 @@ from app.models.purchases import (
     BillStatus,
     VendorPayment,
     VendorPaymentMode,
-    DebitNote
+    DebitNote,
+    RecurringBill
 )
 from app.models.expenses import (
     ExpenseCategory,
@@ -56,6 +65,24 @@ from app.models.gst import (
     GSTReturnFiling,
     GSTReturnType,
     GSTReturnStatus
+)
+from app.models.projects import (
+    Project,
+    ProjectTask,
+    Timesheet,
+    ProjectBillingType,
+    ProjectStatus,
+    TaskStatus
+)
+from app.models.notifications import (
+    Notification,
+    NotificationType
+)
+from app.models.subscriptions import (
+    SubscriptionPlan,
+    CompanySubscription,
+    SubscriptionTier,
+    SubscriptionStatus
 )
 
 __all__ = [
@@ -96,6 +123,14 @@ __all__ = [
     "Estimate",
     "EstimateLine",
     "EstimateStatus",
+    "SalesOrder",
+    "SalesOrderLine",
+    "SalesOrderStatus",
+    "RecurringFrequency",
+    "RecurringInvoice",
+    "CreditNote",
+    "CreditNoteLine",
+    "CreditNoteStatus",
     "Vendor",
     "PurchaseOrder",
     "PurchaseOrderLine",
@@ -106,6 +141,7 @@ __all__ = [
     "VendorPayment",
     "VendorPaymentMode",
     "DebitNote",
+    "RecurringBill",
     "ExpenseCategory",
     "Expense",
     "ExpenseClaimStatus",
@@ -118,7 +154,6 @@ __all__ = [
     "BankTransfer",
     "BankReconciliation",
     "BankStatementLine",
-    "ReconciliationStatus"
     "ReconciliationStatus",
     "InventoryMovement",
     "InventoryMovementType",
@@ -126,5 +161,17 @@ __all__ = [
     "StockAdjustmentType",
     "GSTReturnFiling",
     "GSTReturnType",
-    "GSTReturnStatus"
+    "GSTReturnStatus",
+    "Project",
+    "ProjectTask",
+    "Timesheet",
+    "ProjectBillingType",
+    "ProjectStatus",
+    "TaskStatus",
+    "Notification",
+    "NotificationType",
+    "SubscriptionPlan",
+    "CompanySubscription",
+    "SubscriptionTier",
+    "SubscriptionStatus"
 ]

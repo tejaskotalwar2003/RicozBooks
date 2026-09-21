@@ -19,10 +19,11 @@ import {
   FileSpreadsheet,
   Building,
   CreditCard,
-  Landmark
   Landmark,
   Boxes,
-  FileCheck
+  FileCheck,
+  FolderKanban,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const taxInventoryItems = [
     { to: '/inventory', label: 'Inventory & Stock', icon: Boxes },
     { to: '/gst', label: 'GST & Tax Center', icon: FileCheck },
+    { to: '/projects', label: 'Projects & Billing', icon: FolderKanban },
   ];
 
   const financeItems = [
@@ -66,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
   const adminItems = [
     { to: '/entities', label: 'Entities', icon: Building2 },
+    { to: '/subscription', label: 'SaaS Billing & Plans', icon: Sparkles },
     { to: '/audit-log', label: 'Audit Log', icon: ShieldCheck },
     { to: '/settings', label: 'Settings', icon: Settings },
   ];

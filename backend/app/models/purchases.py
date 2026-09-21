@@ -236,3 +236,30 @@ class DebitNote(Base):
     bill = relationship("Bill")
     journal_entry = relationship("JournalEntry")
 
+class RecurringBill(Base):
+    __tablename__ = "recurring_bills"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entity_id = Column(Integer, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
+    profile_name = Column(String(100), nullable=False)
+    frequency = Column(String(30), default="MONTHLY", nullable=False)
+    
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)
+    next_run_date = Column(Date, nullable=False)
+    last_run_date = Column(Date, nullable=True)
+    
+    auto_post = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    total_amount = Column(Numeric(15, 2), default=Decimal("0.00"), nullable=False)
+    line_items_json = Column(Text, nullable=False)  # serialized bill items
+    notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    entity = relationship("Entity")
+    vendor = relationship("Vendor")
+
+

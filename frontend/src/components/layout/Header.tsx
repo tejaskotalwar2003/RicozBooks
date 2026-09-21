@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Bell, 
@@ -6,10 +6,23 @@ import {
   Building, 
   Calendar, 
   Globe,
-  Menu
+  Menu,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  X,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { 
+  getNotifications, 
+  markNotificationRead, 
+  markAllNotificationsRead, 
+  triggerAutomationChecks,
+  AppNotification 
+} from '../../services/accountingApi';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -19,6 +32,76 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { user, activeEntity, entities, companies, switchEntity } = useAuth();
   const navigate = useNavigate();
   const activeCompany = companies[0] || { name: 'Ricoz Technologies' };
+
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
+  const [isChecking, setIsChecking] = useState<boolean>(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeEntity?.id) {
+      loadNotifs();
+    }
+  }, [activeEntity?.id]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const loadNotifs = async () => {
+    if (!activeEntity?.id) return;
+    try {
+      const res = await getNotifications(activeEntity.id, 15);
+      setNotifications(res.notifications);
+      setUnreadCount(res.unread_count);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  };
+
+  const handleMarkAsRead = async (id: number, link?: string) => {
+    try {
+      await markNotificationRead(id);
+      await loadNotifs();
+      if (link) {
+        setIsNotifOpen(false);
+        navigate(link);
+      }
+    } catch (err) {
+      console.error('Failed to mark read:', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!activeEntity?.id) return;
+    try {
+      await markAllNotificationsRead(activeEntity.id);
+      await loadNotifs();
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
+  };
+
+  const handleTriggerChecks = async () => {
+    if (!activeEntity?.id) return;
+    setIsChecking(true);
+    try {
+      await triggerAutomationChecks(activeEntity.id);
+      await loadNotifs();
+    } catch (err) {
+      console.error('Failed to run checks:', err);
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-30">
@@ -90,14 +173,124 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <span className="sm:hidden">New</span>
         </button>
 
-        {/* Notification Icon */}
-        <button 
-          aria-label="Notifications"
-          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors relative"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="w-2 h-2 bg-[#E6B676] rounded-full absolute top-1 right-1 border-2 border-white"></span>
-        </button>
+        {/* NOTIFICATIONS DROPDOWN CONTAINER */}
+        <div className="relative" ref={notifRef}>
+          <button 
+            aria-label="Notifications"
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative cursor-pointer"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#C58B3E] text-[#260002] text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* NOTIFICATION POPOVER */}
+          {isNotifOpen && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#1E0002] border border-[#390003] rounded-2xl shadow-2xl z-50 overflow-hidden text-xs animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-3.5 border-b border-[#390003] bg-[#260002] flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-white">Notifications & Alerts</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#390003] text-[#EEC68B] border border-[#C58B3E]/30">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={handleTriggerChecks}
+                    disabled={isChecking}
+                    title="Run automation scan for overdue invoices & approvals"
+                    className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin text-[#E6B676]' : ''}`} />
+                  </button>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[10px] text-[#EEC68B] hover:underline px-1 py-0.5"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* LIST */}
+              <div className="max-h-80 overflow-y-auto divide-y divide-[#390003]/60">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">
+                    <CheckCircle2 className="w-7 h-7 mx-auto mb-2 text-slate-600" />
+                    <span>All clear! No pending notifications.</span>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleMarkAsRead(n.id, n.link_url)}
+                      className={`p-3 transition-colors cursor-pointer flex gap-2.5 items-start ${
+                        n.is_read 
+                          ? 'opacity-60 hover:opacity-100 hover:bg-[#260002]/40' 
+                          : 'bg-[#260002]/80 hover:bg-[#260002]'
+                      }`}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {n.notification_type === 'INVOICE_OVERDUE' && (
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                        )}
+                        {n.notification_type === 'APPROVAL_REQUIRED' && (
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        )}
+                        {n.notification_type === 'LOW_STOCK_ALERT' && (
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                        )}
+                        {n.notification_type === 'RECURRING_PROCESSED' && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        )}
+                        {n.notification_type === 'SYSTEM_ALERT' && (
+                          <Bell className="w-3.5 h-3.5 text-[#E6B676]" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <span className={`font-semibold truncate ${n.is_read ? 'text-slate-300' : 'text-white'}`}>
+                            {n.title}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono ml-2 shrink-0">
+                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                          {n.message}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* FOOTER */}
+              <div className="p-2.5 bg-[#260002] border-t border-[#390003] text-center">
+                <button
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    navigate('/invoices');
+                  }}
+                  className="text-[11px] font-semibold text-[#E6B676] hover:underline flex items-center justify-center gap-1 mx-auto"
+                >
+                  <span>View Operations Dashboard</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User Pill with Role */}
         <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200">

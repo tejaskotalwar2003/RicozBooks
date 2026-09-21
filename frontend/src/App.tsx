@@ -25,6 +25,8 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { BankingPage } from './pages/BankingPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { GstCenterPage } from './pages/GstCenterPage';
+import { ProjectsPage } from './pages/ProjectsPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 
 export const App: React.FC = () => {
   return (
@@ -49,6 +51,8 @@ export const App: React.FC = () => {
             <Route path="/banking" element={<BankingPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/gst" element={<GstCenterPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route path="/entities" element={<EntitiesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />

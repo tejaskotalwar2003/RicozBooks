@@ -130,6 +130,8 @@ def log_audit(
     ip_address: Optional[str] = None
 ):
     try:
+        import json
+        details_str = json.dumps(details) if isinstance(details, (dict, list)) else details
         audit_entry = AuditLog(
             action=action,
             record_type=record_type,
@@ -138,6 +140,7 @@ def log_audit(
             user_email=user.email if user else None,
             entity_id=entity_id if entity_id else (user.default_entity_id if user else None),
             details=details,
+            details=details_str,
             ip_address=ip_address
         )
         db.add(audit_entry)
