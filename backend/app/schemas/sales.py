@@ -291,3 +291,126 @@ class EstimateResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# =========================================================================
+# 6. SALES ORDER SCHEMAS
+# =========================================================================
+class SalesOrderLineCreate(BaseModel):
+    product_id: Optional[int] = None
+    description: str
+    hsn_sac: Optional[str] = None
+    quantity: Decimal = Decimal("1.00")
+    unit_price: Decimal = Decimal("0.00")
+    discount_pct: Decimal = Decimal("0.00")
+    tax_rate: Decimal = Decimal("18.00")
+
+class SalesOrderLineResponse(SalesOrderLineCreate):
+    id: int
+    sales_order_id: int
+    taxable_amount: Decimal
+    total_amount: Decimal
+
+    class Config:
+        from_attributes = True
+
+class SalesOrderCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    so_number: Optional[str] = None
+    order_date: date
+    delivery_date: Optional[date] = None
+    notes: Optional[str] = None
+    lines: List[SalesOrderLineCreate] = Field(..., min_length=1)
+
+class SalesOrderResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    so_number: str
+    order_date: date
+    delivery_date: Optional[date] = None
+    status: str
+    subtotal: Decimal
+    discount_amount: Decimal
+    taxable_amount: Decimal
+    total_tax: Decimal
+    total_amount: Decimal
+    converted_invoice_id: Optional[int] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    lines: List[SalesOrderLineResponse] = []
+
+    class Config:
+        from_attributes = True
+
+# =========================================================================
+# 7. CREDIT NOTE SCHEMAS
+# =========================================================================
+class CreditNoteCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    invoice_id: Optional[int] = None
+    credit_note_number: Optional[str] = None
+    credit_note_date: date
+    reason: str
+    subtotal: Decimal
+    tax_amount: Decimal = Decimal("0.00")
+    total_amount: Decimal
+
+class CreditNoteResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    invoice_id: Optional[int] = None
+    credit_note_number: str
+    credit_note_date: date
+    status: str
+    reason: str
+    subtotal: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    journal_entry_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# =========================================================================
+# 8. RECURRING INVOICE SCHEMAS
+# =========================================================================
+class RecurringInvoiceCreate(BaseModel):
+    entity_id: int
+    customer_id: int
+    profile_name: str
+    frequency: str = "MONTHLY"
+    start_date: date
+    end_date: Optional[date] = None
+    next_run_date: date
+    auto_send: bool = True
+    total_amount: Decimal
+    line_items_json: str
+    notes: Optional[str] = None
+
+class RecurringInvoiceResponse(BaseModel):
+    id: int
+    entity_id: int
+    customer_id: int
+    customer_name: Optional[str] = None
+    profile_name: str
+    frequency: str
+    start_date: date
+    end_date: Optional[date] = None
+    next_run_date: date
+    last_run_date: Optional[date] = None
+    auto_send: bool
+    is_active: bool
+    total_amount: Decimal
+    line_items_json: str
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+

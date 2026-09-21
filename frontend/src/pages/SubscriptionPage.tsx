@@ -302,3 +302,4 @@ export const SubscriptionPage: React.FC = () => {
     </div>
   );
 };
+

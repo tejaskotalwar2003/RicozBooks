@@ -12,7 +12,10 @@ from app.models.company import Entity
 from app.models.account import Account, AccountType, NormalBalance
 from app.models.sales import (
     Customer, Product, Invoice, InvoiceLine, InvoiceStatus, 
-    CustomerPayment, Estimate, EstimateLine, EstimateStatus
+    CustomerPayment, Estimate, EstimateLine, EstimateStatus,
+    SalesOrder, SalesOrderLine, SalesOrderStatus,
+    CreditNote, CreditNoteLine, CreditNoteStatus,
+    RecurringInvoice, RecurringFrequency
 )
 from app.schemas.sales import (
     CustomerCreate, CustomerUpdate, CustomerResponse, 
@@ -20,7 +23,10 @@ from app.schemas.sales import (
     ProductCreate, ProductUpdate, ProductResponse,
     InvoiceCreate, InvoiceUpdate, InvoiceResponse, InvoiceDetailResponse, InvoiceLineResponse,
     CustomerPaymentCreate, CustomerPaymentResponse,
-    EstimateCreate, EstimateResponse, EstimateLineResponse
+    EstimateCreate, EstimateResponse, EstimateLineResponse,
+    SalesOrderCreate, SalesOrderResponse,
+    CreditNoteCreate, CreditNoteResponse,
+    RecurringInvoiceCreate, RecurringInvoiceResponse
 )
 from app.services.sales_engine import (
     quantize_amount, generate_invoice_number, generate_payment_number, 
@@ -886,3 +892,274 @@ def convert_estimate_to_invoice(
     res = InvoiceDetailResponse.model_validate(invoice, from_attributes=True)
     res.customer_name = estimate.customer.name
     return res
+
+# =========================================================================
+# 6. SALES ORDERS
+# =========================================================================
+@router.get("/orders", response_model=List[SalesOrderResponse])
+def get_sales_orders(
+    entity_id: Optional[int] = Query(None),
+    customer_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(SalesOrder).options(joinedload(SalesOrder.customer), joinedload(SalesOrder.lines))
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        query = query.filter(SalesOrder.entity_id == entity_id)
+    if customer_id:
+        query = query.filter(SalesOrder.customer_id == customer_id)
+
+    orders = query.order_by(desc(SalesOrder.order_date), desc(SalesOrder.id)).all()
+    results = []
+    for so in orders:
+        res = SalesOrderResponse.model_validate(so, from_attributes=True)
+        if so.customer:
+            res.customer_name = so.customer.name
+        results.append(res)
+    return results
+
+@router.post("/orders", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED)
+def create_sales_order(
+    so_in: SalesOrderCreate,
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "MANAGER", "ACCOUNTANT"])),
+    db: Session = Depends(get_db)
+):
+    verify_entity_access(so_in.entity_id, current_user, db)
+    customer = db.query(Customer).filter(Customer.id == so_in.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    so_count = db.query(SalesOrder).filter(SalesOrder.entity_id == so_in.entity_id).count()
+    so_number = so_in.so_number or f"SO-{date.today().year}-{so_count + 1:04d}"
+
+    subtotal = Decimal("0.00")
+    total_tax = Decimal("0.00")
+    lines = []
+
+    for l_in in so_in.lines:
+        qty = quantize_amount(l_in.quantity)
+        price = quantize_amount(l_in.unit_price)
+        t_rate = quantize_amount(l_in.tax_rate)
+        disc = quantize_amount(l_in.discount_pct)
+        base = qty * price
+        disc_amt = (base * disc) / Decimal("100.00")
+        taxable = quantize_amount(base - disc_amt)
+        tax = quantize_amount((taxable * t_rate) / Decimal("100.00"))
+        tot = taxable + tax
+
+        subtotal += taxable
+        total_tax += tax
+
+        lines.append(SalesOrderLine(
+            product_id=l_in.product_id,
+            description=l_in.description,
+            hsn_sac=l_in.hsn_sac,
+            quantity=qty,
+            unit_price=price,
+            discount_pct=disc,
+            taxable_amount=taxable,
+            tax_rate=t_rate,
+            total_amount=tot
+        ))
+
+    order = SalesOrder(
+        entity_id=so_in.entity_id,
+        customer_id=so_in.customer_id,
+        so_number=so_number,
+        order_date=so_in.order_date,
+        delivery_date=so_in.delivery_date,
+        status=SalesOrderStatus.CONFIRMED.value,
+        subtotal=subtotal,
+        discount_amount=Decimal("0.00"),
+        taxable_amount=subtotal,
+        total_tax=total_tax,
+        total_amount=subtotal + total_tax,
+        notes=so_in.notes,
+        created_by_id=current_user.id,
+        lines=lines
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    res = SalesOrderResponse.model_validate(order, from_attributes=True)
+    res.customer_name = customer.name
+    return res
+
+# =========================================================================
+# 7. CREDIT NOTES (SALES RETURNS & AR ADJUSTMENTS)
+# =========================================================================
+@router.get("/credit-notes", response_model=List[CreditNoteResponse])
+def get_credit_notes(
+    entity_id: Optional[int] = Query(None),
+    customer_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(CreditNote).options(joinedload(CreditNote.customer), joinedload(CreditNote.invoice))
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        query = query.filter(CreditNote.entity_id == entity_id)
+    if customer_id:
+        query = query.filter(CreditNote.customer_id == customer_id)
+
+    notes = query.order_by(desc(CreditNote.credit_note_date), desc(CreditNote.id)).all()
+    results = []
+    for cn in notes:
+        res = CreditNoteResponse.model_validate(cn, from_attributes=True)
+        if cn.customer:
+            res.customer_name = cn.customer.name
+        results.append(res)
+    return results
+
+@router.post("/credit-notes", response_model=CreditNoteResponse, status_code=status.HTTP_201_CREATED)
+def create_credit_note(
+    cn_in: CreditNoteCreate,
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "MANAGER", "ACCOUNTANT"])),
+    db: Session = Depends(get_db)
+):
+    verify_entity_access(cn_in.entity_id, current_user, db)
+    customer = db.query(Customer).filter(Customer.id == cn_in.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cn_count = db.query(CreditNote).filter(CreditNote.entity_id == cn_in.entity_id).count()
+    cn_number = cn_in.credit_note_number or f"CN-{date.today().year}-{cn_count + 1:04d}"
+    tot = quantize_amount(cn_in.total_amount)
+    sub = quantize_amount(cn_in.subtotal)
+    tax = quantize_amount(cn_in.tax_amount)
+
+    # Automated Double-Entry Journal Posting:
+    # Dr 4000 Sales Returns (or Revenue Reduction) subtotal
+    # Dr 2100 GST Output Liability tax_amount (if any)
+    # Cr 1200 Accounts Receivable total_amount
+    from app.models.journal import JournalEntry, JournalEntryLine, JournalStatus
+    ar_acc = get_or_create_account(db, cn_in.entity_id, "1200", "Accounts Receivable", AccountType.ASSET, NormalBalance.DEBIT)
+    sales_acc = get_or_create_account(db, cn_in.entity_id, "4000", "Sales Revenue", AccountType.REVENUE, NormalBalance.CREDIT)
+
+    je_count = db.query(JournalEntry).filter(JournalEntry.entity_id == cn_in.entity_id).count()
+    je = JournalEntry(
+        entity_id=cn_in.entity_id,
+        entry_number=f"JE-CN-{je_count + 1:04d}",
+        entry_date=cn_in.credit_note_date,
+        description=f"Credit Note #{cn_number} return adjustment for {customer.name}",
+        status=JournalStatus.POSTED.value,
+        total_debit=tot,
+        total_credit=tot,
+        created_by_id=current_user.id
+    )
+    db.add(je)
+    db.flush()
+
+    # Dr Sales Return
+    db.add(JournalEntryLine(
+        journal_entry_id=je.id,
+        account_id=sales_acc.id,
+        debit=sub,
+        credit=Decimal("0.00"),
+        description=f"Sales reduction on CN #{cn_number}"
+    ))
+
+    # Dr Tax Output
+    if tax > 0:
+        gst_out_acc = get_or_create_account(db, cn_in.entity_id, "2100", "GST Output Liabilities", AccountType.LIABILITY, NormalBalance.CREDIT)
+        db.add(JournalEntryLine(
+            journal_entry_id=je.id,
+            account_id=gst_out_acc.id,
+            debit=tax,
+            credit=Decimal("0.00"),
+            description=f"Output GST tax credit reduction on CN #{cn_number}"
+        ))
+
+    # Cr AR Account
+    db.add(JournalEntryLine(
+        journal_entry_id=je.id,
+        account_id=ar_acc.id,
+        debit=Decimal("0.00"),
+        credit=tot,
+        description=f"AR balance credit on CN #{cn_number}"
+    ))
+
+    # Create Credit Note record
+    cn = CreditNote(
+        entity_id=cn_in.entity_id,
+        customer_id=cn_in.customer_id,
+        invoice_id=cn_in.invoice_id,
+        credit_note_number=cn_number,
+        credit_note_date=cn_in.credit_note_date,
+        status=CreditNoteStatus.POSTED.value,
+        reason=cn_in.reason,
+        subtotal=sub,
+        tax_amount=tax,
+        total_amount=tot,
+        journal_entry_id=je.id,
+        created_by_id=current_user.id
+    )
+    db.add(cn)
+
+    # Adjust customer AR balance
+    customer.current_balance = quantize_amount(Decimal(str(customer.current_balance or 0)) - tot)
+    db.commit()
+    db.refresh(cn)
+
+    res = CreditNoteResponse.model_validate(cn, from_attributes=True)
+    res.customer_name = customer.name
+    return res
+
+# =========================================================================
+# 8. RECURRING INVOICES
+# =========================================================================
+@router.get("/recurring", response_model=List[RecurringInvoiceResponse])
+def get_recurring_invoices(
+    entity_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(RecurringInvoice).options(joinedload(RecurringInvoice.customer))
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        query = query.filter(RecurringInvoice.entity_id == entity_id)
+
+    profiles = query.order_by(desc(RecurringInvoice.created_at)).all()
+    results = []
+    for r in profiles:
+        res = RecurringInvoiceResponse.model_validate(r, from_attributes=True)
+        if r.customer:
+            res.customer_name = r.customer.name
+        results.append(res)
+    return results
+
+@router.post("/recurring", response_model=RecurringInvoiceResponse, status_code=status.HTTP_201_CREATED)
+def create_recurring_invoice(
+    r_in: RecurringInvoiceCreate,
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "MANAGER", "ACCOUNTANT"])),
+    db: Session = Depends(get_db)
+):
+    verify_entity_access(r_in.entity_id, current_user, db)
+    customer = db.query(Customer).filter(Customer.id == r_in.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    rec = RecurringInvoice(
+        entity_id=r_in.entity_id,
+        customer_id=r_in.customer_id,
+        profile_name=r_in.profile_name,
+        frequency=r_in.frequency,
+        start_date=r_in.start_date,
+        end_date=r_in.end_date,
+        next_run_date=r_in.next_run_date,
+        auto_send=r_in.auto_send,
+        is_active=True,
+        total_amount=quantize_amount(r_in.total_amount),
+        line_items_json=r_in.line_items_json,
+        notes=r_in.notes
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+
+    res = RecurringInvoiceResponse.model_validate(rec, from_attributes=True)
+    res.customer_name = customer.name
+    return res
+

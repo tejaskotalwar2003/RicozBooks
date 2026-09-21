@@ -155,7 +155,6 @@ def get_project_profitability(
 def create_project_task(
     project_id: int,
     data: ProjectTaskBase,
-    data: ProjectTaskBase = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

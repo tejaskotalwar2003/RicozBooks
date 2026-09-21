@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.models.sales import RecurringInvoice, Invoice, InvoiceLine, InvoiceStatus, RecurringFrequency
 from app.models.purchases import RecurringBill, Bill, BillLine, BillStatus
 from app.models.notifications import Notification, NotificationType
-from app.models.journal import Approval, JournalStatus
 from app.models.journal import JournalEntry, Approval, JournalStatus
 from app.models.inventory import StockAdjustment
 from app.models.sales import Product
@@ -65,7 +64,6 @@ def process_due_recurring_invoices(entity_id: int, db: Session) -> List[int]:
             taxable_amount=Decimal("0.00"),
             total_tax=Decimal("0.00"),
             total_amount=Decimal(str(profile.total_amount or 0)),
-            balance_due=Decimal(str(profile.total_amount or 0)),
             balance_amount=Decimal(str(profile.total_amount or 0)),
             notes=f"Auto-generated recurring invoice from profile '{profile.profile_name}'"
         )
@@ -100,7 +98,6 @@ def process_due_recurring_invoices(entity_id: int, db: Session) -> List[int]:
             new_inv.taxable_amount = subtotal
             new_inv.total_tax = total_tax
             new_inv.total_amount = subtotal + total_tax
-            new_inv.balance_due = new_inv.total_amount
             new_inv.balance_amount = new_inv.total_amount
 
         # Update next run date
@@ -144,26 +141,21 @@ def trigger_system_alerts_scan(entity_id: int, db: Session) -> int:
                 entity_id=entity_id,
                 notification_type=NotificationType.INVOICE_OVERDUE.value,
                 title="Invoice Overdue Alert",
-                message=f"Invoice {inv.invoice_number} for customer #{inv.customer_id} is overdue with balance {inv.balance_due}.",
                 message=f"Invoice {inv.invoice_number} for customer #{inv.customer_id} is overdue with balance {inv.balance_amount}.",
                 link_url="/invoices"
             ))
             created_count += 1
 
     # 2. Pending Approvals
-    pending_approvals = db.query(Approval).filter(
-        Approval.status == "PENDING"
     pending_approvals = db.query(JournalEntry).filter(
         JournalEntry.entity_id == entity_id,
         JournalEntry.status == JournalStatus.SUBMITTED.value
     ).limit(5).all()
 
-    for app in pending_approvals:
     for je in pending_approvals:
         existing = db.query(Notification).filter(
             Notification.entity_id == entity_id,
             Notification.notification_type == NotificationType.APPROVAL_REQUIRED.value,
-            Notification.message.like(f"%Journal Entry #{app.journal_entry_id}%")
             Notification.message.like(f"%Journal Entry #{je.id}%")
         ).first()
         if not existing:
@@ -171,7 +163,6 @@ def trigger_system_alerts_scan(entity_id: int, db: Session) -> int:
                 entity_id=entity_id,
                 notification_type=NotificationType.APPROVAL_REQUIRED.value,
                 title="Action Required: Approval Queue",
-                message=f"Journal Entry #{app.journal_entry_id} is pending your maker-checker review.",
                 message=f"Journal Entry #{je.entry_number or je.id} is pending your maker-checker review.",
                 link_url="/approvals"
             ))

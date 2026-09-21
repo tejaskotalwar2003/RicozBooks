@@ -139,7 +139,6 @@ def log_audit(
             user_id=user.id if user else None,
             user_email=user.email if user else None,
             entity_id=entity_id if entity_id else (user.default_entity_id if user else None),
-            details=details,
             details=details_str,
             ip_address=ip_address
         )

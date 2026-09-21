@@ -155,7 +155,6 @@ def get_current_subscription(
 
     # Calculate actual usage
     entities_count = db.query(Entity).filter(Entity.company_id == target_company.id).count()
-    users_count = len(target_company.users) if target_company.users else 1
     from app.models.user import user_companies
     users_count = db.query(User).join(user_companies).filter(user_companies.c.company_id == target_company.id).count()
     if users_count == 0:
