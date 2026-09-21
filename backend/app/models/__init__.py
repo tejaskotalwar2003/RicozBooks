@@ -46,6 +46,17 @@ from app.models.banking import (
     BankStatementLine,
     ReconciliationStatus
 )
+from app.models.inventory import (
+    InventoryMovement,
+    InventoryMovementType,
+    StockAdjustment,
+    StockAdjustmentType
+)
+from app.models.gst import (
+    GSTReturnFiling,
+    GSTReturnType,
+    GSTReturnStatus
+)
 
 __all__ = [
     "User",
@@ -108,4 +119,12 @@ __all__ = [
     "BankReconciliation",
     "BankStatementLine",
     "ReconciliationStatus"
+    "ReconciliationStatus",
+    "InventoryMovement",
+    "InventoryMovementType",
+    "StockAdjustment",
+    "StockAdjustmentType",
+    "GSTReturnFiling",
+    "GSTReturnType",
+    "GSTReturnStatus"
 ]

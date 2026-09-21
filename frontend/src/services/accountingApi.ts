@@ -1935,6 +1935,230 @@ export const getBankingSummary = async (entityId: number): Promise<BankingSummar
   return apiRequest<BankingSummary>(`/banking/banking-summary?entity_id=${entityId}`);
 };
 
+// ==========================================
+// INVENTORY & STOCK MODULE (PHASE 4)
+// ==========================================
+export interface ProductInventoryDetail {
+  id: number;
+  entity_id: number;
+  name: string;
+  sku?: string;
+  product_type: string;
+  unit: string;
+  selling_price: number | string;
+  purchase_price: number | string;
+  hsn_sac_code?: string;
+  current_stock: number | string;
+  min_stock_alert: number | string;
+  total_valuation: number | string;
+  stock_status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  is_active: boolean;
+}
+
+export interface InventoryMovement {
+  id: number;
+  entity_id: number;
+  product_id: number;
+  product_name?: string;
+  movement_type: string;
+  movement_date: string;
+  quantity: number | string;
+  unit_cost: number | string;
+  total_cost: number | string;
+  reference_type?: string;
+  reference_id?: string;
+  batch_number?: string;
+  warehouse_location?: string;
+  notes?: string;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface StockAdjustmentCreateData {
+  entity_id: number;
+  product_id: number;
+  adjustment_type: 'INCREASE' | 'DECREASE';
+  quantity: number;
+  unit_cost?: number;
+  reason: string;
+  warehouse_location?: string;
+}
+
+export interface StockAdjustment {
+  id: number;
+  entity_id: number;
+  adjustment_number: string;
+  adjustment_date: string;
+  product_id: number;
+  product_name?: string;
+  adjustment_type: 'INCREASE' | 'DECREASE';
+  quantity: number | string;
+  unit_cost: number | string;
+  total_value: number | string;
+  reason: string;
+  warehouse_location?: string;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface InventoryValuationSummary {
+  total_products_count: number;
+  in_stock_count: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  total_asset_valuation: number | string;
+  products: ProductInventoryDetail[];
+}
+
+export const getInventoryValuation = async (entityId: number): Promise<InventoryValuationSummary> => {
+  return apiRequest<InventoryValuationSummary>(`/inventory/valuation?entity_id=${entityId}`);
+};
+
+export const getInventoryMovements = async (entityId: number, productId?: number): Promise<InventoryMovement[]> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (productId) params.append('product_id', productId.toString());
+  return apiRequest<InventoryMovement[]>(`/inventory/movements?${params.toString()}`);
+};
+
+export const createStockAdjustment = async (data: StockAdjustmentCreateData): Promise<StockAdjustment> => {
+  return apiRequest<StockAdjustment>('/inventory/adjustments', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getStockAdjustments = async (entityId: number): Promise<StockAdjustment[]> => {
+  return apiRequest<StockAdjustment[]>(`/inventory/adjustments?entity_id=${entityId}`);
+};
+
+// ==========================================
+// GST & STATUTORY TAX RETURNS (PHASE 4)
+// ==========================================
+export interface GSTR1B2BInvoice {
+  invoice_number: string;
+  invoice_date: string;
+  customer_name: string;
+  customer_gstin?: string;
+  place_of_supply: string;
+  reverse_charge: string;
+  invoice_type: string;
+  total_invoice_value: number | string;
+  taxable_value: number | string;
+  tax_rate: number | string;
+  igst_amount: number | string;
+  cgst_amount: number | string;
+  sgst_amount: number | string;
+  cess_amount: number | string;
+}
+
+export interface GSTR1HSNSummary {
+  hsn_sac_code: string;
+  description?: string;
+  uqc: string;
+  total_quantity: number | string;
+  total_value: number | string;
+  taxable_value: number | string;
+  tax_rate: number | string;
+  igst_amount: number | string;
+  cgst_amount: number | string;
+  sgst_amount: number | string;
+  cess_amount: number | string;
+}
+
+export interface GSTR1Summary {
+  entity_id: number;
+  return_period: string;
+  gstin?: string;
+  legal_name: string;
+  total_invoices_count: number;
+  total_taxable_value: number | string;
+  total_igst: number | string;
+  total_cgst: number | string;
+  total_sgst: number | string;
+  total_tax_liability: number | string;
+  b2b_invoices: GSTR1B2BInvoice[];
+  hsn_summary: GSTR1HSNSummary[];
+}
+
+export interface GSTR3BSummary {
+  entity_id: number;
+  return_period: string;
+  gstin?: string;
+  legal_name: string;
+  outward_supplies: {
+    taxable_value: number | string;
+    igst: number | string;
+    cgst: number | string;
+    sgst: number | string;
+    cess: number | string;
+  };
+  eligible_itc: {
+    itc_igst: number | string;
+    itc_cgst: number | string;
+    itc_sgst: number | string;
+    total_itc_available: number | string;
+  };
+  tax_settlement: {
+    output_igst: number | string;
+    output_cgst: number | string;
+    output_sgst: number | string;
+    total_output_liability: number | string;
+    itc_offset_igst: number | string;
+    itc_offset_cgst: number | string;
+    itc_offset_sgst: number | string;
+    total_itc_utilized: number | string;
+    cash_payable_igst: number | string;
+    cash_payable_cgst: number | string;
+    cash_payable_sgst: number | string;
+    total_cash_payable: number | string;
+  };
+  status: 'DRAFT' | 'READY_FOR_FILING' | 'FILED';
+  arn_number?: string;
+  filing_date?: string;
+}
+
+export interface GSTDashboardMetrics {
+  current_period: string;
+  total_output_tax_due: number | string;
+  total_input_tax_credit_available: number | string;
+  net_tax_payable: number | string;
+  gstr1_status: string;
+  gstr3b_status: string;
+  last_filed_period?: string;
+}
+
+export const getGstMetrics = async (entityId: number, period?: string): Promise<GSTDashboardMetrics> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (period) params.append('period', period);
+  return apiRequest<GSTDashboardMetrics>(`/gst/metrics?${params.toString()}`);
+};
+
+export const getGstr1 = async (entityId: number, period: string): Promise<GSTR1Summary> => {
+  return apiRequest<GSTR1Summary>(`/gst/gstr1?entity_id=${entityId}&period=${period}`);
+};
+
+export const getGstr3b = async (entityId: number, period: string): Promise<GSTR3BSummary> => {
+  return apiRequest<GSTR3BSummary>(`/gst/gstr3b?entity_id=${entityId}&period=${period}`);
+};
+
+export const settleGstReturn = async (data: { entity_id: number; return_period: string; payment_bank_account_id?: number; reference_number?: string }): Promise<{
+  message: string;
+  return_period: string;
+  total_output_liability: number;
+  itc_utilized: number;
+  cash_paid: number;
+  settlement_journal_id: number;
+  arn_number: string;
+}> => {
+  return apiRequest('/gst/settle', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+
 
 
 
