@@ -19,6 +19,8 @@ import { CompanyRegistrationPage } from './pages/CompanyRegistrationPage';
 import { AcceptInvitationPage } from './pages/AcceptInvitationPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { BillsPage } from './pages/BillsPage';
+import { VendorsPage } from './pages/VendorsPage';
 
 export const App: React.FC = () => {
   return (
@@ -37,6 +39,8 @@ export const App: React.FC = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/bills" element={<BillsPage />} />
+            <Route path="/vendors" element={<VendorsPage />} />
             <Route path="/entities" element={<EntitiesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />

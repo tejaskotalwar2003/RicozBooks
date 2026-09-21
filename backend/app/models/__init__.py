@@ -17,6 +17,18 @@ from app.models.sales import (
     EstimateLine,
     EstimateStatus
 )
+from app.models.purchases import (
+    Vendor,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    POStatus,
+    Bill,
+    BillLine,
+    BillStatus,
+    VendorPayment,
+    VendorPaymentMode,
+    DebitNote
+)
 
 __all__ = [
     "User",
@@ -44,7 +56,6 @@ __all__ = [
     "AuditLog",
     "ClosePeriod",
     "CloseTask",
-    "CloseStatus"
     "CloseStatus",
     "Customer",
     "Product",
@@ -56,6 +67,16 @@ __all__ = [
     "PaymentMode",
     "Estimate",
     "EstimateLine",
-    "EstimateStatus"
+    "EstimateStatus",
+    "Vendor",
+    "PurchaseOrder",
+    "PurchaseOrderLine",
+    "POStatus",
+    "Bill",
+    "BillLine",
+    "BillStatus",
+    "VendorPayment",
+    "VendorPaymentMode",
+    "DebitNote"
 ]
 

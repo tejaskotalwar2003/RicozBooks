@@ -19,7 +19,8 @@ from app.api.v1 import (
     settings as settings_api,
     tenants,
     dashboard,
-    sales
+    sales,
+    purchases
 )
 
 from contextlib import asynccontextmanager
@@ -72,6 +73,7 @@ app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings"
 app.include_router(tenants.router, prefix=f"{settings.API_V1_STR}/tenants", tags=["B2B Multi-Tenant Management"])
 app.include_router(dashboard.router, prefix=settings.API_V1_STR, tags=["Executive Dashboard"])
 app.include_router(sales.router, prefix=settings.API_V1_STR, tags=["Sales & Invoicing"])
+app.include_router(purchases.router, prefix=settings.API_V1_STR, tags=["Purchases & Vendor Bills"])
 
 @app.get("/")
 def root():

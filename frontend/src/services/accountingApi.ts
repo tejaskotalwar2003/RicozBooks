@@ -1348,5 +1348,250 @@ export const convertEstimateToInvoice = async (estimateId: number): Promise<Invo
   });
 };
 
+// =========================================================================
+// PURCHASES & ACCOUNTS PAYABLE (AP)
+// =========================================================================
+
+export interface Vendor {
+  id: number;
+  entity_id: number;
+  name: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  gstin?: string;
+  pan?: string;
+  billing_address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  payment_terms_days: number;
+  opening_balance: number;
+  current_balance: number;
+  currency: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VendorCreateData {
+  entity_id: number;
+  name: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  gstin?: string;
+  pan?: string;
+  billing_address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  payment_terms_days?: number;
+  opening_balance?: number;
+  currency?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+}
+
+export interface VendorLedgerEntry {
+  id: number;
+  date: string;
+  type: string;
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  running_balance: number;
+}
+
+export interface VendorStatement {
+  vendor_id: number;
+  vendor_name: string;
+  company_name?: string;
+  gstin?: string;
+  currency: string;
+  opening_balance: number;
+  total_billed: number;
+  total_paid: number;
+  current_balance: number;
+  statement_period: string;
+  entries: VendorLedgerEntry[];
+}
+
+export interface BillLine {
+  id?: number;
+  product_id?: number;
+  expense_account_id?: number;
+  description: string;
+  hsn_sac?: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  discount_pct: number;
+  taxable_amount: number;
+  tax_rate: number;
+  cgst_rate: number;
+  cgst_amount: number;
+  sgst_rate: number;
+  sgst_amount: number;
+  igst_rate: number;
+  igst_amount: number;
+  total_amount: number;
+}
+
+export interface Bill {
+  id: number;
+  entity_id: number;
+  vendor_id: number;
+  vendor_name?: string;
+  bill_number: string;
+  vendor_invoice_ref?: string;
+  bill_date: string;
+  due_date: string;
+  supply_state?: string;
+  status: 'DRAFT' | 'RECEIVED' | 'POSTED' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+  subtotal: number;
+  discount_amount: number;
+  taxable_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_tax: number;
+  total_amount: number;
+  paid_amount: number;
+  balance_amount: number;
+  currency: string;
+  journal_entry_id?: number;
+  notes?: string;
+  terms?: string;
+  created_at: string;
+  lines?: BillLine[];
+}
+
+export interface BillCreateData {
+  entity_id: number;
+  vendor_id: number;
+  bill_number?: string;
+  vendor_invoice_ref?: string;
+  bill_date: string;
+  due_date: string;
+  supply_state?: string;
+  notes?: string;
+  terms?: string;
+  lines: {
+    product_id?: number;
+    expense_account_id?: number;
+    description: string;
+    hsn_sac?: string;
+    quantity: number;
+    unit?: string;
+    unit_price: number;
+    discount_pct?: number;
+    tax_rate?: number;
+  }[];
+}
+
+export interface VendorPayment {
+  id: number;
+  entity_id: number;
+  vendor_id: number;
+  vendor_name?: string;
+  bill_id?: number;
+  bill_number?: string;
+  payment_number: string;
+  payment_date: string;
+  amount: number;
+  payment_mode: 'BANK_TRANSFER' | 'CHEQUE' | 'UPI' | 'CASH' | 'CREDIT_CARD' | 'OTHER';
+  disbursement_account_id: number;
+  disbursement_account_name?: string;
+  reference_number?: string;
+  notes?: string;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface VendorPaymentCreateData {
+  entity_id: number;
+  vendor_id: number;
+  bill_id?: number;
+  payment_number?: string;
+  payment_date: string;
+  amount: number;
+  payment_mode?: string;
+  disbursement_account_id?: number;
+  reference_number?: string;
+  notes?: string;
+}
+
+// Vendors API
+export const getVendors = async (entityId?: number, search?: string): Promise<Vendor[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<Vendor[]>(`/vendors${q}`);
+};
+
+export const createVendor = async (data: VendorCreateData): Promise<Vendor> => {
+  return apiRequest<Vendor>('/vendors', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getVendorStatement = async (vendorId: number): Promise<VendorStatement> => {
+  return apiRequest<VendorStatement>(`/vendors/${vendorId}/statement`);
+};
+
+// Bills API
+export const getBills = async (entityId?: number, vendorId?: number, status?: string): Promise<Bill[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (vendorId) params.append('vendor_id', vendorId.toString());
+  if (status) params.append('status', status);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<Bill[]>(`/bills${q}`);
+};
+
+export const getBillDetail = async (id: number): Promise<Bill> => {
+  return apiRequest<Bill>(`/bills/${id}`);
+};
+
+export const createBill = async (data: BillCreateData): Promise<Bill> => {
+  return apiRequest<Bill>('/bills', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const postBillToLedger = async (id: number): Promise<Bill> => {
+  return apiRequest<Bill>(`/bills/${id}/post`, {
+    method: 'POST'
+  });
+};
+
+// Vendor Payments API
+export const getVendorPayments = async (entityId?: number, vendorId?: number): Promise<VendorPayment[]> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (vendorId) params.append('vendor_id', vendorId.toString());
+  const q = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest<VendorPayment[]>(`/vendor-payments${q}`);
+};
+
+export const recordVendorPayment = async (data: VendorPaymentCreateData): Promise<VendorPayment> => {
+  return apiRequest<VendorPayment>('/vendor-payments', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+
 
 
