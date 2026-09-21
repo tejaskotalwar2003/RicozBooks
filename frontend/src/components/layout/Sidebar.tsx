@@ -17,7 +17,9 @@ import {
   Receipt,
   Users,
   FileSpreadsheet,
-  Building
+  Building,
+  CreditCard,
+  Landmark
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -38,6 +40,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const purchasesItems = [
     { to: '/bills', label: 'Bills', icon: FileSpreadsheet },
     { to: '/vendors', label: 'Vendors', icon: Building },
+  ];
+
+  const expenseBankingItems = [
+    { to: '/expenses', label: 'Expenses & Claims', icon: CreditCard },
+    { to: '/banking', label: 'Banking & Recon', icon: Landmark },
   ];
 
   const financeItems = [
@@ -187,6 +194,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             Purchases & Payables
           </div>
           {purchasesItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => onClose && onClose()}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                    isActive
+                      ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+                  }`
+                }
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Icon className="w-4 h-4 text-slate-300" />
+                  <span>{item.label}</span>
+                </div>
+              </NavLink>
+            );
+          })}
+
+          {/* Expenses & Banking */}
+          <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-[#E6B676] uppercase">
+            Expenses & Banking
+          </div>
+          {expenseBankingItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

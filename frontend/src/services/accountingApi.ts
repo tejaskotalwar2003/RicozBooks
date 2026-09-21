@@ -204,6 +204,9 @@ export interface AuditFilterParams {
 }
 
 
+export const getAccounts = (entityId?: number, accountType?: AccountType) => 
+  accountingApi.getAccounts({ entity_id: entityId, account_type: accountType });
+
 export const accountingApi = {
   getAccounts: (params?: { entity_id?: number; account_type?: AccountType; is_active?: boolean; search?: string }) => {
     const query = new URLSearchParams();
@@ -1591,6 +1594,347 @@ export const recordVendorPayment = async (data: VendorPaymentCreateData): Promis
     body: JSON.stringify(data)
   });
 };
+
+// ==========================================
+// EXPENSES MODULE (PHASE 3)
+// ==========================================
+export interface ExpenseCategory {
+  id: number;
+  entity_id: number;
+  code: string;
+  name: string;
+  description?: string;
+  default_account_id?: number;
+  tax_rate_percent: number;
+  is_active: boolean;
+}
+
+export interface Expense {
+  id: number;
+  entity_id: number;
+  expense_number: string;
+  title: string;
+  category_id?: number;
+  category_name?: string;
+  expense_date: string;
+  expense_account_id: number;
+  expense_account_name?: string;
+  payment_account_id?: number;
+  payment_account_name?: string;
+  bank_account_id?: number;
+  payment_method: string;
+  subtotal: number | string;
+  tax_amount: number | string;
+  total_amount: number | string;
+  currency: string;
+  merchant_name?: string;
+  reference_number?: string;
+  description?: string;
+  receipt_url?: string;
+  is_reimbursable: boolean;
+  is_billable: boolean;
+  customer_id?: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'PAID';
+  submitter_name?: string;
+  approved_by_id?: number;
+  approved_at?: string;
+  rejection_reason?: string;
+  journal_entry_id?: number;
+  reimbursement_journal_id?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseCreateData {
+  entity_id: number;
+  title: string;
+  category_id?: number;
+  expense_date: string;
+  expense_account_id: number;
+  payment_account_id?: number;
+  bank_account_id?: number;
+  payment_method: string;
+  subtotal: number;
+  tax_amount?: number;
+  currency?: string;
+  merchant_name?: string;
+  reference_number?: string;
+  description?: string;
+  is_reimbursable?: boolean;
+  is_billable?: boolean;
+  customer_id?: number;
+}
+
+export interface ExpenseSummary {
+  total_expenses_month: number;
+  pending_approvals_count: number;
+  reimbursable_claims_total: number;
+  posted_expenses_total: number;
+  category_breakdown: { category: string; amount: number }[];
+}
+
+export const getExpenseCategories = async (entityId: number): Promise<ExpenseCategory[]> => {
+  return apiRequest<ExpenseCategory[]>(`/expenses/categories?entity_id=${entityId}`);
+};
+
+export const createExpenseCategory = async (data: Partial<ExpenseCategory> & { entity_id: number; code: string; name: string }): Promise<ExpenseCategory> => {
+  return apiRequest<ExpenseCategory>('/expenses/categories', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getExpenses = async (
+  entityId: number, 
+  filters?: { status?: string; category_id?: number; is_reimbursable?: boolean; search?: string }
+): Promise<Expense[]> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (filters?.status) params.append('status_filter', filters.status);
+  if (filters?.category_id) params.append('category_id', filters.category_id.toString());
+  if (filters?.is_reimbursable !== undefined) params.append('is_reimbursable', filters.is_reimbursable.toString());
+  if (filters?.search) params.append('search', filters.search);
+  return apiRequest<Expense[]>(`/expenses/expenses?${params.toString()}`);
+};
+
+export const createExpense = async (data: ExpenseCreateData, autoPost: boolean = false): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses/expenses?auto_post=${autoPost}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const actionExpense = async (id: number, action: 'APPROVE' | 'REJECT', rejectionReason?: string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses/expenses/${id}/action`, {
+    method: 'POST',
+    body: JSON.stringify({ action, rejection_reason: rejectionReason })
+  });
+};
+
+export const postExpense = async (id: number): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses/expenses/${id}/post`, {
+    method: 'POST'
+  });
+};
+
+export const reimburseExpense = async (id: number, data: { payment_account_id: number; bank_account_id?: number; reference_number?: string }): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses/expenses/${id}/reimburse`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getExpenseSummary = async (entityId: number): Promise<ExpenseSummary> => {
+  return apiRequest<ExpenseSummary>(`/expenses/expenses-summary?entity_id=${entityId}`);
+};
+
+
+// ==========================================
+// BANKING MODULE (PHASE 3)
+// ==========================================
+export interface BankAccount {
+  id: number;
+  entity_id: number;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  account_type: string;
+  ifsc_code?: string;
+  swift_bic?: string;
+  branch_name?: string;
+  currency: string;
+  gl_account_id: number;
+  gl_account_code?: string;
+  gl_account_name?: string;
+  opening_balance: number | string;
+  current_balance: number | string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BankAccountCreateData {
+  entity_id: number;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  account_type: string;
+  ifsc_code?: string;
+  branch_name?: string;
+  currency?: string;
+  gl_account_id: number;
+  opening_balance: number;
+}
+
+export interface BankTransaction {
+  id: number;
+  bank_account_id: number;
+  transaction_type: string;
+  transaction_date: string;
+  amount: number | string;
+  is_credit: boolean;
+  running_balance?: number | string;
+  reference_number?: string;
+  counterparty?: string;
+  description?: string;
+  status: 'UNRECONCILED' | 'RECONCILED' | 'EXCLUDED';
+  reconciled_at?: string;
+  reconciliation_id?: number;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface BankTransferCreateData {
+  entity_id: number;
+  from_bank_account_id: number;
+  to_bank_account_id: number;
+  transfer_date: string;
+  amount: number;
+  fee_amount?: number;
+  reference_number?: string;
+  notes?: string;
+}
+
+export interface BankTransfer {
+  id: number;
+  entity_id: number;
+  transfer_number: string;
+  from_bank_account_id: number;
+  to_bank_account_id: number;
+  transfer_date: string;
+  amount: number | string;
+  fee_amount: number | string;
+  currency: string;
+  reference_number?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface BankStatementLine {
+  id: number;
+  reconciliation_id: number;
+  transaction_date: string;
+  description: string;
+  reference?: string;
+  amount: number | string;
+  is_credit: boolean;
+  balance_after?: number | string;
+  is_matched: boolean;
+  matched_transaction_id?: number;
+  created_at: string;
+}
+
+export interface BankReconciliation {
+  id: number;
+  bank_account_id: number;
+  statement_date: string;
+  statement_balance: number | string;
+  book_balance: number | string;
+  reconciled_balance: number | string;
+  difference: number | string;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
+  notes?: string;
+  reconciled_by_id?: number;
+  completed_at?: string;
+  created_at: string;
+  statement_lines?: BankStatementLine[];
+}
+
+export interface BankingSummary {
+  total_liquid_cash: number;
+  active_bank_accounts_count: number;
+  unreconciled_transactions_count: number;
+  accounts_summary: {
+    id: number;
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    balance: number;
+    currency: string;
+  }[];
+}
+
+export const getBankAccounts = async (entityId: number, isActive?: boolean): Promise<BankAccount[]> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (isActive !== undefined) params.append('is_active', isActive.toString());
+  return apiRequest<BankAccount[]>(`/banking/accounts?${params.toString()}`);
+};
+
+export const createBankAccount = async (data: BankAccountCreateData): Promise<BankAccount> => {
+  return apiRequest<BankAccount>('/banking/accounts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getBankTransactions = async (bankAccountId: number, status?: string): Promise<BankTransaction[]> => {
+  const params = new URLSearchParams();
+  params.append('bank_account_id', bankAccountId.toString());
+  if (status) params.append('status_filter', status);
+  return apiRequest<BankTransaction[]>(`/banking/transactions?${params.toString()}`);
+};
+
+export const createBankTransfer = async (data: BankTransferCreateData): Promise<BankTransfer> => {
+  return apiRequest<BankTransfer>('/banking/transfers', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getBankTransfers = async (entityId: number): Promise<BankTransfer[]> => {
+  return apiRequest<BankTransfer[]>(`/banking/transfers?entity_id=${entityId}`);
+};
+
+export const createBankReconciliation = async (data: { bank_account_id: number; statement_date: string; statement_balance: number; notes?: string }): Promise<BankReconciliation> => {
+  return apiRequest<BankReconciliation>('/banking/reconciliations', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getBankReconciliationDetail = async (id: number): Promise<BankReconciliation> => {
+  return apiRequest<BankReconciliation>(`/banking/reconciliations/${id}`);
+};
+
+export const uploadStatementCsv = async (id: number, file: File): Promise<{ message: string; lines_imported: number; difference: number }> => {
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1';
+  const res = await fetch(`${API_BASE}/banking/reconciliations/${id}/upload-csv`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(err.detail || 'Failed to upload CSV statement');
+  }
+  return res.json();
+};
+
+export const matchBankTx = async (id: number, statementLineId: number, transactionId: number): Promise<{ message: string; difference: number }> => {
+  return apiRequest<{ message: string; difference: number }>(`/banking/reconciliations/${id}/match`, {
+    method: 'POST',
+    body: JSON.stringify({ statement_line_id: statementLineId, transaction_id: transactionId })
+  });
+};
+
+export const completeBankReconciliation = async (id: number): Promise<BankReconciliation> => {
+  return apiRequest<BankReconciliation>(`/banking/reconciliations/${id}/complete`, {
+    method: 'POST'
+  });
+};
+
+export const getBankingSummary = async (entityId: number): Promise<BankingSummary> => {
+  return apiRequest<BankingSummary>(`/banking/banking-summary?entity_id=${entityId}`);
+};
+
 
 
 

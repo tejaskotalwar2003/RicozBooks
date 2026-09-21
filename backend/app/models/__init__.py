@@ -29,6 +29,23 @@ from app.models.purchases import (
     VendorPaymentMode,
     DebitNote
 )
+from app.models.expenses import (
+    ExpenseCategory,
+    Expense,
+    ExpenseClaimStatus,
+    ExpensePaymentMethod
+)
+from app.models.banking import (
+    BankAccount,
+    BankAccountType,
+    BankTransaction,
+    BankTxType,
+    BankTxStatus,
+    BankTransfer,
+    BankReconciliation,
+    BankStatementLine,
+    ReconciliationStatus
+)
 
 __all__ = [
     "User",
@@ -77,6 +94,18 @@ __all__ = [
     "BillStatus",
     "VendorPayment",
     "VendorPaymentMode",
-    "DebitNote"
+    "DebitNote",
+    "ExpenseCategory",
+    "Expense",
+    "ExpenseClaimStatus",
+    "ExpensePaymentMethod",
+    "BankAccount",
+    "BankAccountType",
+    "BankTransaction",
+    "BankTxType",
+    "BankTxStatus",
+    "BankTransfer",
+    "BankReconciliation",
+    "BankStatementLine",
+    "ReconciliationStatus"
 ]
-
