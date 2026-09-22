@@ -16,7 +16,9 @@ import {
   RefreshCw,
   TrendingDown,
   Building2,
-  Calendar
+  Calendar,
+  FolderKanban,
+  Scale
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -26,15 +28,23 @@ import {
   createBill, 
   postBillToLedger, 
   recordVendorPayment,
+  getPurchaseOrders,
+  convertPoToBill,
+  getDebitNotes,
   Bill, 
   Vendor, 
   Product,
-  BillCreateData
+  BillCreateData,
+  PurchaseOrder,
+  DebitNote
 } from '../services/accountingApi';
 
 export const BillsPage: React.FC = () => {
   const { activeEntity } = useAuth();
+  const [activeTab, setActiveTab] = useState<'bills' | 'orders' | 'debit_notes'>('bills');
   const [bills, setBills] = useState<Bill[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [debitNotes, setDebitNotes] = useState<DebitNote[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -89,17 +99,21 @@ export const BillsPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [billsData, vendorsData, prodsData] = await Promise.all([
+      const [billsData, vendorsData, prodsData, poData, dnData] = await Promise.all([
         getBills(activeEntity.id),
         getVendors(activeEntity.id),
-        getProducts(activeEntity.id)
+        getProducts(activeEntity.id),
+        getPurchaseOrders(activeEntity.id).catch(() => []),
+        getDebitNotes(activeEntity.id).catch(() => [])
       ]);
-      setBills(billsData);
-      setVendors(vendorsData);
-      setProducts(prodsData);
+      setBills(billsData || []);
+      setVendors(vendorsData || []);
+      setProducts(prodsData || []);
+      setPurchaseOrders(poData || []);
+      setDebitNotes(dnData || []);
     } catch (err: any) {
-      console.error('Failed to load bills data:', err);
-      setError(err.message || 'Error loading vendor bills');
+      console.error('Failed to load procurement data:', err);
+      setError(err.message || 'Error loading procurement data');
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +122,22 @@ export const BillsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [activeEntity?.id]);
+
+  const handleConvertPoToBill = async (poId: number) => {
+    if (!window.confirm('Convert this Purchase Order into a Vendor Bill?')) return;
+    setIsLoading(true);
+    try {
+      const newBill = await convertPoToBill(poId);
+      setSuccessMsg(`Purchase Order converted to Vendor Bill #${newBill.bill_number} successfully!`);
+      setTimeout(() => setSuccessMsg(null), 5000);
+      setActiveTab('bills');
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to convert Purchase Order');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleVendorChange = (venId: number) => {
     setSelectedVendorId(venId);
@@ -370,6 +400,45 @@ export const BillsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Sub-Module Navigation Tabs */}
+      <div className="flex items-center space-x-1 border-b border-slate-200 pb-1 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('bills')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'bills'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Vendor Bills ({bills.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'orders'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <FolderKanban className="w-4 h-4" />
+          <span>Purchase Orders ({purchaseOrders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('debit_notes')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'debit_notes'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Scale className="w-4 h-4" />
+          <span>Debit Notes ({debitNotes.length})</span>
+        </button>
+      </div>
+
       {/* Alerts */}
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg flex items-center space-x-2">
@@ -452,105 +521,225 @@ export const BillsPage: React.FC = () => {
       </div>
 
       {/* Bills Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <th className="py-3 px-4">Bill #</th>
-                <th className="py-3 px-4">Vendor</th>
-                <th className="py-3 px-4">Vendor Ref</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Due Date</th>
-                <th className="py-3 px-4 text-right">Amount</th>
-                <th className="py-3 px-4 text-right">Balance Due</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredBills.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
-                    <FileSpreadsheet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="font-medium text-slate-700">No vendor bills found</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {searchTerm || statusFilter !== 'ALL'
-                        ? 'Try adjusting your search filters'
-                        : 'Record your first purchase bill by clicking "+ Enter Vendor Bill"'}
-                    </p>
-                  </td>
+      {activeTab === 'bills' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Bill #</th>
+                  <th className="py-3 px-4">Vendor</th>
+                  <th className="py-3 px-4">Vendor Ref</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Due Date</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4 text-right">Balance Due</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
-              ) : (
-                filteredBills.map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                      {b.bill_number}
-                    </td>
-                    <td className="py-3 px-4 font-medium text-slate-800">
-                      {b.vendor_name || 'Vendor'}
-                    </td>
-                    <td className="py-3 px-4 text-xs font-mono text-slate-600">
-                      {b.vendor_invoice_ref || '—'}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {b.bill_date}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {b.due_date}
-                    </td>
-                    <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                      {currencySymbol}{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                      {Number(b.balance_amount) > 0 ? (
-                        <span className="text-amber-700">
-                          {currencySymbol}{Number(b.balance_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-700">Settled</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {getStatusBadge(b.status)}
-                    </td>
-                    <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
-                      {b.status === 'DRAFT' && (
-                        <button
-                          onClick={() => handlePostToLedger(b.id)}
-                          className="px-2.5 py-1 text-xs bg-[#260002] hover:bg-[#390003] text-[#EEC68B] font-medium rounded transition-colors"
-                          title="Post to General Ledger"
-                        >
-                          Post to GL
-                        </button>
-                      )}
-                      {Number(b.balance_amount) > 0 && b.status !== 'DRAFT' && (
-                        <button
-                          onClick={() => openPaymentModal(b)}
-                          className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded transition-colors"
-                          title="Disburse Payment"
-                        >
-                          Pay
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedBill(b);
-                          setShowDetailModal(true);
-                        }}
-                        className="p-1 text-slate-500 hover:text-slate-800 rounded hover:bg-slate-100"
-                        title="View Bill Details"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredBills.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-500">
+                      <FileSpreadsheet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No vendor bills found</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {searchTerm || statusFilter !== 'ALL'
+                          ? 'Try adjusting your search filters'
+                          : 'Record your first purchase bill by clicking "+ Enter Vendor Bill"'}
+                      </p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredBills.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                        {b.bill_number}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-slate-800">
+                        {b.vendor_name || 'Vendor'}
+                      </td>
+                      <td className="py-3 px-4 text-xs font-mono text-slate-600">
+                        {b.vendor_invoice_ref || '—'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {b.bill_date}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {b.due_date}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                        {currencySymbol}{Number(b.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                        {Number(b.balance_amount) > 0 ? (
+                          <span className="text-amber-700">
+                            {currencySymbol}{Number(b.balance_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700">Settled</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {getStatusBadge(b.status)}
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                        {b.status === 'DRAFT' && (
+                          <button
+                            onClick={() => handlePostToLedger(b.id)}
+                            className="px-2.5 py-1 text-xs bg-[#260002] hover:bg-[#390003] text-[#EEC68B] font-medium rounded transition-colors"
+                            title="Post to General Ledger"
+                          >
+                            Post to GL
+                          </button>
+                        )}
+                        {Number(b.balance_amount) > 0 && b.status !== 'DRAFT' && (
+                          <button
+                            onClick={() => openPaymentModal(b)}
+                            className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded transition-colors"
+                            title="Disburse Payment"
+                          >
+                            Pay
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedBill(b);
+                            setShowDetailModal(true);
+                          }}
+                          className="p-1 text-slate-500 hover:text-slate-800 rounded hover:bg-slate-100"
+                          title="View Bill Details"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Purchase Orders Table */}
+      {activeTab === 'orders' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">PO #</th>
+                  <th className="py-3 px-4">Vendor</th>
+                  <th className="py-3 px-4">Order Date</th>
+                  <th className="py-3 px-4">Delivery Date</th>
+                  <th className="py-3 px-4 text-right">Taxable</th>
+                  <th className="py-3 px-4 text-right">Total Amount</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {purchaseOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No purchase orders found</p>
+                      <p className="text-xs text-slate-400 mt-1">Purchase orders issued to vendors will appear here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  purchaseOrders.map((po) => (
+                    <tr key={po.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">{po.po_number}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{po.vendor_name || `Vendor #${po.vendor_id}`}</td>
+                      <td className="py-3 px-4 text-slate-600">{po.order_date}</td>
+                      <td className="py-3 px-4 text-slate-600">{po.delivery_date || '—'}</td>
+                      <td className="py-3 px-4 text-right font-mono">{currencySymbol}{Number(po.taxable_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{Number(po.total_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          po.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                          po.status === 'ISSUED' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                          'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}>
+                          {po.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {po.status !== 'CONVERTED' ? (
+                          <button
+                            onClick={() => handleConvertPoToBill(po.id)}
+                            className="px-3 py-1 text-xs bg-[#390003] hover:bg-[#55080E] text-[#EEC68B] font-bold rounded shadow-xs transition-colors"
+                          >
+                            Convert to Bill
+                          </button>
+                        ) : (
+                          <span className="text-xs text-emerald-700 font-semibold flex items-center justify-end space-x-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Converted</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Debit Notes Table */}
+      {activeTab === 'debit_notes' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Debit Note #</th>
+                  <th className="py-3 px-4">Vendor</th>
+                  <th className="py-3 px-4">Vendor Bill Ref</th>
+                  <th className="py-3 px-4">Note Date</th>
+                  <th className="py-3 px-4">Reason</th>
+                  <th className="py-3 px-4 text-right">Debit Adjustment</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {debitNotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <Scale className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No debit notes recorded</p>
+                      <p className="text-xs text-slate-400 mt-1">Debit notes issued against vendor bills or purchase returns will show here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  debitNotes.map((dn) => (
+                    <tr key={dn.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">{dn.note_number}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{dn.vendor_name || `Vendor #${dn.vendor_id}`}</td>
+                      <td className="py-3 px-4 font-mono text-xs text-slate-600">{dn.bill_number ? `#${dn.bill_number}` : '—'}</td>
+                      <td className="py-3 px-4 text-slate-600">{dn.note_date}</td>
+                      <td className="py-3 px-4 text-slate-700">{dn.reason}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-700">
+                        -{currencySymbol}{Number(dn.amount).toFixed(2)}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          POSTED TO AP
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ENTER VENDOR BILL MODAL */}
       {showCreateModal && (

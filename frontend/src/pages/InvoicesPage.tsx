@@ -16,7 +16,12 @@ import {
   RefreshCw,
   TrendingUp,
   Building2,
-  Calendar
+  Calendar,
+  Scale,
+  FolderKanban,
+  Check,
+  Sparkles,
+  ArrowUpRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -26,15 +31,33 @@ import {
   createInvoice, 
   postInvoiceToLedger, 
   recordCustomerPayment,
+  getEstimates,
+  createEstimate,
+  convertEstimateToInvoice,
+  getSalesOrders,
+  createSalesOrder,
+  getCreditNotes,
+  createCreditNote,
+  getRecurringInvoices,
+  createRecurringInvoice,
   Invoice, 
   Customer, 
   Product,
-  InvoiceCreateData
+  InvoiceCreateData,
+  Estimate,
+  SalesOrder,
+  CreditNote,
+  RecurringInvoice
 } from '../services/accountingApi';
 
 export const InvoicesPage: React.FC = () => {
   const { activeEntity } = useAuth();
+  const [activeTab, setActiveTab] = useState<'invoices' | 'estimates' | 'orders' | 'credit_notes' | 'recurring'>('invoices');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [recurringInvoices, setRecurringInvoices] = useState<RecurringInvoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -88,14 +111,22 @@ export const InvoicesPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [invData, custData, prodData] = await Promise.all([
+      const [invData, custData, prodData, estData, ordData, cnData, recData] = await Promise.all([
         getInvoices(activeEntity.id),
         getCustomers(activeEntity.id),
-        getProducts(activeEntity.id)
+        getProducts(activeEntity.id),
+        getEstimates(activeEntity.id).catch(() => []),
+        getSalesOrders(activeEntity.id).catch(() => []),
+        getCreditNotes(activeEntity.id).catch(() => []),
+        getRecurringInvoices(activeEntity.id).catch(() => [])
       ]);
-      setInvoices(invData);
-      setCustomers(custData);
-      setProducts(prodData);
+      setInvoices(invData || []);
+      setCustomers(custData || []);
+      setProducts(prodData || []);
+      setEstimates(estData || []);
+      setOrders(ordData || []);
+      setCreditNotes(cnData || []);
+      setRecurringInvoices(recData || []);
     } catch (err: any) {
       console.error('Failed to load sales data:', err);
       setError(err.message || 'Error loading sales invoices');
@@ -257,6 +288,22 @@ export const InvoicesPage: React.FC = () => {
     }
   };
 
+  const handleConvertEstimate = async (estId: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await convertEstimateToInvoice(estId);
+      setSuccessMsg('Estimate successfully converted to Tax Invoice!');
+      setTimeout(() => setSuccessMsg(null), 5000);
+      await fetchData();
+      setActiveTab('invoices');
+    } catch (err: any) {
+      setError(err.message || 'Failed to convert estimate');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const openPaymentModal = (inv: Invoice) => {
     setSelectedInvoice(inv);
     setPaymentAmount(inv.balance_amount.toString());
@@ -368,6 +415,69 @@ export const InvoicesPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Sales Lifecycle Tabs */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 overflow-x-auto pb-px">
+        <button
+          onClick={() => setActiveTab('invoices')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'invoices'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>Tax Invoices ({invoices.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('estimates')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'estimates'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Estimates & Quotes ({estimates.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'orders'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <FolderKanban className="w-4 h-4" />
+          <span>Sales Orders ({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('credit_notes')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'credit_notes'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Scale className="w-4 h-4" />
+          <span>Credit Notes ({creditNotes.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('recurring')}
+          className={`flex items-center space-x-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 ${
+            activeTab === 'recurring'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Recurring Profiles ({recurringInvoices.length})</span>
+        </button>
+      </div>
+
       {/* Alerts */}
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg flex items-center space-x-2">
@@ -450,101 +560,323 @@ export const InvoicesPage: React.FC = () => {
       </div>
 
       {/* Invoices Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <th className="py-3 px-4">Invoice #</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Due Date</th>
-                <th className="py-3 px-4 text-right">Amount</th>
-                <th className="py-3 px-4 text-right">Balance Due</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
-                    <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="font-medium text-slate-700">No invoices found</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {searchTerm || statusFilter !== 'ALL'
-                        ? 'Try adjusting your search filters'
-                        : 'Create your first invoice by clicking "+ New Tax Invoice"'}
-                    </p>
-                  </td>
+      {activeTab === 'invoices' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Invoice #</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Due Date</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4 text-right">Balance Due</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
-              ) : (
-                filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                      {inv.invoice_number}
-                    </td>
-                    <td className="py-3 px-4 font-medium text-slate-800">
-                      {inv.customer_name || 'Customer'}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {inv.invoice_date}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {inv.due_date}
-                    </td>
-                    <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                      {currencySymbol}{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                      {Number(inv.balance_amount) > 0 ? (
-                        <span className="text-amber-700">
-                          {currencySymbol}{Number(inv.balance_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-700">Settled</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {getStatusBadge(inv.status)}
-                    </td>
-                    <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
-                      {inv.status === 'DRAFT' && (
-                        <button
-                          onClick={() => handlePostToLedger(inv.id)}
-                          className="px-2.5 py-1 text-xs bg-[#260002] hover:bg-[#390003] text-[#EEC68B] font-medium rounded transition-colors"
-                          title="Post to General Ledger"
-                        >
-                          Post to GL
-                        </button>
-                      )}
-                      {Number(inv.balance_amount) > 0 && inv.status !== 'DRAFT' && (
-                        <button
-                          onClick={() => openPaymentModal(inv)}
-                          className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded transition-colors"
-                          title="Record Customer Payment"
-                        >
-                          Pay
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedInvoice(inv);
-                          setShowDetailModal(true);
-                        }}
-                        className="p-1 text-slate-500 hover:text-slate-800 rounded hover:bg-slate-100"
-                        title="View Invoice"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No invoices found</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {searchTerm || statusFilter !== 'ALL'
+                          ? 'Try adjusting your search filters'
+                          : 'Create your first invoice by clicking "+ New Tax Invoice"'}
+                      </p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredInvoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                        {inv.invoice_number}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-slate-800">
+                        {inv.customer_name || 'Customer'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {inv.invoice_date}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {inv.due_date}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                        {currencySymbol}{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                        {Number(inv.balance_amount) > 0 ? (
+                          <span className="text-amber-700">
+                            {currencySymbol}{Number(inv.balance_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700">Settled</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {getStatusBadge(inv.status)}
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
+                        {inv.status === 'DRAFT' && (
+                          <button
+                            onClick={() => handlePostToLedger(inv.id)}
+                            className="px-2.5 py-1 text-xs bg-[#260002] hover:bg-[#390003] text-[#EEC68B] font-medium rounded transition-colors"
+                            title="Post to General Ledger"
+                          >
+                            Post to GL
+                          </button>
+                        )}
+                        {Number(inv.balance_amount) > 0 && inv.status !== 'DRAFT' && (
+                          <button
+                            onClick={() => openPaymentModal(inv)}
+                            className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded transition-colors"
+                            title="Record Customer Payment"
+                          >
+                            Pay
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedInvoice(inv);
+                            setShowDetailModal(true);
+                          }}
+                          className="p-1 text-slate-500 hover:text-slate-800 rounded hover:bg-slate-100"
+                          title="View Invoice"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Estimates Table */}
+      {activeTab === 'estimates' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Estimate #</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Expiry Date</th>
+                  <th className="py-3 px-4 text-right">Taxable</th>
+                  <th className="py-3 px-4 text-right">Total Amount</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {estimates.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No estimates found</p>
+                      <p className="text-xs text-slate-400 mt-1">Quotations created for customers will appear here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  estimates.map((est) => (
+                    <tr key={est.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">{est.estimate_number}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{est.customer_name || `Customer #${est.customer_id}`}</td>
+                      <td className="py-3 px-4 text-slate-600">{est.estimate_date}</td>
+                      <td className="py-3 px-4 text-slate-600">{est.expiry_date}</td>
+                      <td className="py-3 px-4 text-right font-mono">{currencySymbol}{Number(est.taxable_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{Number(est.total_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          est.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                          est.status === 'ACCEPTED' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                          'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}>
+                          {est.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {est.status !== 'CONVERTED' ? (
+                          <button
+                            onClick={() => handleConvertEstimate(est.id)}
+                            className="px-3 py-1 text-xs bg-[#390003] hover:bg-[#55080E] text-[#EEC68B] font-bold rounded shadow-xs transition-colors"
+                          >
+                            Convert to Invoice
+                          </button>
+                        ) : (
+                          <span className="text-xs text-emerald-700 font-semibold flex items-center justify-end space-x-1">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Converted</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sales Orders Table */}
+      {activeTab === 'orders' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Order #</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Order Date</th>
+                  <th className="py-3 px-4">Delivery Date</th>
+                  <th className="py-3 px-4 text-right">Taxable</th>
+                  <th className="py-3 px-4 text-right">Total Amount</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <FolderKanban className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No sales orders found</p>
+                      <p className="text-xs text-slate-400 mt-1">Confirmed customer orders will appear here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((so) => (
+                    <tr key={so.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">{so.so_number}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{so.customer_name || `Customer #${so.customer_id}`}</td>
+                      <td className="py-3 px-4 text-slate-600">{so.order_date}</td>
+                      <td className="py-3 px-4 text-slate-600">{so.delivery_date || '—'}</td>
+                      <td className="py-3 px-4 text-right font-mono">{currencySymbol}{Number(so.taxable_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{Number(so.total_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                          {so.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Credit Notes Table */}
+      {activeTab === 'credit_notes' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Credit Note #</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Reason / Notes</th>
+                  <th className="py-3 px-4 text-right">Subtotal</th>
+                  <th className="py-3 px-4 text-right">Tax Adjustment</th>
+                  <th className="py-3 px-4 text-right">Total Credit</th>
+                  <th className="py-3 px-4 text-center">GL Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {creditNotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <Scale className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No credit notes found</p>
+                      <p className="text-xs text-slate-400 mt-1">Customer returns and allowances will appear here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  creditNotes.map((cn) => (
+                    <tr key={cn.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">{cn.credit_note_number}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{cn.customer_name || `Customer #${cn.customer_id}`}</td>
+                      <td className="py-3 px-4 text-slate-600">{cn.credit_note_date}</td>
+                      <td className="py-3 px-4 text-slate-600">{cn.reason}</td>
+                      <td className="py-3 px-4 text-right font-mono">{currencySymbol}{Number(cn.subtotal).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-rose-700 font-semibold">{currencySymbol}{Number(cn.tax_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{Number(cn.total_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          POSTED TO GL
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Recurring Invoices Table */}
+      {activeTab === 'recurring' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Profile Name</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Frequency</th>
+                  <th className="py-3 px-4">Start Date</th>
+                  <th className="py-3 px-4">Next Run Date</th>
+                  <th className="py-3 px-4 text-right">Amount / Cycle</th>
+                  <th className="py-3 px-4 text-center">Auto-Send</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {recurringInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700">No recurring invoice profiles</p>
+                      <p className="text-xs text-slate-400 mt-1">Automated recurring subscription schedules will appear here</p>
+                    </td>
+                  </tr>
+                ) : (
+                  recurringInvoices.map((rec) => (
+                    <tr key={rec.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-semibold text-slate-900">{rec.profile_name}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800">{rec.customer_name || `Customer #${rec.customer_id}`}</td>
+                      <td className="py-3 px-4 text-slate-600 font-mono text-xs">{rec.frequency}</td>
+                      <td className="py-3 px-4 text-slate-600">{rec.start_date}</td>
+                      <td className="py-3 px-4 text-slate-900 font-bold">{rec.next_run_date}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{Number(rec.total_amount).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${rec.auto_send ? 'bg-blue-100 text-blue-800' : 'bg-stone-100 text-stone-600'}`}>
+                          {rec.auto_send ? 'Enabled' : 'Draft Only'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* CREATE INVOICE MODAL */}
       {showCreateModal && (

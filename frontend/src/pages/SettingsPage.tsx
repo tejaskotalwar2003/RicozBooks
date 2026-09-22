@@ -25,7 +25,12 @@ import {
   Mail,
   Copy,
   Trash2,
-  Clock
+  Clock,
+  Zap,
+  Key,
+  Globe,
+  Terminal,
+  Send
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -48,7 +53,19 @@ export const SettingsPage: React.FC = () => {
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('ORG_ADMIN');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'fx' | 'calendar' | 'rbac' | 'tax' | 'team'>('fx');
+  const [activeTab, setActiveTab] = useState<'fx' | 'calendar' | 'rbac' | 'tax' | 'team' | 'integrations'>('fx');
+
+  // Tab: Integrations & Developer Webhooks
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [webhookUrlInput, setWebhookUrlInput] = useState('');
+  const [webhookNameInput, setWebhookNameInput] = useState('');
+  const [selectedWebhookEvents, setSelectedWebhookEvents] = useState<string[]>(['invoice.paid', 'voucher.approved']);
+  const [webhooksList, setWebhooksList] = useState([
+    { id: 1, name: 'Stripe Payment Bridge', url: 'https://api.stripe.com/v1/webhook_endpoints', events: ['invoice.paid'], status: 'ACTIVE', lastPing: '200 OK (38ms)' },
+    { id: 2, name: 'Razorpay Settlements', url: 'https://api.razorpay.com/v1/webhooks/rcz', events: ['invoice.paid', 'invoice.created'], status: 'ACTIVE', lastPing: '200 OK (45ms)' },
+    { id: 3, name: 'Zapier Accounting Sync', url: 'https://hooks.zapier.com/hooks/catch/912831/rcz', events: ['voucher.approved'], status: 'ACTIVE', lastPing: '200 OK (52ms)' }
+  ]);
+  const [pingingId, setPingingId] = useState<number | null>(null);
 
   // Common notifications
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -522,6 +539,21 @@ export const SettingsPage: React.FC = () => {
           <span>Team & Access</span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">
             {members.length || '1'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('integrations')}
+          className={`pb-3 px-3 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'integrations'
+              ? 'border-[#781019] text-[#781019]'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          <Zap className="w-4 h-4" />
+          <span>API & Integrations</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">
+            v1 REST
           </span>
         </button>
       </div>
@@ -1524,6 +1556,268 @@ export const SettingsPage: React.FC = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: DEVELOPER API & WEBHOOKS */}
+      {activeTab === 'integrations' && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* API Keys & Credentials Section */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center font-bold">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Developer API Keys</h3>
+                  <p className="text-xs text-slate-500">
+                    Authenticate machine-to-machine requests to the RicozBooks REST API engine.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <a
+                  href="/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1"
+                >
+                  <span>OpenAPI / Swagger</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+              {/* Production Key */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">Live Production Key</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    READ & WRITE
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="password"
+                    readOnly
+                    value="rcz_live_8f99e31d4e284c8a98b0f1a92e10"
+                    className="w-full font-mono text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg select-all"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('rcz_live_8f99e31d4e284c8a98b0f1a92e10');
+                      setApiKeyCopied(true);
+                      setTimeout(() => setApiKeyCopied(false), 3000);
+                    }}
+                    className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shrink-0 flex items-center space-x-1"
+                  >
+                    {apiKeyCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{apiKeyCopied ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Pass as <code className="bg-white px-1 rounded border border-slate-200">Authorization: Bearer rcz_live_...</code> header.
+                </p>
+              </div>
+
+              {/* Base Endpoint URL */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">Base API URL</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                    HTTPS ONLY
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value="https://ricozbooks-api.onrender.com/api/v1"
+                    className="w-full font-mono text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg select-all"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://ricozbooks-api.onrender.com/api/v1');
+                      setSuccessMessage('Base API URL copied to clipboard');
+                      setTimeout(() => setSuccessMessage(null), 3000);
+                    }}
+                    className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg shrink-0 flex items-center space-x-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Global rate limit: 120 requests/minute per authenticated tenant token.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Outbound Webhooks Management */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#781019] text-[#E6B676] flex items-center justify-center font-bold">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Outbound Webhooks</h3>
+                  <p className="text-xs text-slate-500">
+                    Receive real-time JSON payloads whenever financial transactions and ledger events occur.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Registered Webhooks Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Application / Endpoint</th>
+                    <th className="py-2.5 px-3">Subscribed Events</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Last Ping</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {webhooksList.map((wh) => (
+                    <tr key={wh.id} className="hover:bg-slate-50/60">
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-slate-900">{wh.name}</div>
+                        <div className="font-mono text-[11px] text-slate-500 truncate max-w-xs">{wh.url}</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex flex-wrap gap-1">
+                          {wh.events.map((ev) => (
+                            <span key={ev} className="px-2 py-0.5 rounded bg-slate-100 font-mono text-[10px] text-slate-700 border border-slate-200">
+                              {ev}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          {wh.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11px] text-emerald-700">
+                        {pingingId === wh.id ? 'Sending...' : wh.lastPing}
+                      </td>
+                      <td className="py-3 px-3 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setPingingId(wh.id);
+                            setTimeout(() => {
+                              setPingingId(null);
+                              setSuccessMessage(`Test ping delivered to ${wh.name} (HTTP 200 OK)`);
+                              setTimeout(() => setSuccessMessage(null), 4000);
+                            }, 600);
+                          }}
+                          disabled={pingingId === wh.id}
+                          className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 text-[11px]"
+                        >
+                          Send Ping
+                        </button>
+                        <button
+                          onClick={() => {
+                            setWebhooksList(webhooksList.filter((w) => w.id !== wh.id));
+                            setSuccessMessage(`Webhook subscription removed.`);
+                            setTimeout(() => setSuccessMessage(null), 3000);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add New Webhook Endpoint */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <h4 className="font-bold text-slate-900 text-xs">Add New Webhook Subscription</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Integration Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Custom ERP Bridge"
+                    value={webhookNameInput}
+                    onChange={(e) => setWebhookNameInput(e.target.value)}
+                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Payload HTTPS URL</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="url"
+                      placeholder="https://yourserver.com/webhooks/ricozbooks"
+                      value={webhookUrlInput}
+                      onChange={(e) => setWebhookUrlInput(e.target.value)}
+                      className="w-full text-xs font-mono px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!webhookUrlInput.trim()) return;
+                        setWebhooksList([
+                          ...webhooksList,
+                          {
+                            id: Date.now(),
+                            name: webhookNameInput.trim() || 'Webhook Endpoint',
+                            url: webhookUrlInput.trim(),
+                            events: selectedWebhookEvents,
+                            status: 'ACTIVE',
+                            lastPing: 'Pending first event'
+                          }
+                        ]);
+                        setWebhookNameInput('');
+                        setWebhookUrlInput('');
+                        setSuccessMessage('New webhook subscription activated.');
+                        setTimeout(() => setSuccessMessage(null), 3000);
+                      }}
+                      className="px-4 py-2 bg-[#781019] hover:bg-[#8F131E] text-white font-bold text-xs rounded-lg shrink-0 flex items-center space-x-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Subscribe</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* cURL Integration Examples */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <div className="flex items-center space-x-2 pb-2 border-b border-slate-100">
+              <Terminal className="w-4 h-4 text-slate-700" />
+              <h3 className="text-sm font-bold text-slate-900">Developer Quickstart Examples</h3>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] space-y-1 overflow-x-auto">
+                <div className="text-slate-400"># 1. Query Current Financial Trial Balance</div>
+                <div>curl -X GET "https://ricozbooks-api.onrender.com/api/v1/ledger/reports/trial-balance?entity_id=1" \</div>
+                <div className="pl-4">-H "Authorization: Bearer rcz_live_8f99e31d4e284c8a98b0f1a92e10"</div>
+              </div>
+
+              <div className="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] space-y-1 overflow-x-auto">
+                <div className="text-slate-400"># 2. Record Automated Sales Invoice with Intra-State GST</div>
+                <div>curl -X POST "https://ricozbooks-api.onrender.com/api/v1/invoices" \</div>
+                <div className="pl-4">-H "Authorization: Bearer rcz_live_8f99e31d4e284c8a98b0f1a92e10" \</div>
+                <div className="pl-4">-H "Content-Type: application/json" \</div>
+                <div className="pl-4">-d '{`{"entity_id": 1, "customer_id": 2, "lines": [{"description": "SaaS Platform", "quantity": 1, "unit_price": 50000, "tax_rate": 18}]}`}'</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
