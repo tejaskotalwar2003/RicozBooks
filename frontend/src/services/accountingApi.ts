@@ -2395,6 +2395,192 @@ export const upgradeSubscription = async (data: {
   });
 };
 
+// ==========================================
+// EXTENDED SALES & PURCHASES HELPERS
+// ==========================================
+export interface SalesOrderLine {
+  id: number;
+  product_id?: number;
+  description: string;
+  hsn_sac?: string;
+  quantity: number;
+  unit_price: number;
+  discount_pct?: number;
+  taxable_amount: number;
+  tax_rate: number;
+  total_amount: number;
+}
+
+export interface SalesOrder {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  so_number: string;
+  order_date: string;
+  delivery_date?: string;
+  status: string;
+  subtotal: number;
+  discount_amount: number;
+  taxable_amount: number;
+  total_tax: number;
+  total_amount: number;
+  converted_invoice_id?: number;
+  notes?: string;
+  created_at: string;
+  lines?: SalesOrderLine[];
+}
+
+export interface CreditNote {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  invoice_id?: number;
+  credit_note_number: string;
+  credit_note_date: string;
+  status: string;
+  reason: string;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  journal_entry_id?: number;
+  created_at: string;
+}
+
+export interface RecurringInvoice {
+  id: number;
+  entity_id: number;
+  customer_id: number;
+  customer_name?: string;
+  profile_name: string;
+  frequency: string;
+  start_date: string;
+  end_date?: string;
+  next_run_date: string;
+  last_run_date?: string;
+  auto_send: boolean;
+  is_active: boolean;
+  total_amount: number;
+  line_items_json?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface PurchaseOrderLine {
+  id: number;
+  product_id?: number;
+  description: string;
+  hsn_sac?: string;
+  quantity: number;
+  unit?: string;
+  unit_price: number;
+  discount_pct?: number;
+  taxable_amount: number;
+  tax_rate: number;
+  total_amount: number;
+}
+
+export interface PurchaseOrder {
+  id: number;
+  entity_id: number;
+  vendor_id: number;
+  vendor_name?: string;
+  po_number: string;
+  order_date: string;
+  delivery_date?: string;
+  status: string;
+  subtotal: number;
+  taxable_amount: number;
+  total_tax: number;
+  total_amount: number;
+  converted_bill_id?: number;
+  notes?: string;
+  terms?: string;
+  created_at: string;
+  lines?: PurchaseOrderLine[];
+}
+
+export interface DebitNote {
+  id: number;
+  entity_id: number;
+  vendor_id: number;
+  vendor_name?: string;
+  bill_id?: number;
+  bill_number?: string;
+  note_number: string;
+  note_date: string;
+  amount: number;
+  reason: string;
+  created_at: string;
+}
+
+export const getSalesOrders = async (entityId?: number): Promise<SalesOrder[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<SalesOrder[]>(`/orders${q}`);
+};
+
+export const createSalesOrder = async (data: any): Promise<SalesOrder> => {
+  return apiRequest<SalesOrder>('/orders', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getCreditNotes = async (entityId?: number): Promise<CreditNote[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<CreditNote[]>(`/credit-notes${q}`);
+};
+
+export const createCreditNote = async (data: any): Promise<CreditNote> => {
+  return apiRequest<CreditNote>('/credit-notes', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getRecurringInvoices = async (entityId?: number): Promise<RecurringInvoice[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<RecurringInvoice[]>(`/recurring${q}`);
+};
+
+export const createRecurringInvoice = async (data: any): Promise<RecurringInvoice> => {
+  return apiRequest<RecurringInvoice>('/recurring', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const getPurchaseOrders = async (entityId?: number): Promise<PurchaseOrder[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<PurchaseOrder[]>(`/purchase-orders${q}`);
+};
+
+export const createPurchaseOrder = async (data: any): Promise<PurchaseOrder> => {
+  return apiRequest<PurchaseOrder>('/purchase-orders', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
+export const convertPoToBill = async (poId: number): Promise<Bill> => {
+  return apiRequest<Bill>(`/purchase-orders/${poId}/convert-to-bill`, {
+    method: 'POST'
+  });
+};
+
+export const getDebitNotes = async (entityId?: number): Promise<DebitNote[]> => {
+  const q = entityId ? `?entity_id=${entityId}` : '';
+  return apiRequest<DebitNote[]>(`/debit-notes${q}`);
+};
+
+export const createDebitNote = async (data: any): Promise<DebitNote> => {
+  return apiRequest<DebitNote>('/debit-notes', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+};
+
 
 
 
