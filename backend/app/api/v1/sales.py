@@ -1,8 +1,8 @@
+import uuid
 from typing import List, Optional
-from datetime import date, datetime
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 
@@ -26,7 +26,8 @@ from app.schemas.sales import (
     EstimateCreate, EstimateResponse, EstimateLineResponse,
     SalesOrderCreate, SalesOrderResponse,
     CreditNoteCreate, CreditNoteResponse,
-    RecurringInvoiceCreate, RecurringInvoiceResponse
+    RecurringInvoiceCreate, RecurringInvoiceResponse,
+    PublicInvoiceResponse, PublicInvoicePaymentRequest, PublicInvoicePaymentResponse
 )
 from app.services.sales_engine import (
     quantize_amount, generate_invoice_number, generate_payment_number, 
@@ -481,6 +482,7 @@ def create_invoice(
         currency=inv_in.currency or entity.base_currency,
         notes=inv_in.notes,
         terms=inv_in.terms,
+        payment_token=uuid.uuid4().hex,
         created_by_id=current_user.id,
         lines=lines
     )
@@ -1162,4 +1164,195 @@ def create_recurring_invoice(
     res = RecurringInvoiceResponse.model_validate(rec, from_attributes=True)
     res.customer_name = customer.name
     return res
+
+# =========================================================================
+# 8. PAYMENT GATEWAY & INBOUND INVOICE COLLECTION
+# =========================================================================
+@router.get("/invoices/{id}/payment-link")
+def get_invoice_payment_link(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    invoice = db.query(Invoice).filter(Invoice.id == id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    verify_entity_access(invoice.entity_id, current_user, db)
+
+    if not invoice.payment_token:
+        invoice.payment_token = uuid.uuid4().hex
+        db.commit()
+        db.refresh(invoice)
+
+    entity = db.query(Entity).filter(Entity.id == invoice.entity_id).first()
+    upi_id = entity.upi_id if entity else None
+    
+    # UPI standard deep-link URI
+    upi_uri = None
+    if upi_id:
+        import urllib.parse
+        entity_encoded = urllib.parse.quote(entity.name or "RicozBooks")
+        inv_encoded = urllib.parse.quote(f"Invoice {invoice.invoice_number}")
+        upi_uri = f"upi://pay?pa={upi_id}&pn={entity_encoded}&am={invoice.balance_amount}&cu=INR&tn={inv_encoded}"
+
+    return {
+        "invoice_id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "payment_token": invoice.payment_token,
+        "payment_link": f"/pay/{invoice.payment_token}",
+        "balance_amount": invoice.balance_amount,
+        "currency": invoice.currency,
+        "upi_id": upi_id,
+        "upi_uri": upi_uri,
+        "status": invoice.status
+    }
+
+@router.get("/public/invoices/{token}", response_model=PublicInvoiceResponse)
+def get_public_invoice(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    invoice = db.query(Invoice).options(
+        joinedload(Invoice.entity),
+        joinedload(Invoice.customer),
+        joinedload(Invoice.lines)
+    ).filter(Invoice.payment_token == token).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found or link has expired")
+
+    lines_res = [InvoiceLineResponse.model_validate(line, from_attributes=True) for line in invoice.lines]
+
+    return PublicInvoiceResponse(
+        id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        payment_token=invoice.payment_token,
+        invoice_date=invoice.invoice_date,
+        due_date=invoice.due_date,
+        status=invoice.status,
+        subtotal=invoice.subtotal,
+        taxable_amount=invoice.taxable_amount,
+        cgst_amount=invoice.cgst_amount,
+        sgst_amount=invoice.sgst_amount,
+        igst_amount=invoice.igst_amount,
+        total_tax=invoice.total_tax,
+        total_amount=invoice.total_amount,
+        paid_amount=invoice.paid_amount,
+        balance_amount=invoice.balance_amount,
+        currency=invoice.currency,
+        notes=invoice.notes,
+        terms=invoice.terms,
+        entity_name=invoice.entity.name if invoice.entity else "Organization",
+        entity_legal_name=invoice.entity.legal_name if invoice.entity else None,
+        entity_gstin=invoice.entity.gstin if invoice.entity else None,
+        entity_address=invoice.entity.address if invoice.entity else None,
+        entity_upi_id=invoice.entity.upi_id if invoice.entity else None,
+        razorpay_key_id=invoice.entity.razorpay_key_id if invoice.entity else None,
+        payment_gateway_active=invoice.entity.payment_gateway_active if invoice.entity else True,
+        customer_name=invoice.customer.name if invoice.customer else "Valued Client",
+        customer_email=invoice.customer.email if invoice.customer else None,
+        customer_phone=invoice.customer.phone if invoice.customer else None,
+        lines=lines_res
+    )
+
+@router.post("/public/invoices/{token}/pay", response_model=PublicInvoicePaymentResponse)
+def pay_public_invoice(
+    token: str,
+    pay_req: PublicInvoicePaymentRequest,
+    db: Session = Depends(get_db)
+):
+    invoice = db.query(Invoice).options(
+        joinedload(Invoice.entity),
+        joinedload(Invoice.customer)
+    ).filter(Invoice.payment_token == token).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found or link has expired")
+
+    if invoice.status == InvoiceStatus.PAID.value or invoice.balance_amount <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Invoice is already fully paid.")
+
+    pay_amount = quantize_amount(pay_req.amount)
+    if pay_amount <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
+    if pay_amount > invoice.balance_amount:
+        raise HTTPException(status_code=400, detail=f"Payment amount cannot exceed remaining balance of {invoice.balance_amount}")
+
+    deposit_acc = get_or_create_account(
+        db, invoice.entity_id, "1100", "Bank Accounts / Online Gateway", 
+        AccountType.ASSET, NormalBalance.DEBIT, invoice.currency
+    )
+
+    pay_no = generate_payment_number(db, invoice.entity_id)
+    ref_no = pay_req.gateway_payment_id or pay_req.reference_number or f"GATEWAY-{uuid.uuid4().hex[:8].upper()}"
+
+    payment = CustomerPayment(
+        entity_id=invoice.entity_id,
+        customer_id=invoice.customer_id,
+        invoice_id=invoice.id,
+        payment_number=pay_no,
+        payment_date=date.today(),
+        amount=pay_amount,
+        payment_mode=pay_req.payment_mode or "UPI",
+        deposit_account_id=deposit_acc.id,
+        reference_number=ref_no,
+        notes=f"Inbound online settlement via {pay_req.payment_mode}. Payer: {pay_req.payer_name or 'Online Portal'}"
+    )
+    db.add(payment)
+    db.flush()
+
+    record_customer_payment_transaction(db, payment, current_user=None)
+
+    db.refresh(invoice)
+    return PublicInvoicePaymentResponse(
+        success=True,
+        message=f"Payment of {invoice.currency} {pay_amount} successfully processed and settled!",
+        payment_id=payment.id,
+        invoice_number=invoice.invoice_number,
+        amount_paid=pay_amount,
+        remaining_balance=invoice.balance_amount,
+        status=invoice.status,
+        transaction_reference=ref_no
+    )
+
+@router.post("/payments/webhook")
+async def payment_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    payload = await request.json()
+    event = payload.get("event", "payment.captured")
+    payment_data = payload.get("payload", {}).get("payment", {}).get("entity", payload)
+    
+    notes = payment_data.get("notes", {})
+    payment_token = notes.get("payment_token")
+    
+    if payment_token:
+        invoice = db.query(Invoice).filter(Invoice.payment_token == payment_token).first()
+        if invoice and invoice.balance_amount > 0:
+            amount_in_rupees = Decimal(str(payment_data.get("amount", 0))) / Decimal("100.0") if "amount" in payment_data else invoice.balance_amount
+            pay_amt = min(quantize_amount(amount_in_rupees), invoice.balance_amount)
+            if pay_amt > 0:
+                deposit_acc = get_or_create_account(
+                    db, invoice.entity_id, "1100", "Bank Accounts / Online Gateway", 
+                    AccountType.ASSET, NormalBalance.DEBIT, invoice.currency
+                )
+                payment = CustomerPayment(
+                    entity_id=invoice.entity_id,
+                    customer_id=invoice.customer_id,
+                    invoice_id=invoice.id,
+                    payment_number=generate_payment_number(db, invoice.entity_id),
+                    payment_date=date.today(),
+                    amount=pay_amt,
+                    payment_mode="GATEWAY_WEBHOOK",
+                    deposit_account_id=deposit_acc.id,
+                    reference_number=payment_data.get("id", f"WH-{uuid.uuid4().hex[:8].upper()}"),
+                    notes=f"Webhook event: {event}"
+                )
+                db.add(payment)
+                db.flush()
+                record_customer_payment_transaction(db, payment, current_user=None)
+    
+    return {"status": "ok", "event": event}
+
 

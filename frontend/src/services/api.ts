@@ -60,6 +60,9 @@ export interface Entity {
   financial_year?: string;
   base_currency: string;
   is_active: boolean;
+  upi_id?: string;
+  razorpay_key_id?: string;
+  payment_gateway_active?: boolean;
 }
 
 export interface Company {
@@ -111,7 +114,9 @@ export async function apiRequest<T>(
     if (
       !window.location.pathname.includes('/login') &&
       !window.location.pathname.includes('/invite') &&
-      !window.location.pathname.includes('/register')
+      !window.location.pathname.includes('/register') &&
+      !window.location.pathname.includes('/pay') &&
+      !window.location.pathname.includes('/portal')
     ) {
       window.location.href = '/login';
     }
@@ -136,6 +141,12 @@ export const api = {
   getMe: () => apiRequest<UserAuthSummary>('/auth/me'),
 
   getEntities: () => apiRequest<Entity[]>('/entities'),
+
+  updateEntity: (entityId: number, data: Partial<Entity>) =>
+    apiRequest<Entity>(`/entities/${entityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   
   getCompanies: () => apiRequest<Company[]>('/companies'),
 

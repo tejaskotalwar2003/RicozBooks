@@ -1149,8 +1149,63 @@ export interface Invoice {
   notes?: string;
   terms?: string;
   journal_entry_id?: number;
+  payment_token?: string;
   created_at: string;
   lines?: InvoiceLine[];
+}
+
+export interface PublicInvoiceResponse {
+  id: number;
+  invoice_number: string;
+  payment_token: string;
+  invoice_date: string;
+  due_date: string;
+  status: string;
+  subtotal: number;
+  taxable_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_tax: number;
+  total_amount: number;
+  paid_amount: number;
+  balance_amount: number;
+  currency: string;
+  notes?: string;
+  terms?: string;
+  entity_name: string;
+  entity_legal_name?: string;
+  entity_gstin?: string;
+  entity_address?: string;
+  entity_upi_id?: string;
+  razorpay_key_id?: string;
+  payment_gateway_active: boolean;
+  customer_name: string;
+  customer_email?: string;
+  customer_phone?: string;
+  lines: InvoiceLine[];
+}
+
+export interface PublicInvoicePaymentRequest {
+  amount: number;
+  payment_mode: string;
+  reference_number?: string;
+  gateway_order_id?: string;
+  gateway_payment_id?: string;
+  gateway_signature?: string;
+  payer_name?: string;
+  payer_email?: string;
+}
+
+export interface PublicInvoicePaymentResponse {
+  success: boolean;
+  message: string;
+  payment_id: number;
+  invoice_number: string;
+  amount_paid: number;
+  remaining_balance: number;
+  status: string;
+  transaction_reference?: string;
 }
 
 export interface InvoiceCreateData {
@@ -1313,6 +1368,31 @@ export const createInvoice = async (data: InvoiceCreateData): Promise<Invoice> =
 export const postInvoiceToLedger = async (id: number): Promise<Invoice> => {
   return apiRequest<Invoice>(`/invoices/${id}/post`, {
     method: 'POST'
+  });
+};
+
+export const getInvoicePaymentLink = async (invoiceId: number): Promise<{
+  invoice_id: number;
+  invoice_number: string;
+  payment_token: string;
+  payment_link: string;
+  balance_amount: number;
+  currency: string;
+  upi_id?: string;
+  upi_uri?: string;
+  status: string;
+}> => {
+  return apiRequest(`/invoices/${invoiceId}/payment-link`);
+};
+
+export const getPublicInvoice = async (token: string): Promise<PublicInvoiceResponse> => {
+  return apiRequest<PublicInvoiceResponse>(`/public/invoices/${token}`);
+};
+
+export const payPublicInvoice = async (token: string, data: PublicInvoicePaymentRequest): Promise<PublicInvoicePaymentResponse> => {
+  return apiRequest<PublicInvoicePaymentResponse>(`/public/invoices/${token}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 };
 

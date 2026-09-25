@@ -27,6 +27,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { GstCenterPage } from './pages/GstCenterPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { PublicInvoicePage } from './pages/PublicInvoicePage';
 
 export const App: React.FC = () => {
   return (
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<CompanyRegistrationPage />} />
           <Route path="/invite/:token" element={<AcceptInvitationPage />} />
+          <Route path="/pay/:token" element={<PublicInvoicePage />} />
+          <Route path="/portal/invoice/:token" element={<PublicInvoicePage />} />
 
           {/* Authenticated Application Workspace Routes (Protected by AppShell) */}
           <Route element={<AppShell />}>

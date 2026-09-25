@@ -91,7 +91,7 @@ def generate_gstr1_report(db: Session, entity_id: int, return_period: str) -> GS
                 invoice_type="Regular",
                 total_invoice_value=quantize_amount(inv.total_amount),
                 taxable_value=quantize_amount(inv.subtotal),
-                tax_rate=quantize_amount(inv.tax_rate),
+                tax_rate=quantize_amount(inv.lines[0].tax_rate if inv.lines else Decimal("18.00")),
                 igst_amount=quantize_amount(inv.igst_amount),
                 cgst_amount=quantize_amount(inv.cgst_amount),
                 sgst_amount=quantize_amount(inv.sgst_amount)
@@ -120,7 +120,7 @@ def generate_gstr1_report(db: Session, entity_id: int, return_period: str) -> GS
                 }
             hsn_dict[hsn_code]["qty"] += Decimal(str(line.quantity))
             hsn_dict[hsn_code]["total_val"] += quantize_amount(line.total_amount)
-            hsn_dict[hsn_code]["taxable_val"] += quantize_amount(line.amount)
+            hsn_dict[hsn_code]["taxable_val"] += quantize_amount(line.taxable_amount)
             hsn_dict[hsn_code]["igst"] += quantize_amount(line.igst_amount)
             hsn_dict[hsn_code]["cgst"] += quantize_amount(line.cgst_amount)
             hsn_dict[hsn_code]["sgst"] += quantize_amount(line.sgst_amount)

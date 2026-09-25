@@ -191,6 +191,7 @@ class InvoiceResponse(BaseModel):
     journal_entry_id: Optional[int] = None
     notes: Optional[str] = None
     terms: Optional[str] = None
+    payment_token: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -199,6 +200,65 @@ class InvoiceResponse(BaseModel):
 
 class InvoiceDetailResponse(InvoiceResponse):
     lines: List[InvoiceLineResponse] = []
+
+class PublicInvoiceResponse(BaseModel):
+    id: int
+    invoice_number: str
+    payment_token: str
+    invoice_date: date
+    due_date: date
+    status: str
+    subtotal: Decimal
+    taxable_amount: Decimal
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+    total_tax: Decimal
+    total_amount: Decimal
+    paid_amount: Decimal
+    balance_amount: Decimal
+    currency: str
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    
+    # Entity details
+    entity_name: str
+    entity_legal_name: Optional[str] = None
+    entity_gstin: Optional[str] = None
+    entity_address: Optional[str] = None
+    entity_upi_id: Optional[str] = None
+    razorpay_key_id: Optional[str] = None
+    payment_gateway_active: bool = True
+    
+    # Customer details
+    customer_name: str
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    
+    lines: List[InvoiceLineResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class PublicInvoicePaymentRequest(BaseModel):
+    amount: Decimal = Field(..., gt=Decimal("0.00"))
+    payment_mode: str = "UPI"  # UPI, CARD, NETBANKING
+    reference_number: Optional[str] = None
+    gateway_order_id: Optional[str] = None
+    gateway_payment_id: Optional[str] = None
+    gateway_signature: Optional[str] = None
+    payer_name: Optional[str] = None
+    payer_email: Optional[str] = None
+
+class PublicInvoicePaymentResponse(BaseModel):
+    success: bool
+    message: str
+    payment_id: int
+    invoice_number: str
+    amount_paid: Decimal
+    remaining_balance: Decimal
+    status: str
+    transaction_reference: Optional[str] = None
 
 # =========================================================================
 # 4. CUSTOMER PAYMENT SCHEMAS

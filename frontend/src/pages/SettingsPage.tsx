@@ -30,9 +30,11 @@ import {
   Key,
   Globe,
   Terminal,
-  Send
+  Send,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import { 
   accountingApi, 
   ExchangeRate, 
@@ -128,12 +130,41 @@ export const SettingsPage: React.FC = () => {
   const [copiedInviteId, setCopiedInviteId] = useState<number | null>(null);
   const [newlyCreatedInviteUrl, setNewlyCreatedInviteUrl] = useState<string | null>(null);
 
+  // Tab 6: Payment Gateway & Inbound UPI Collection State
+  const [gatewayUpiId, setGatewayUpiId] = useState(activeEntity?.upi_id || '');
+  const [gatewayRazorpayKey, setGatewayRazorpayKey] = useState(activeEntity?.razorpay_key_id || '');
+  const [gatewayActive, setGatewayActive] = useState(activeEntity?.payment_gateway_active ?? true);
+  const [savingGateway, setSavingGateway] = useState(false);
+
   // Sync active entity if changed
   useEffect(() => {
     if (activeEntity?.id) {
       setSelectedEntityId(activeEntity.id);
+      setGatewayUpiId(activeEntity.upi_id || '');
+      setGatewayRazorpayKey(activeEntity.razorpay_key_id || '');
+      setGatewayActive(activeEntity.payment_gateway_active ?? true);
     }
   }, [activeEntity]);
+
+  const handleSavePaymentGateway = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEntity?.id) return;
+    setSavingGateway(true);
+    try {
+      await api.updateEntity(activeEntity.id, {
+        upi_id: gatewayUpiId.trim() || undefined,
+        razorpay_key_id: gatewayRazorpayKey.trim() || undefined,
+        payment_gateway_active: gatewayActive
+      });
+      setSuccessMessage('Payment gateway & UPI configuration updated successfully.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update payment gateway');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setSavingGateway(false);
+    }
+  };
 
   // Load data according to tab
   useEffect(() => {
@@ -1818,6 +1849,77 @@ export const SettingsPage: React.FC = () => {
                 <div className="pl-4">-d '{`{"entity_id": 1, "customer_id": 2, "lines": [{"description": "SaaS Platform", "quantity": 1, "unit_price": 50000, "tax_rate": 18}]}`}'</div>
               </div>
             </div>
+          </div>
+
+          {/* Payment Gateways & Inbound UPI Collection */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+            <div className="flex items-center space-x-2 pb-2 border-b border-slate-100">
+              <CreditCard className="w-4 h-4 text-slate-700" />
+              <h3 className="text-sm font-bold text-slate-900">Payment Gateways & Inbound UPI Collection</h3>
+            </div>
+            <p className="text-xs text-slate-600">
+              Configure your organization's UPI Virtual Payment Address (VPA) and payment gateway keys. Customers will automatically receive dynamic UPI QR codes and online payment links for instant reconciliation.
+            </p>
+
+            <form onSubmit={handleSavePaymentGateway} className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    UPI Virtual Payment Address (VPA)
+                  </label>
+                  <input
+                    type="text"
+                    value={gatewayUpiId}
+                    onChange={(e) => setGatewayUpiId(e.target.value)}
+                    placeholder="e.g. yourcompany@icici or 9876543210@paytm"
+                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#781019] font-mono"
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Used to generate live UPI QR codes on customer invoices.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Razorpay / Gateway Key ID
+                  </label>
+                  <input
+                    type="text"
+                    value={gatewayRazorpayKey}
+                    onChange={(e) => setGatewayRazorpayKey(e.target.value)}
+                    placeholder="rzp_live_xxxxxxxxxxxxxxxx"
+                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#781019] font-mono"
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Enables card, netbanking, and UPI intent online checkout.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={gatewayActive}
+                    onChange={(e) => setGatewayActive(e.target.checked)}
+                    className="rounded text-[#781019] focus:ring-[#781019] w-4 h-4"
+                  />
+                  <span className="text-xs font-semibold text-slate-700">Enable Inbound Payment Portal & UPI QR for Invoices</span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={savingGateway}
+                  className="px-4 py-2 bg-[#781019] hover:bg-[#8F131E] text-white font-bold text-xs rounded-lg shadow-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  {savingGateway ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <span>Save Gateway Settings</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -250,7 +250,7 @@ def post_invoice_to_general_ledger(
 def record_customer_payment_transaction(
     db: Session,
     payment_in: CustomerPayment,
-    current_user: User
+    current_user: Optional[User] = None
 ) -> CustomerPayment:
     """
     Records customer payment received, decrements invoice balance, updates customer ledger,
@@ -278,6 +278,16 @@ def record_customer_payment_transaction(
 
     ar_acc = get_or_create_account(db, payment_in.entity_id, "1200", "Accounts Receivable (AR)", AccountType.ASSET, NormalBalance.DEBIT, deposit_acc.currency)
 
+    creator_id = current_user.id if current_user else None
+    if not creator_id and payment_in.invoice_id:
+        inv = db.query(Invoice).filter(Invoice.id == payment_in.invoice_id).first()
+        if inv and inv.created_by_id:
+            creator_id = inv.created_by_id
+    if not creator_id:
+        admin_u = db.query(User).filter(User.is_active == True).first()
+        if admin_u:
+            creator_id = admin_u.id
+
     # Balanced Double-Entry lines
     je = JournalEntry(
         entity_id=payment_in.entity_id,
@@ -290,8 +300,8 @@ def record_customer_payment_transaction(
         status=JournalStatus.POSTED,
         total_debit=pay_amt,
         total_credit=pay_amt,
-        created_by_id=current_user.id,
-        posted_by_id=current_user.id,
+        created_by_id=creator_id,
+        posted_by_id=creator_id,
         posted_at=datetime.utcnow()
     )
     db.add(je)

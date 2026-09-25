@@ -47,6 +47,9 @@ class Entity(Base):
     status = Column(String(50), default="ACTIVE", nullable=False)
     base_currency = Column(String(10), default="INR", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    upi_id = Column(String(100), nullable=True)
+    razorpay_key_id = Column(String(100), nullable=True)
+    payment_gateway_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     

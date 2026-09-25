@@ -18,6 +18,9 @@ class EntityBase(BaseModel):
     status: str = "ACTIVE"
     base_currency: str = "INR"
     is_active: bool = True
+    upi_id: Optional[str] = None
+    razorpay_key_id: Optional[str] = None
+    payment_gateway_active: bool = True
 
 class EntityCreate(EntityBase):
     company_id: int
@@ -37,6 +40,9 @@ class EntityUpdate(BaseModel):
     status: Optional[str] = None
     base_currency: Optional[str] = None
     is_active: Optional[bool] = None
+    upi_id: Optional[str] = None
+    razorpay_key_id: Optional[str] = None
+    payment_gateway_active: Optional[bool] = None
 
 class EntityResponse(EntityBase):
     id: int

@@ -144,6 +144,7 @@ class Invoice(Base):
     journal_entry_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
     notes = Column(Text, nullable=True)
     terms = Column(Text, nullable=True)
+    payment_token = Column(String(64), unique=True, index=True, nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

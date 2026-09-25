@@ -213,32 +213,31 @@ export const ProjectsPage: React.FC = () => {
   const totalCost = projects.reduce((acc, p) => acc + Number(p.profitability?.total_project_cost || 0), 0);
   const avgMargin = totalRevenue > 0 ? (((totalRevenue - totalCost) / totalRevenue) * 100).toFixed(1) : '0.0';
 
-  const currency = activeEntity?.base_currency || 'USD';
+  const currency = activeEntity?.base_currency || 'INR';
+  const currencySymbol = currency === 'USD' ? '$' : (currency === 'EUR' ? '€' : (currency === 'GBP' ? '£' : '₹'));
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-[#390003] rounded-xl border border-[#C58B3E]/30 text-[#E6B676]">
-              <FolderKanban className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                Projects & Profitability
-              </h1>
-              <p className="text-xs text-slate-400">
-                Client project billing, timesheet labor tracking, and real-time gross margin analytics
-              </p>
-            </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#C58B3E]">Projects & Engagements</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-xs text-slate-500">Time & Billing Analytics</span>
           </div>
+          <h1 className="text-2xl font-bold text-slate-900 mt-1 flex items-center gap-2">
+            Projects & Profitability
+          </h1>
+          <p className="text-sm text-slate-600">
+            Client project billing, timesheet labor tracking, and real-time gross margin analytics.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => loadData()}
-            className="p-2 text-slate-400 hover:text-white hover:bg-[#390003] rounded-lg border border-[#55080E] transition-colors"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-300 transition-colors"
             title="Refresh Projects"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -246,7 +245,7 @@ export const ProjectsPage: React.FC = () => {
           
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center space-x-2 bg-gradient-to-r from-[#C58B3E] to-[#E6B676] hover:from-[#b57d33] hover:to-[#d8a867] text-[#260002] font-semibold px-4 py-2 rounded-lg text-sm transition-all shadow-md cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 bg-[#260002] hover:bg-[#390003] text-[#EEC68B] font-semibold text-sm rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Create New Project</span>
@@ -256,24 +255,24 @@ export const ProjectsPage: React.FC = () => {
 
       {/* FEEDBACK ALERTS */}
       {actionSuccess && (
-        <div className="p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-xl flex items-center justify-between text-emerald-300 text-sm">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-emerald-800 text-sm">
           <div className="flex items-center space-x-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccess}</span>
           </div>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-400 hover:text-white">
+          <button onClick={() => setActionSuccess(null)} className="text-emerald-500 hover:text-emerald-800">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {actionError && (
-        <div className="p-3.5 bg-rose-950/60 border border-rose-500/40 rounded-xl flex items-center justify-between text-rose-300 text-sm">
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-rose-800 text-sm">
           <div className="flex items-center space-x-2.5">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{actionError}</span>
           </div>
-          <button onClick={() => setActionError(null)} className="text-rose-400 hover:text-white">
+          <button onClick={() => setActionError(null)} className="text-rose-500 hover:text-rose-800">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -281,69 +280,69 @@ export const ProjectsPage: React.FC = () => {
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#1E0002] border border-[#390003] rounded-xl p-4.5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Projects</span>
-            <div className="p-2 bg-[#390003] rounded-lg text-[#E6B676]">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Projects</span>
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-700">
               <FolderKanban className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-white tracking-tight">
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
               {totalActive}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               Total {projects.length} recorded projects
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1E0002] border border-[#390003] rounded-xl p-4.5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recognized Revenue</span>
-            <div className="p-2 bg-[#390003] rounded-lg text-emerald-400">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recognized Revenue</span>
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-700">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-emerald-300 tracking-tight">
-              {currency} {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <div className="text-2xl font-bold text-emerald-700 tracking-tight">
+              {currencySymbol}{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <div className="text-[11px] text-emerald-400 mt-1">
+            <div className="text-[11px] text-emerald-600 mt-1 font-medium">
               Invoiced & billable work-in-progress
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1E0002] border border-[#390003] rounded-xl p-4.5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Labor Cost Burn</span>
-            <div className="p-2 bg-[#390003] rounded-lg text-rose-400">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Labor Cost Burn</span>
+            <div className="p-2 bg-rose-50 rounded-lg text-rose-700">
               <TrendingDown className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-rose-300 tracking-tight">
-              {currency} {totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+              {currencySymbol}{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               Timesheet hours × employee cost rate
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1E0002] border border-[#390003] rounded-xl p-4.5 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Margin %</span>
-            <div className="p-2 bg-[#390003] rounded-lg text-[#E6B676]">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gross Margin %</span>
+            <div className="p-2 bg-amber-50 rounded-lg text-amber-700">
               <BarChart3 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-[#E6B676] tracking-tight">
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
               {avgMargin}%
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               Overall portfolio profitability
             </div>
           </div>
@@ -351,24 +350,24 @@ export const ProjectsPage: React.FC = () => {
       </div>
 
       {/* SEARCH & FILTERS */}
-      <div className="bg-[#1E0002] border border-[#390003] rounded-xl p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
           <input
             type="text"
             placeholder="Search code, project name, customer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#260002] border border-[#390003] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C58B3E]"
+            className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
           />
         </div>
 
         <div className="flex items-center space-x-2 w-full md:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
+          <Filter className="w-4 h-4 text-slate-500" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#C58B3E] cursor-pointer"
+            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#C58B3E] cursor-pointer"
           >
             <option value="ALL">All Statuses</option>
             <option value="IN_PROGRESS">In Progress</option>
@@ -380,27 +379,27 @@ export const ProjectsPage: React.FC = () => {
       </div>
 
       {/* PROJECTS TABLE */}
-      <div className="bg-[#1E0002] border border-[#390003] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[#390003] bg-[#260002]/80 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="py-3.5 px-4">Code & Project</th>
-                <th className="py-3.5 px-4">Customer</th>
-                <th className="py-3.5 px-4">Billing Model</th>
-                <th className="py-3.5 px-4 text-right">Budget</th>
-                <th className="py-3.5 px-4 text-right">Hours Logged</th>
-                <th className="py-3.5 px-4 text-right">Revenue</th>
-                <th className="py-3.5 px-4 text-right">Gross Margin</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-4">Code & Project</th>
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Billing Model</th>
+                <th className="py-3 px-4 text-right">Budget</th>
+                <th className="py-3 px-4 text-right">Hours Logged</th>
+                <th className="py-3 px-4 text-right">Revenue</th>
+                <th className="py-3 px-4 text-right">Gross Margin</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#390003]/60">
+            <tbody className="divide-y divide-slate-100">
               {filteredProjects.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500">
-                    <FolderKanban className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                    <FolderKanban className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                     <span>No projects found. Click "Create New Project" to get started.</span>
                   </td>
                 </tr>
@@ -410,40 +409,40 @@ export const ProjectsPage: React.FC = () => {
                   const marginPct = Number(prof?.gross_margin_pct || 0);
 
                   return (
-                    <tr key={p.id} className="hover:bg-[#260002]/60 transition-colors">
+                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-white">{p.name}</div>
-                        <div className="text-[10px] text-[#EEC68B] font-mono">{p.code}</div>
+                        <div className="font-semibold text-slate-900">{p.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">{p.code}</div>
                       </td>
-                      <td className="py-3 px-4 text-slate-300">
+                      <td className="py-3 px-4 text-slate-600">
                         {p.customer_name || 'Internal'}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#390003] text-slate-300 border border-[#55080E]">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                           {p.billing_type}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-slate-200">
-                        {currency} {Number(p.budget_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <td className="py-3 px-4 text-right font-mono text-slate-700">
+                        {currencySymbol}{Number(p.budget_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                         {Number(p.total_hours_logged).toFixed(1)} hrs
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-emerald-400 font-bold">
-                        {currency} {Number(prof?.total_recognized_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <td className="py-3 px-4 text-right font-mono text-emerald-700 font-bold">
+                        {currencySymbol}{Number(prof?.total_recognized_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 px-4 text-right font-mono">
-                        <span className={`font-bold ${marginPct >= 0 ? 'text-[#E6B676]' : 'text-rose-400'}`}>
+                        <span className={`font-bold ${marginPct >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                           {marginPct.toFixed(1)}%
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           p.status === 'IN_PROGRESS'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
                             : p.status === 'COMPLETED'
-                            ? 'bg-sky-950 text-sky-400 border border-sky-800'
-                            : 'bg-amber-950 text-amber-300 border border-amber-800'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
                           {p.status}
                         </span>
@@ -451,7 +450,7 @@ export const ProjectsPage: React.FC = () => {
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleSelectProject(p)}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-[#390003] hover:bg-[#55080E] text-[#E6B676] font-semibold border border-[#C58B3E]/30 transition-colors flex items-center gap-1.5 ml-auto cursor-pointer"
+                          className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-300 transition-colors flex items-center gap-1.5 ml-auto cursor-pointer"
                         >
                           <span>Manage</span>
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -468,16 +467,16 @@ export const ProjectsPage: React.FC = () => {
 
       {/* CREATE NEW PROJECT MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1E0002] border border-[#390003] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 border-b border-[#390003] flex items-center justify-between bg-[#260002]/80">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center space-x-2.5">
-                <FolderKanban className="w-5 h-5 text-[#E6B676]" />
-                <h2 className="text-base font-bold text-white">Create Client Project</h2>
+                <FolderKanban className="w-5 h-5 text-[#C58B3E]" />
+                <h2 className="text-base font-bold text-slate-900">Create Client Project</h2>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -486,7 +485,7 @@ export const ProjectsPage: React.FC = () => {
             <form onSubmit={handleCreateProject} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Project Code *
                   </label>
                   <input
@@ -494,18 +493,18 @@ export const ProjectsPage: React.FC = () => {
                     value={newCode}
                     onChange={(e) => setNewCode(e.target.value)}
                     required
-                    className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#C58B3E]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Customer Client
                   </label>
                   <select
                     value={newCustomerId}
                     onChange={(e) => setNewCustomerId(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#C58B3E]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   >
                     <option value="">Internal Non-Client Project</option>
                     {customers.map((c) => (
@@ -518,7 +517,7 @@ export const ProjectsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Project Title *
                 </label>
                 <input
@@ -527,19 +526,19 @@ export const ProjectsPage: React.FC = () => {
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Enterprise Cloud ERP Migration"
                   required
-                  className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#C58B3E]"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Billing Model *
                   </label>
                   <select
                     value={newBillingType}
                     onChange={(e) => setNewBillingType(e.target.value as any)}
-                    className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#C58B3E]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   >
                     <option value="TIME_AND_MATERIALS">T&M (Hourly)</option>
                     <option value="FIXED_COST">Fixed Cost</option>
@@ -548,44 +547,44 @@ export const ProjectsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Budget ({currency})
                   </label>
                   <input
                     type="number"
                     value={newBudget}
                     onChange={(e) => setNewBudget(Number(e.target.value))}
-                    className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#C58B3E]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Hourly Rate ({currency})
                   </label>
                   <input
                     type="number"
                     value={newRate}
                     onChange={(e) => setNewRate(Number(e.target.value))}
-                    className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#C58B3E]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={newStartDate}
                   onChange={(e) => setNewStartDate(e.target.value)}
-                  className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#C58B3E]"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Description / Scope
                 </label>
                 <textarea
@@ -593,22 +592,22 @@ export const ProjectsPage: React.FC = () => {
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Deliverables and milestones..."
-                  className="w-full bg-[#260002] border border-[#390003] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#C58B3E]"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#390003]">
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white"
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-[#C58B3E] to-[#E6B676] text-[#260002] hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#260002] hover:bg-[#390003] text-[#EEC68B] disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
                 >
                   {isSubmitting ? 'Creating Project...' : 'Create Project'}
                 </button>
@@ -620,23 +619,23 @@ export const ProjectsPage: React.FC = () => {
 
       {/* PROJECT DETAILS & TIMESHEET DRAWER */}
       {selectedProject && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-end p-0">
-          <div className="bg-[#1E0002] border-l border-[#390003] w-full max-w-2xl h-full flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-end p-0">
+          <div className="bg-white border-l border-slate-200 w-full max-w-2xl h-full flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200 shadow-2xl">
             {/* DRAWER HEADER */}
             <div>
-              <div className="p-5 border-b border-[#390003] bg-[#260002]/80 flex items-center justify-between sticky top-0 z-10">
+              <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between sticky top-0 z-10">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-[#390003] rounded-lg text-[#E6B676]">
+                  <div className="p-2 bg-white rounded-lg border border-slate-200 text-[#C58B3E]">
                     <FolderKanban className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-white">{selectedProject.name}</h2>
-                    <span className="text-xs font-mono text-[#EEC68B]">{selectedProject.code}</span>
+                    <h2 className="text-base font-bold text-slate-900">{selectedProject.name}</h2>
+                    <span className="text-xs font-mono text-slate-500">{selectedProject.code}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => setSelectedProject(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -645,71 +644,71 @@ export const ProjectsPage: React.FC = () => {
               {/* PROFITABILITY METRICS BREAKDOWN */}
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#260002] p-3 rounded-xl border border-[#390003]">
-                    <span className="text-[10px] uppercase font-semibold text-slate-400">Revenue Recognized</span>
-                    <div className="text-base font-mono font-bold text-emerald-400 mt-1">
-                      {currency} {Number(projectProfitability?.total_recognized_revenue || 0).toFixed(2)}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-semibold text-slate-500">Revenue Recognized</span>
+                    <div className="text-base font-mono font-bold text-emerald-700 mt-1">
+                      {currencySymbol}{Number(projectProfitability?.total_recognized_revenue || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div className="bg-[#260002] p-3 rounded-xl border border-[#390003]">
-                    <span className="text-[10px] uppercase font-semibold text-slate-400">Labor Cost Burn</span>
-                    <div className="text-base font-mono font-bold text-rose-400 mt-1">
-                      {currency} {Number(projectProfitability?.total_labor_cost || 0).toFixed(2)}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-semibold text-slate-500">Labor Cost Burn</span>
+                    <div className="text-base font-mono font-bold text-slate-900 mt-1">
+                      {currencySymbol}{Number(projectProfitability?.total_labor_cost || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div className="bg-[#260002] p-3 rounded-xl border border-[#390003]">
-                    <span className="text-[10px] uppercase font-semibold text-slate-400">Gross Margin</span>
-                    <div className="text-base font-mono font-bold text-[#E6B676] mt-1">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-semibold text-slate-500">Gross Margin</span>
+                    <div className="text-base font-mono font-bold text-[#781019] mt-1">
                       {Number(projectProfitability?.gross_margin_pct || 0).toFixed(1)}%
                     </div>
                   </div>
                 </div>
 
                 {/* LOG TIMESHEET FORM */}
-                <div className="bg-[#260002] p-4 rounded-xl border border-[#390003] space-y-3">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-[#E6B676]" />
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">Log Billable Labor Hours</h3>
+                    <Clock className="w-4 h-4 text-[#C58B3E]" />
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Log Billable Labor Hours</h3>
                   </div>
 
                   <form onSubmit={handleLogTimesheet} className="space-y-3">
                     <div className="grid grid-cols-4 gap-2.5">
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">Date</label>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">Date</label>
                         <input
                           type="date"
                           value={tsDate}
                           onChange={(e) => setTsDate(e.target.value)}
-                          className="w-full bg-[#1E0002] border border-[#390003] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">Hours</label>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">Hours</label>
                         <input
                           type="number"
                           step="0.5"
                           min="0.5"
                           value={tsHours}
                           onChange={(e) => setTsHours(Number(e.target.value))}
-                          className="w-full bg-[#1E0002] border border-[#390003] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">Bill Rate</label>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">Bill Rate</label>
                         <input
                           type="number"
                           value={tsBillRate}
                           onChange={(e) => setTsBillRate(Number(e.target.value))}
-                          className="w-full bg-[#1E0002] border border-[#390003] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-400 mb-1">Cost Rate</label>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-1">Cost Rate</label>
                         <input
                           type="number"
                           value={tsCostRate}
                           onChange={(e) => setTsCostRate(Number(e.target.value))}
-                          className="w-full bg-[#1E0002] border border-[#390003] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
                         />
                       </div>
                     </div>
@@ -720,12 +719,12 @@ export const ProjectsPage: React.FC = () => {
                         placeholder="Timesheet notes / work summary..."
                         value={tsNotes}
                         onChange={(e) => setTsNotes(e.target.value)}
-                        className="flex-1 bg-[#1E0002] border border-[#390003] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#C58B3E]"
+                        className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                       />
                       <button
                         type="submit"
                         disabled={isLoggingTs}
-                        className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-[#C58B3E] to-[#E6B676] text-[#260002] hover:opacity-90 disabled:opacity-50 shrink-0 cursor-pointer"
+                        className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#260002] hover:bg-[#390003] text-[#EEC68B] disabled:opacity-50 shrink-0 cursor-pointer shadow-xs transition-colors"
                       >
                         {isLoggingTs ? 'Saving...' : 'Log Hours'}
                       </button>
@@ -735,17 +734,17 @@ export const ProjectsPage: React.FC = () => {
 
                 {/* TIMESHEET LOG AUDIT TABLE */}
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-white">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-900">
                     <span>Logged Timesheets ({projectTimesheets.length})</span>
-                    <span className="font-mono text-[#E6B676]">
+                    <span className="font-mono text-slate-700">
                       Total: {projectTimesheets.reduce((acc, t) => acc + Number(t.hours), 0)} hrs
                     </span>
                   </div>
 
-                  <div className="bg-[#260002] rounded-xl border border-[#390003] overflow-hidden">
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="border-b border-[#390003] bg-[#1E0002] text-slate-400 font-semibold">
+                        <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
                           <th className="py-2.5 px-3">Date</th>
                           <th className="py-2.5 px-3">Resource</th>
                           <th className="py-2.5 px-3 text-right">Hours</th>
@@ -754,22 +753,22 @@ export const ProjectsPage: React.FC = () => {
                           <th className="py-2.5 px-3">Notes</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#390003]/60">
+                      <tbody className="divide-y divide-slate-100 font-mono">
                         {projectTimesheets.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-500">
+                            <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
                               No hours logged yet for this project.
                             </td>
                           </tr>
                         ) : (
                           projectTimesheets.map((ts) => (
-                            <tr key={ts.id} className="hover:bg-[#1E0002]/40 font-mono">
-                              <td className="py-2.5 px-3 text-slate-300">{ts.entry_date}</td>
-                              <td className="py-2.5 px-3 text-white font-sans">{ts.user_name || 'Staff'}</td>
-                              <td className="py-2.5 px-3 text-right font-bold text-[#E6B676]">{Number(ts.hours).toFixed(1)}</td>
-                              <td className="py-2.5 px-3 text-right text-emerald-400 font-bold">{currency} {Number(ts.total_billable_amount).toFixed(2)}</td>
-                              <td className="py-2.5 px-3 text-right text-rose-400">{currency} {Number(ts.total_cost_amount).toFixed(2)}</td>
-                              <td className="py-2.5 px-3 text-slate-400 font-sans truncate max-w-[150px]">{ts.notes || '—'}</td>
+                            <tr key={ts.id} className="hover:bg-slate-50/70">
+                              <td className="py-2.5 px-3 text-slate-600">{ts.entry_date}</td>
+                              <td className="py-2.5 px-3 text-slate-900 font-sans font-medium">{ts.user_name || 'Staff'}</td>
+                              <td className="py-2.5 px-3 text-right font-bold text-slate-900">{Number(ts.hours).toFixed(1)}</td>
+                              <td className="py-2.5 px-3 text-right text-emerald-700 font-bold">{currencySymbol}{Number(ts.total_billable_amount).toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-600">{currencySymbol}{Number(ts.total_cost_amount).toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-slate-500 font-sans truncate max-w-[150px]">{ts.notes || '—'}</td>
                             </tr>
                           ))
                         )}
@@ -781,10 +780,10 @@ export const ProjectsPage: React.FC = () => {
             </div>
 
             {/* DRAWER FOOTER */}
-            <div className="p-4 border-t border-[#390003] bg-[#260002]/80 flex justify-end">
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setSelectedProject(null)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white"
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900"
               >
                 Close Drawer
               </button>
@@ -795,4 +794,4 @@ export const ProjectsPage: React.FC = () => {
     </div>
   );
 };
-
+export default ProjectsPage;

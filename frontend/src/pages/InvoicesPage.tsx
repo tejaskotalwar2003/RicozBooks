@@ -21,7 +21,11 @@ import {
   FolderKanban,
   Check,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  QrCode,
+  Copy,
+  ExternalLink,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -31,6 +35,7 @@ import {
   createInvoice, 
   postInvoiceToLedger, 
   recordCustomerPayment,
+  getInvoicePaymentLink,
   getEstimates,
   createEstimate,
   convertEstimateToInvoice,
@@ -103,6 +108,21 @@ export const InvoicesPage: React.FC = () => {
   const [paymentMode, setPaymentMode] = useState<string>('BANK_TRANSFER');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
+
+  // Payment Link & UPI QR Modal State
+  const [showLinkModal, setShowLinkModal] = useState<boolean>(false);
+  const [paymentLinkData, setPaymentLinkData] = useState<{
+    invoice_id: number;
+    invoice_number: string;
+    payment_token: string;
+    payment_link: string;
+    balance_amount: number;
+    currency: string;
+    upi_id?: string;
+    upi_uri?: string;
+    status: string;
+  } | null>(null);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   const currencySymbol = activeEntity?.base_currency === 'USD' ? '$' : (activeEntity?.base_currency === 'EUR' ? '€' : (activeEntity?.base_currency === 'GBP' ? '£' : '₹'));
 
@@ -344,6 +364,17 @@ export const InvoicesPage: React.FC = () => {
       setError(err.message || 'Failed to record customer payment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openPaymentLinkModal = async (inv: Invoice) => {
+    try {
+      const data = await getInvoicePaymentLink(inv.id);
+      setPaymentLinkData(data);
+      setShowLinkModal(true);
+      setCopiedLink(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate payment link');
     }
   };
 
@@ -638,6 +669,13 @@ export const InvoicesPage: React.FC = () => {
                             Pay
                           </button>
                         )}
+                        <button
+                          onClick={() => openPaymentLinkModal(inv)}
+                          className="p-1 text-amber-600 hover:text-amber-800 rounded hover:bg-amber-50 transition-colors"
+                          title="Share Payment Link & UPI QR"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedInvoice(inv);
@@ -1435,6 +1473,108 @@ export const InvoicesPage: React.FC = () => {
                 <p className="text-[10px] text-slate-400 pt-2 text-center">This is a computer-generated tax invoice issued via RicozBooks Enterprise Accounting.</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Link & UPI QR Modal */}
+      {showLinkModal && paymentLinkData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-[#C58B3E]" />
+                  <span>Customer Payment Link & QR</span>
+                </h3>
+                <p className="text-xs text-slate-500">Invoice #{paymentLinkData.invoice_number}</p>
+              </div>
+              <button
+                onClick={() => setShowLinkModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* UPI QR Display */}
+            <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm shrink-0">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                    paymentLinkData.upi_uri ||
+                    `upi://pay?pa=${paymentLinkData.upi_id || 'ricozbooks@icici'}&pn=RicozBooks&am=${paymentLinkData.balance_amount}&cu=INR&tn=Invoice%20${paymentLinkData.invoice_number}`
+                  )}`}
+                  alt="UPI QR Code"
+                  className="w-32 h-32 object-contain"
+                />
+              </div>
+              <div className="space-y-1.5 text-center sm:text-left">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Scan via UPI App</span>
+                <div className="text-xl font-bold text-slate-900">
+                  {paymentLinkData.currency} {Number(paymentLinkData.balance_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-slate-500">
+                  VPA: <span className="font-mono font-semibold text-slate-700">{paymentLinkData.upi_id || 'ricozbooks@icici'}</span>
+                </p>
+                <div className="text-[11px] text-emerald-600 font-medium">
+                  Instant real-time GL reconciliation upon payment
+                </div>
+              </div>
+            </div>
+
+            {/* Shareable Link */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase">
+                Customer Checkout URL
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}${paymentLinkData.payment_link}`}
+                  className="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-700 select-all"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}${paymentLinkData.payment_link}`);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 3000);
+                  }}
+                  className="px-3 py-2 bg-[#260002] hover:bg-[#390003] text-[#EEC68B] text-xs font-bold rounded-lg shrink-0 flex items-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Share Buttons */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <a
+                href={`${paymentLinkData.payment_link}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#C58B3E] hover:underline"
+              >
+                <span>Preview Customer Portal</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <div className="flex items-center space-x-2">
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `Hello, here is your payment link for Invoice #${paymentLinkData.invoice_number} (Amount: ${paymentLinkData.currency} ${paymentLinkData.balance_amount}): ${window.location.origin}${paymentLinkData.payment_link}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center space-x-1"
+                >
+                  <span>Share WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
