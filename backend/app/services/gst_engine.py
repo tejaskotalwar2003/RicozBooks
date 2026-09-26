@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from decimal import Decimal, ROUND_HALF_UP
 import re
+import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -424,9 +425,13 @@ def execute_gst_settlement(
         )
 
     # 2. Create Journal Entry
+    entry_num = f"JE-GST-SETTLE-{return_period}"
+    if db.query(JournalEntry).filter(JournalEntry.entry_number == entry_num).first():
+        entry_num = f"JE-GST-SETTLE-{return_period}-{uuid.uuid4().hex[:6].upper()}"
+
     je = JournalEntry(
         entity_id=entity_id,
-        entry_number=f"JE-GST-SETTLE-{return_period}",
+        entry_number=entry_num,
         entry_date=date.today(),
         description=f"GST Statutory Settlement & Filing for {return_period}",
         reference=reference_number or f"GSTR3B-{return_period}",
