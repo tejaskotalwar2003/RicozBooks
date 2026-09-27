@@ -84,7 +84,7 @@ from app.models.subscriptions import (
     SubscriptionTier,
     SubscriptionStatus
 )
-from app.models.demo import DemoRequest
+from app.models.demo import DemoAdminUser, DemoRequest, DemoScheduleHistory
 
 __all__ = [
     "User",
@@ -175,5 +175,7 @@ __all__ = [
     "CompanySubscription",
     "SubscriptionTier",
     "SubscriptionStatus",
-    "DemoRequest"
+    "DemoAdminUser",
+    "DemoRequest",
+    "DemoScheduleHistory"
 ]

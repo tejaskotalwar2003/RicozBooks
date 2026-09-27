@@ -147,9 +147,6 @@ class DemoLeadRequest(BaseModel):
     preferred_date: Optional[str] = None
     preferred_time: Optional[str] = None
 
-from app.models.demo import DemoRequest
-from datetime import datetime
-
 class DemoLeadResponse(BaseModel):
     status: str
     message: str
@@ -161,6 +158,9 @@ def request_demo(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    from app.models.demo import DemoRequest
+    from datetime import datetime
+
     client_ip = request.client.host if request.client else None
     ref_id = f"DEMO-{uuid.uuid4().hex[:8].upper()}"
 
@@ -171,35 +171,32 @@ def request_demo(
         except Exception:
             parsed_date = None
 
-    # Persist directly into demo_requests table
-    demo_record = DemoRequest(
-        reference_id=ref_id,
+    demo = DemoRequest(
+        reference_code=ref_id,
         full_name=lead_in.full_name.strip(),
         work_email=lead_in.work_email.strip().lower(),
-        phone_number=lead_in.phone_number.strip(),
-        company_name=lead_in.company_name.strip(),
+        phone=lead_in.phone_number.strip(),
+        company=lead_in.company_name.strip(),
         role=lead_in.role.strip(),
         entities_count=lead_in.entities_count or "1",
-        what_to_see=lead_in.what_to_see or "Complete Platform Demo",
+        interest_area=lead_in.what_to_see or "Complete Platform Demo",
         preferred_date=parsed_date,
-        preferred_time=lead_in.preferred_time or "11:30 AM - 12:30 PM IST",
-        status="PENDING",
+        preferred_time=lead_in.preferred_time,
+        status="NEW",
         ip_address=client_ip
     )
-    db.add(demo_record)
+    db.add(demo)
     db.commit()
-    db.refresh(demo_record)
+    db.refresh(demo)
 
-    # Log to audit trail
     log_audit(
         db=db,
         action="DEMO_REQUEST_SUBMITTED",
-        record_type="DemoRequest",
-        record_id=ref_id,
+        record_type="Lead",
+        record_id=lead_in.work_email,
         details=f"Demo requested [{ref_id}] by {lead_in.full_name} ({lead_in.role} at {lead_in.company_name}, Entities: {lead_in.entities_count}, Focus: {lead_in.what_to_see}, Date: {lead_in.preferred_date}, Time: {lead_in.preferred_time}, Phone: {lead_in.phone_number})",
         ip_address=client_ip
     )
-
     return DemoLeadResponse(
         status="success",
         message="Thank you for your interest in RicozBooks. Our team will contact you shortly to confirm your demo.",

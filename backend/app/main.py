@@ -27,7 +27,8 @@ from app.api.v1 import (
     gst,
     projects,
     notifications,
-    subscriptions
+    subscriptions,
+    internal_demos
 )
 
 from contextlib import asynccontextmanager
@@ -45,6 +46,32 @@ async def lifespan(app: FastAPI):
         seed()
     except Exception as e:
         print(f"Startup database seed status: {e}")
+    try:
+        from app.models.demo import DemoAdminUser
+        from app.core.security import get_password_hash
+        from app.database.session import SessionLocal
+        _db = SessionLocal()
+        try:
+            if _db.query(DemoAdminUser).count() == 0:
+                demo_users = [
+                    ('Ricoz Admin', 'admin@ricozbooks.com', 'admin123', 'DEMO_ADMIN'),
+                    ('Vikram Malhotra', 'sales@ricozbooks.com', 'sales123', 'SALES_TEAM'),
+                    ('Pooja Sharma', 'coordinator@ricozbooks.com', 'coord123', 'DEMO_COORDINATOR')
+                ]
+                for name, email, pwd, role in demo_users:
+                    u = DemoAdminUser(
+                        name=name,
+                        email=email,
+                        password_hash=get_password_hash(pwd),
+                        role=role,
+                        is_active=True
+                    )
+                    _db.add(u)
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as e:
+        print(f"Startup demo admin users seed status: {e}")
     yield
 
 app = FastAPI(
@@ -88,6 +115,8 @@ app.include_router(gst.router, prefix=f"{settings.API_V1_STR}/gst", tags=["GST &
 app.include_router(projects.router, prefix=f"{settings.API_V1_STR}/projects", tags=["Projects & Timesheets"])
 app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["Automation & Notifications"])
 app.include_router(subscriptions.router, prefix=f"{settings.API_V1_STR}/subscriptions", tags=["SaaS Subscriptions & Billing"])
+app.include_router(internal_demos.router, tags=["Internal Demo Management & Leads"])
+app.include_router(internal_demos.router, prefix=settings.API_V1_STR, tags=["Internal Demo Management & Leads (v1)"])
 
 @app.get("/")
 def root():

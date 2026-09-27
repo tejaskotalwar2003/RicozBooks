@@ -16,6 +16,7 @@ import {
   Sparkles,
   AlertCircle
 } from 'lucide-react';
+import { internalDemoApi } from '../services/internalDemoApi';
 import { API_BASE } from '../services/api';
 
 export interface BookDemoModalProps {
@@ -161,38 +162,24 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/demo-request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          full_name: formData.fullName.trim(),
-          work_email: formData.workEmail.trim().toLowerCase(),
-          phone_number: formData.phoneNumber.trim(),
-          company_name: formData.companyName.trim(),
-          role: formData.role,
-          entities_count: formData.entitiesCount,
-          what_to_see: formData.whatToSee,
-          preferred_date: formData.preferredDate || undefined,
-          preferred_time: formData.preferredTime || undefined,
-        }),
+      const data = await internalDemoApi.submitPublicDemo({
+        full_name: formData.fullName.trim(),
+        work_email: formData.workEmail.trim().toLowerCase(),
+        phone: formData.phoneNumber.trim(),
+        company: formData.companyName.trim(),
+        role: formData.role,
+        entities_count: formData.entitiesCount,
+        interest_area: formData.whatToSee,
+        preferred_date: formData.preferredDate || undefined,
+        preferred_time: formData.preferredTime || undefined,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setReferenceId(data.reference_id || `DEMO-${Date.now().toString(36).toUpperCase()}`);
-        setIsSuccess(true);
-      } else {
-        // Fallback: Even if external network is slow, provide graceful confirmed state
-        const fallbackRef = `DEMO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-        setReferenceId(fallbackRef);
-        setIsSuccess(true);
-      }
+      setReferenceId(data.reference_code);
+      setIsSuccess(true);
     } catch (err: any) {
-      // In case of offline/network glitch, register client-side lead gracefully
-      console.warn('Network request failed, recording locally:', err);
-      const fallbackRef = `DEMO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      console.warn('Network request failed or offline, recording fallback:', err);
+      // Fallback demo reference code
+      const fallbackRef = `DEMO-${Math.floor(100000 + Math.random() * 900000)}`;
       setReferenceId(fallbackRef);
       setIsSuccess(true);
     } finally {
