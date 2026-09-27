@@ -132,3 +132,47 @@ def auth_register_company(
     return handle_register_company(reg_in, request, db)
 
 
+import uuid
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+class DemoLeadRequest(BaseModel):
+    full_name: str
+    work_email: EmailStr
+    phone_number: str
+    company_name: str
+    role: str
+    entities_count: Optional[str] = "1"
+    what_to_see: Optional[str] = "Complete Platform Demo"
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+
+class DemoLeadResponse(BaseModel):
+    status: str
+    message: str
+    reference_id: Optional[str] = None
+
+@router.post("/demo-request", response_model=DemoLeadResponse)
+def request_demo(
+    lead_in: DemoLeadRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host if request.client else None
+    ref_id = f"DEMO-{uuid.uuid4().hex[:8].upper()}"
+    log_audit(
+        db=db,
+        action="DEMO_REQUEST_SUBMITTED",
+        record_type="Lead",
+        record_id=lead_in.work_email,
+        details=f"Demo requested [{ref_id}] by {lead_in.full_name} ({lead_in.role} at {lead_in.company_name}, Entities: {lead_in.entities_count}, Focus: {lead_in.what_to_see}, Date: {lead_in.preferred_date}, Time: {lead_in.preferred_time}, Phone: {lead_in.phone_number})",
+        ip_address=client_ip
+    )
+    return DemoLeadResponse(
+        status="success",
+        message="Thank you for your interest in RicozBooks. Our team will contact you shortly to confirm your demo.",
+        reference_id=ref_id
+    )
+
+
+

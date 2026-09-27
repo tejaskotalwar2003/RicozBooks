@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { BookDemoModal } from '../components/BookDemoModal';
 import { 
   Scale, 
   Receipt, 
@@ -33,6 +34,9 @@ export const LandingPage: React.FC = () => {
   // Navigation scroll state
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Book a Demo Modal state
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   // Interactive Multi-Entity Switcher state
   const [selectedEntity, setSelectedEntity] = useState<'ricoz' | 'bmw' | 'techcorp'>('ricoz');
@@ -419,19 +423,20 @@ export const LandingPage: React.FC = () => {
           {/* Primary & Secondary CTAs */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <Link
-              to="/login"
+              to="/register"
               className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-slate-950 hover:bg-indigo-600 text-white font-semibold text-sm shadow-md hover:shadow-indigo-500/20 transition-all flex items-center justify-center space-x-2"
             >
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="#dashboard-preview"
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs transition-all flex items-center justify-center space-x-2"
+            <button
+              type="button"
+              onClick={() => setIsDemoModalOpen(true)}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Activity className="w-4 h-4 text-indigo-600" />
               <span>Book a Demo</span>
-            </a>
+            </button>
           </div>
 
           {/* Trust / Status Badges */}
@@ -2083,18 +2088,19 @@ export const LandingPage: React.FC = () => {
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/login"
+              to="/register"
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2"
             >
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="#dashboard-preview"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-slate-200 font-semibold text-sm border border-zinc-700 transition-all"
+            <button
+              type="button"
+              onClick={() => setIsDemoModalOpen(true)}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-slate-200 font-semibold text-sm border border-zinc-700 transition-all cursor-pointer"
             >
               Book a Demo
-            </a>
+            </button>
           </div>
 
           <p className="mt-8 text-xs text-slate-500 font-semibold tracking-wide">
@@ -2223,6 +2229,11 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </footer>
+      {/* Book a Demo Modal Dialog */}
+      <BookDemoModal
+        isOpen={isDemoModalOpen}
+        onClose={() => setIsDemoModalOpen(false)}
+      />
     </div>
   );
 };

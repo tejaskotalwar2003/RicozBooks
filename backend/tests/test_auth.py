@@ -65,3 +65,25 @@ def test_entities_retrieval():
     assert "RICOZ_US" in codes
     assert "RICOZ_UK" in codes
 
+def test_demo_request_endpoint():
+    res = client.post(
+        "/api/v1/auth/demo-request",
+        json={
+            "full_name": "Rohan Deshmukh",
+            "work_email": "rohan@techcorp.in",
+            "phone_number": "+91 98765 43210",
+            "company_name": "TechCorp Solutions Pvt Ltd",
+            "role": "CFO / Business Owner",
+            "entities_count": "2–5",
+            "what_to_see": "Accounting & Double-Entry Ledger",
+            "preferred_date": "2026-10-05",
+            "preferred_time": "11:30 AM - 12:30 PM IST"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "reference_id" in data
+    assert data["reference_id"].startswith("DEMO-")
+
+
