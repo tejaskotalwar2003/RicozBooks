@@ -86,4 +86,19 @@ def test_demo_request_endpoint():
     assert "reference_id" in data
     assert data["reference_id"].startswith("DEMO-")
 
+    # Verify record in demo_requests table
+    from app.database.session import SessionLocal
+    from app.models.demo import DemoRequest
+    db = SessionLocal()
+    try:
+        record = db.query(DemoRequest).filter(DemoRequest.reference_id == data["reference_id"]).first()
+        assert record is not None
+        assert record.full_name == "Rohan Deshmukh"
+        assert record.work_email == "rohan@techcorp.in"
+        assert record.company_name == "TechCorp Solutions Pvt Ltd"
+        assert record.status == "PENDING"
+    finally:
+        db.close()
+
+
 
