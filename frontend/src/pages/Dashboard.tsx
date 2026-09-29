@@ -19,9 +19,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardMetrics, DashboardMetricsResponse } from '../services/accountingApi';
+import { useTimeGreeting } from '../utils/greeting';
 
 export const Dashboard: React.FC = () => {
   const { user, activeEntity, entities } = useAuth();
+  const { greetingPrefix, userName } = useTimeGreeting(user);
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Good Morning, {user?.first_name || 'Finance Leader'}
+            {greetingPrefix}, {userName}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Here's what's happening with your finances today in <strong className="text-slate-800">{activeEntity?.name || 'Company'}</strong>.
