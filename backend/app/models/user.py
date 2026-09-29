@@ -63,8 +63,8 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     
-    default_company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
-    default_entity_id = Column(Integer, ForeignKey("entities.id", ondelete="SET NULL"), nullable=True)
+    default_company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL", use_alter=True, name="fk_users_default_company_id"), nullable=True)
+    default_entity_id = Column(Integer, ForeignKey("entities.id", ondelete="SET NULL", use_alter=True, name="fk_users_default_entity_id"), nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
