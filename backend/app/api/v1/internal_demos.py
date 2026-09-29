@@ -118,20 +118,6 @@ def serialize_demo(demo: DemoRequest) -> DemoRequestDetailResponse:
 
 
 # =============================================================
-# 0. SETUP / AUTO-MIGRATE DEMO TABLES
-# =============================================================
-@router.api_route("/internal/setup-tables", methods=["GET", "POST"])
-def setup_internal_demo_tables():
-    """Explicit endpoint to create demo tables and seed demo admin users in production database."""
-    from app.migrate_entities import migrate_entities
-    migrate_entities()
-    return {
-        "status": "success",
-        "message": "Demo management tables (demo_admin_users, demo_requests, demo_schedule_history) created and seeded successfully."
-    }
-
-
-# =============================================================
 # 1. PUBLIC DEMO BOOKING (No Customer Account Needed)
 # =============================================================
 @router.post("/demos", response_model=DemoRequestPublicResponse)
