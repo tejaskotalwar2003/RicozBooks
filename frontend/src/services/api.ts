@@ -35,6 +35,7 @@ export interface UserAuthSummary {
   default_company_id?: number;
   default_entity_id?: number;
   active_entity_id?: number;
+  profile_photo_url?: string | null;
 }
 
 export interface LoginResponse {
@@ -156,4 +157,16 @@ export const api = {
   },
   
   getHealth: () => apiRequest<{ status: string; database: string }>('/health'),
+
+  updateProfile: (data: { first_name?: string; last_name?: string; job_title?: string; profile_photo_url?: string }) =>
+    apiRequest<UserAuthSummary>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    apiRequest<{ status: string; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

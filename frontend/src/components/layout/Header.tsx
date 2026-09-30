@@ -23,6 +23,7 @@ import {
   triggerAutomationChecks,
   AppNotification 
 } from '../../services/accountingApi';
+import { UserProfileDropdown } from './UserProfileDropdown';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -292,20 +293,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           )}
         </div>
 
-        {/* User Pill with Role */}
-        <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[100px]">
-              {user?.first_name} {user?.last_name}
-            </div>
-            <div className="text-[10px] uppercase font-semibold text-[#781019] tracking-wider">
-              {user?.roles[0] || 'User'}
-            </div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs shrink-0">
-            {user?.first_name ? user.first_name[0] : 'U'}
-          </div>
-        </div>
+        {/* Dynamic User Profile Section & Dropdown */}
+        <UserProfileDropdown onOpenNotifications={() => setIsNotifOpen(true)} />
 
       </div>
 

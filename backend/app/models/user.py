@@ -60,6 +60,7 @@ class User(Base):
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     job_title = Column(String(100), default="Finance Team")
+    profile_photo_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     

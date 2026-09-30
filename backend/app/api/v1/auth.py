@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, get_password_hash
 from app.models.user import User
 from app.models.company import Entity
-from app.schemas.token import Token, LoginRequest, UserAuthSummary
+from app.schemas.token import Token, LoginRequest, UserAuthSummary, UpdateProfileRequest, ChangePasswordRequest
 from app.api.deps import get_current_user, log_audit
 
 router = APIRouter()
@@ -83,7 +83,8 @@ def login(
         permissions=list(all_perms),
         default_company_id=user.default_company_id,
         default_entity_id=user.default_entity_id,
-        active_entity_id=active_entity_id
+        active_entity_id=active_entity_id,
+        profile_photo_url=getattr(user, 'profile_photo_url', None)
     )
 
     return Token(
@@ -117,8 +118,84 @@ def get_current_user_profile(
         permissions=list(all_perms),
         default_company_id=current_user.default_company_id,
         default_entity_id=current_user.default_entity_id,
-        active_entity_id=active_entity
+        active_entity_id=active_entity,
+        profile_photo_url=getattr(current_user, 'profile_photo_url', None)
     )
+
+@router.put("/me", response_model=UserAuthSummary)
+def update_current_user_profile(
+    profile_in: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if profile_in.first_name is not None and profile_in.first_name.strip():
+        current_user.first_name = profile_in.first_name.strip()
+    if profile_in.last_name is not None and profile_in.last_name.strip():
+        current_user.last_name = profile_in.last_name.strip()
+    if profile_in.job_title is not None:
+        current_user.job_title = profile_in.job_title.strip()
+    if profile_in.profile_photo_url is not None:
+        current_user.profile_photo_url = profile_in.profile_photo_url.strip() or None
+
+    db.commit()
+    db.refresh(current_user)
+
+    role_names = [r.name for r in current_user.roles]
+    all_perms = set()
+    for r in current_user.roles:
+        for p in r.permissions:
+            all_perms.add(p.code)
+
+    active_entity = current_user.default_entity_id
+    if not active_entity and current_user.entities:
+        active_entity = current_user.entities[0].id
+
+    return UserAuthSummary(
+        id=current_user.id,
+        email=current_user.email,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        job_title=current_user.job_title,
+        roles=role_names,
+        permissions=list(all_perms),
+        default_company_id=current_user.default_company_id,
+        default_entity_id=current_user.default_entity_id,
+        active_entity_id=active_entity,
+        profile_photo_url=getattr(current_user, 'profile_photo_url', None)
+    )
+
+@router.post("/change-password")
+def change_user_password(
+    pwd_in: ChangePasswordRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not verify_password(pwd_in.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    if len(pwd_in.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters"
+        )
+    
+    current_user.hashed_password = get_password_hash(pwd_in.new_password)
+    db.commit()
+
+    client_ip = request.client.host if request.client else None
+    log_audit(
+        db=db,
+        action="PASSWORD_CHANGED",
+        record_type="User",
+        record_id=str(current_user.id),
+        user=current_user,
+        details="User changed account password",
+        ip_address=client_ip
+    )
+    return {"status": "success", "message": "Password changed successfully"}
 
 from app.schemas.tenant import CompanyRegistrationRequest, CompanyRegistrationResponse
 from app.api.v1.tenants import register_company as handle_register_company

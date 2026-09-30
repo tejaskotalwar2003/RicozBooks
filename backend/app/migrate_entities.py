@@ -21,6 +21,7 @@ def migrate_entities():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_company_id INTEGER;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS default_entity_id INTEGER;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title VARCHAR(100) DEFAULT 'Finance Team';",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_url VARCHAR(500);",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser BOOLEAN DEFAULT FALSE;",
         "ALTER TABLE companies ADD COLUMN IF NOT EXISTS business_email VARCHAR(255);",
         "ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone_number VARCHAR(50);",

@@ -351,10 +351,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-[#E6B676] text-[#260002] font-bold text-xs flex items-center justify-center shrink-0">
-              {user?.first_name ? user.first_name[0] : 'U'}
-              {user?.last_name ? user.last_name[0] : ''}
-            </div>
+            {user?.profile_photo_url ? (
+              <img
+                src={user.profile_photo_url}
+                alt={user.first_name || 'User'}
+                className="w-8 h-8 rounded-full object-cover border border-[#E6B676]/40 shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#E6B676] text-[#260002] font-bold text-xs flex items-center justify-center shrink-0">
+                {user?.first_name ? user.first_name[0] : 'U'}
+                {user?.last_name ? user.last_name[0] : ''}
+              </div>
+            )}
             <div className="text-[11px] leading-tight min-w-0 truncate">
               <div className="font-bold text-white truncate">
                 {user?.first_name} {user?.last_name}

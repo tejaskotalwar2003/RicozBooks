@@ -17,9 +17,20 @@ class UserAuthSummary(BaseModel):
     default_company_id: Optional[int] = None
     default_entity_id: Optional[int] = None
     active_entity_id: Optional[int] = None
+    profile_photo_url: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    job_title: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class Token(BaseModel):
     access_token: str
@@ -29,4 +40,3 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
     exp: Optional[int] = None
-
