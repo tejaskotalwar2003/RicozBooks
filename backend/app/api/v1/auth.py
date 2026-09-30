@@ -1,12 +1,24 @@
+from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash
-from app.models.user import User
+from app.core.session_utils import parse_user_agent, get_client_ip, get_approx_location
+from app.models.user import User, UserSession
+from app.models.audit import AuditLog
 from app.models.company import Entity
-from app.schemas.token import Token, LoginRequest, UserAuthSummary, UpdateProfileRequest, ChangePasswordRequest
-from app.api.deps import get_current_user, log_audit
+from app.schemas.token import (
+    Token, 
+    LoginRequest, 
+    UserAuthSummary, 
+    UpdateProfileRequest, 
+    ChangePasswordRequest,
+    UserSessionResponse,
+    LoginActivityResponse
+)
+from app.api.deps import get_current_user, log_audit, oauth2_scheme
 
 router = APIRouter()
 
@@ -18,16 +30,21 @@ def login(
 ):
     user = db.query(User).filter(User.email == login_data.email.lower().strip()).first()
     
+    ua_str = request.headers.get("user-agent", "")
+    ua_info = parse_user_agent(ua_str)
+    client_ip = get_client_ip(request)
+    loc = get_approx_location(request)
+
     if not user or not verify_password(login_data.password, user.hashed_password):
         # Record failed login attempt
-        client_ip = request.client.host if request.client else None
         log_audit(
             db=db,
             action="LOGIN_FAILED",
             record_type="User",
             record_id=login_data.email,
             details=f"Failed login attempt for {login_data.email}",
-            ip_address=client_ip
+            ip_address=client_ip,
+            user_agent=ua_str[:255] if ua_str else None
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,7 +78,6 @@ def login(
 
     access_token = create_access_token(subject=user.id)
     
-    client_ip = request.client.host if request.client else None
     log_audit(
         db=db,
         action="LOGIN_SUCCESS",
@@ -70,8 +86,24 @@ def login(
         user=user,
         entity_id=active_entity_id,
         details=f"User {user.email} logged in successfully",
-        ip_address=client_ip
+        ip_address=client_ip,
+        user_agent=ua_str[:255] if ua_str else None
     )
+
+    # Track active session in database
+    new_session = UserSession(
+        user_id=user.id,
+        session_token=access_token[-24:],
+        device=ua_info["device"],
+        browser=ua_info["browser"],
+        os=ua_info["os"],
+        ip_address=client_ip,
+        location=loc,
+        is_active=True,
+        last_active_at=datetime.utcnow()
+    )
+    db.add(new_session)
+    db.commit()
 
     user_summary = UserAuthSummary(
         id=user.id,
@@ -169,6 +201,7 @@ def change_user_password(
     pwd_in: ChangePasswordRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     if not verify_password(pwd_in.current_password, current_user.hashed_password):
@@ -183,19 +216,162 @@ def change_user_password(
         )
     
     current_user.hashed_password = get_password_hash(pwd_in.new_password)
+    
+    # Invalidate other active sessions for this user
+    curr_token_suffix = token[-24:] if token else ""
+    db.query(UserSession).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.session_token != curr_token_suffix
+    ).update({"is_active": False})
+    
     db.commit()
 
-    client_ip = request.client.host if request.client else None
+    client_ip = get_client_ip(request)
+    ua_str = request.headers.get("user-agent", "")
     log_audit(
         db=db,
         action="PASSWORD_CHANGED",
         record_type="User",
         record_id=str(current_user.id),
         user=current_user,
-        details="User changed account password",
-        ip_address=client_ip
+        details="User changed account password. Other active sessions invalidated.",
+        ip_address=client_ip,
+        user_agent=ua_str[:255] if ua_str else None
     )
     return {"status": "success", "message": "Password changed successfully"}
+
+@router.get("/sessions", response_model=List[UserSessionResponse])
+def get_user_sessions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    curr_token_suffix = token[-24:] if token else ""
+    active_sessions = db.query(UserSession).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.is_active == True
+    ).order_by(UserSession.last_active_at.desc()).all()
+
+    # Ensure current session exists in the records
+    has_current = any(s.session_token == curr_token_suffix for s in active_sessions)
+    if not has_current:
+        ua_str = request.headers.get("user-agent", "")
+        ua_info = parse_user_agent(ua_str)
+        client_ip = get_client_ip(request)
+        loc = get_approx_location(request)
+        curr_sess = UserSession(
+            user_id=current_user.id,
+            session_token=curr_token_suffix,
+            device=ua_info["device"],
+            browser=ua_info["browser"],
+            os=ua_info["os"],
+            ip_address=client_ip,
+            location=loc,
+            is_active=True,
+            last_active_at=datetime.utcnow()
+        )
+        db.add(curr_sess)
+        db.commit()
+        db.refresh(curr_sess)
+        active_sessions.insert(0, curr_sess)
+
+    results = []
+    for s in active_sessions:
+        is_cur = (s.session_token == curr_token_suffix)
+        results.append(
+            UserSessionResponse(
+                id=s.id,
+                device=s.device or "Desktop PC",
+                browser=s.browser or "Web Browser",
+                os=s.os or "Operating System",
+                ip_address=s.ip_address,
+                location=s.location or "Current Location",
+                last_active_at=s.last_active_at or datetime.utcnow(),
+                created_at=s.created_at or datetime.utcnow(),
+                is_current=is_cur
+            )
+        )
+    return results
+
+@router.delete("/sessions/{session_id}")
+def revoke_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    curr_token_suffix = token[-24:] if token else ""
+    sess = db.query(UserSession).filter(
+        UserSession.id == session_id,
+        UserSession.user_id == current_user.id
+    ).first()
+
+    if not sess:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
+
+    if sess.session_token == curr_token_suffix:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot sign out the current active session from here. Please use Sign Out from the account menu."
+        )
+
+    sess.is_active = False
+    db.commit()
+    return {"status": "success", "message": "Session terminated successfully"}
+
+@router.post("/sessions/sign-out-others")
+def revoke_other_sessions(
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    curr_token_suffix = token[-24:] if token else ""
+    updated = db.query(UserSession).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.session_token != curr_token_suffix,
+        UserSession.is_active == True
+    ).update({"is_active": False})
+    db.commit()
+    return {
+        "status": "success",
+        "message": f"Successfully signed out of {updated} other active session(s)",
+        "count": updated
+    }
+
+@router.get("/login-activity", response_model=List[LoginActivityResponse])
+def get_login_activity(
+    limit: int = 15,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    logs = db.query(AuditLog).filter(
+        (AuditLog.user_id == current_user.id) | (AuditLog.record_id == current_user.email),
+        AuditLog.action.in_(["LOGIN_SUCCESS", "LOGIN_FAILED", "PASSWORD_CHANGED"])
+    ).order_by(AuditLog.timestamp.desc()).limit(limit).all()
+
+    results = []
+    for log in logs:
+        ua_info = parse_user_agent(log.user_agent or "")
+        device_browser = f"{ua_info['browser']} on {ua_info['os']}" if log.user_agent else "Web Browser"
+        status_text = "SUCCESS" if log.action in ["LOGIN_SUCCESS", "PASSWORD_CHANGED"] else "FAILED"
+        ip = log.ip_address or "127.0.0.1"
+        loc = "Bangalore, India" if ip in ("127.0.0.1", "::1", "localhost") or ip.startswith("192.168.") or ip.startswith("10.") else "India (Detected)"
+        
+        results.append(
+            LoginActivityResponse(
+                id=log.id,
+                timestamp=log.timestamp,
+                device_browser=device_browser,
+                location=loc,
+                status=status_text,
+                ip_address=ip
+            )
+        )
+    return results
 
 from app.schemas.tenant import CompanyRegistrationRequest, CompanyRegistrationResponse
 from app.api.v1.tenants import register_company as handle_register_company

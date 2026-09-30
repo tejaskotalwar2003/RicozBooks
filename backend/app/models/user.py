@@ -84,3 +84,21 @@ class User(Base):
             return self.roles[0].name
         return "VIEWER"
 
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_token = Column(String(255), nullable=False, index=True)
+    device = Column(String(100), default="Desktop PC")
+    browser = Column(String(100), default="Web Browser")
+    os = Column(String(100), default="Operating System")
+    ip_address = Column(String(50), nullable=True)
+    location = Column(String(100), default="Current Location")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_active_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", backref="sessions")
+
+

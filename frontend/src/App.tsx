@@ -16,6 +16,7 @@ import { GeneralLedger } from './pages/GeneralLedger';
 import { ReportsPage } from './pages/ReportsPage';
 import { CloseManagerPage } from './pages/CloseManagerPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SecurityPage } from './pages/SecurityPage';
 import { CompanyRegistrationPage } from './pages/CompanyRegistrationPage';
 import { AcceptInvitationPage } from './pages/AcceptInvitationPage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -93,6 +94,7 @@ export const App: React.FC = () => {
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/close-manager" element={<CloseManagerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/security" element={<SecurityPage />} />
             </Route>
 
             {/* Catch-all redirects to public Landing Page */}

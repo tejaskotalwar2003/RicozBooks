@@ -89,6 +89,28 @@ export interface AuditLogItem {
   details?: string;
 }
 
+export interface UserSessionItem {
+  id: number;
+  device: string;
+  browser: string;
+  os: string;
+  ip_address?: string;
+  location?: string;
+  last_active_at: string;
+  created_at: string;
+  is_current: boolean;
+}
+
+export interface LoginActivityItem {
+  id: number;
+  timestamp: string;
+  device_browser: string;
+  location?: string;
+  status: 'SUCCESS' | 'FAILED';
+  ip_address?: string;
+}
+
+
 export async function apiRequest<T>(
   endpoint: string, 
   options: RequestInit = {}
@@ -169,4 +191,20 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getSessions: () => 
+    apiRequest<UserSessionItem[]>('/auth/sessions'),
+
+  revokeSession: (sessionId: number) =>
+    apiRequest<{ status: string; message: string }>(`/auth/sessions/${sessionId}`, {
+      method: 'DELETE',
+    }),
+
+  revokeOtherSessions: () =>
+    apiRequest<{ status: string; message: string; count: number }>('/auth/sessions/sign-out-others', {
+      method: 'POST',
+    }),
+
+  getLoginActivity: (limit = 15) =>
+    apiRequest<LoginActivityItem[]>(`/auth/login-activity?limit=${limit}`),
 };

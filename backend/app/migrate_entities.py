@@ -34,6 +34,27 @@ def migrate_entities():
         "CREATE TABLE IF NOT EXISTS user_companies (user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE, PRIMARY KEY (user_id, company_id));",
         "INSERT INTO user_companies (user_id, company_id) SELECT id, default_company_id FROM users WHERE default_company_id IS NOT NULL ON CONFLICT DO NOTHING;",
         
+        # Security & Session Management
+        """
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            session_token VARCHAR(255) NOT NULL,
+            device VARCHAR(100) DEFAULT 'Desktop PC',
+            browser VARCHAR(100) DEFAULT 'Web Browser',
+            os VARCHAR(100) DEFAULT 'Operating System',
+            ip_address VARCHAR(50),
+            location VARCHAR(100) DEFAULT 'Current Location',
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            last_active_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        "CREATE INDEX IF NOT EXISTS ix_user_sessions_id ON user_sessions (id);",
+        "CREATE INDEX IF NOT EXISTS ix_user_sessions_user_id ON user_sessions (user_id);",
+        "CREATE INDEX IF NOT EXISTS ix_user_sessions_session_token ON user_sessions (session_token);",
+        "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent VARCHAR(255);",
+        
         # -------------------------------------------------------------
         # 1. Demo Management: demo_admin_users
         # -------------------------------------------------------------

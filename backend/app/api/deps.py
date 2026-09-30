@@ -127,7 +127,8 @@ def log_audit(
     user: Optional[User] = None,
     entity_id: Optional[int] = None,
     details: Optional[str] = None,
-    ip_address: Optional[str] = None
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
 ):
     try:
         import json
@@ -140,7 +141,8 @@ def log_audit(
             user_email=user.email if user else None,
             entity_id=entity_id if entity_id else (user.default_entity_id if user else None),
             details=details_str,
-            ip_address=ip_address
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         db.add(audit_entry)
         db.commit()

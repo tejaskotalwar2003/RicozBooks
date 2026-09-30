@@ -1,4 +1,5 @@
 from typing import Optional, List
+from datetime import datetime
 from pydantic import BaseModel, EmailStr
 
 class LoginRequest(BaseModel):
@@ -40,3 +41,28 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
     exp: Optional[int] = None
+
+class UserSessionResponse(BaseModel):
+    id: int
+    device: str
+    browser: str
+    os: str
+    ip_address: Optional[str] = None
+    location: Optional[str] = None
+    last_active_at: datetime
+    created_at: datetime
+    is_current: bool = False
+
+    class Config:
+        from_attributes = True
+
+class LoginActivityResponse(BaseModel):
+    id: int
+    timestamp: datetime
+    device_browser: str
+    location: Optional[str] = None
+    status: str
+    ip_address: Optional[str] = None
+
+    class Config:
+        from_attributes = True
