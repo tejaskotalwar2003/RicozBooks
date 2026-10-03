@@ -21,8 +21,10 @@ import {
   Tag
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   getExpenses, 
+  getExpensesPaginated,
   getExpenseCategories, 
   createExpense, 
   actionExpense, 
@@ -54,6 +56,12 @@ export const ExpensesPage: React.FC = () => {
   const [reimbursableOnly, setReimbursableOnly] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -98,24 +106,26 @@ export const ExpensesPage: React.FC = () => {
   const [reimbBankId, setReimbBankId] = useState<number | ''>('');
   const [reimbRef, setReimbRef] = useState<string>('');
 
-  const loadData = async () => {
+  const loadData = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity?.id) return;
     setIsLoading(true);
     setError(null);
     try {
       const [expData, catData, bankData, sumData, accData] = await Promise.all([
-        getExpenses(activeEntity.id, {
+        getExpensesPaginated(activeEntity.id, {
           status: statusFilter === 'ALL' ? undefined : statusFilter,
           category_id: selectedCategory === 'ALL' ? undefined : Number(selectedCategory),
           is_reimbursable: reimbursableOnly ? true : undefined,
-          search: searchTerm || undefined
-        }),
+          search: searchTerm.trim() || undefined
+        }, page, size),
         getExpenseCategories(activeEntity.id),
         getBankAccounts(activeEntity.id),
         getExpenseSummary(activeEntity.id),
         getAccounts(activeEntity.id)
       ]);
-      setExpenses(expData);
+      setExpenses(expData.items || []);
+      setTotalRecords(expData.total);
+      setTotalPages(expData.total_pages);
       setCategories(catData);
       setBankAccounts(bankData);
       setSummary(sumData);
@@ -128,8 +138,20 @@ export const ExpensesPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [activeEntity?.id, statusFilter, selectedCategory, reimbursableOnly]);
+    setCurrentPage(1);
+    loadData(1, pageSize);
+  }, [activeEntity?.id, statusFilter, selectedCategory, reimbursableOnly, searchTerm]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    loadData(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    loadData(1, newSize);
+  };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -584,6 +606,15 @@ export const ExpensesPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={currentPage}
+          pageSize={pageSize}
+          total={totalRecords}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* MODAL 1: RECORD NEW EXPENSE */}

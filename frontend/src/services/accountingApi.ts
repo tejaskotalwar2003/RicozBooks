@@ -1,4 +1,7 @@
-import { apiRequest, API_BASE } from './api';
+import { apiRequest, API_BASE, PaginatedResponse, extractItems } from './api';
+
+export type { PaginatedResponse };
+export { extractItems };
 
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
 export type NormalBalance = 'DEBIT' | 'CREDIT';
@@ -139,6 +142,10 @@ export interface AccountLedgerResponse {
   closing_balance: number;
   closing_balance_type: 'DR' | 'CR';
   lines: LedgerLineItem[];
+  total?: number;
+  page?: number;
+  page_size?: number;
+  total_pages?: number;
 }
 
 export interface LedgerSummaryItem {
@@ -208,13 +215,15 @@ export const getAccounts = (entityId?: number, accountType?: AccountType) =>
   accountingApi.getAccounts({ entity_id: entityId, account_type: accountType });
 
 export const accountingApi = {
-  getAccounts: (params?: { entity_id?: number; account_type?: AccountType; is_active?: boolean; search?: string }) => {
+  getAccounts: async (params?: { entity_id?: number; account_type?: AccountType; is_active?: boolean; search?: string }) => {
     const query = new URLSearchParams();
     if (params?.entity_id) query.append('entity_id', params.entity_id.toString());
     if (params?.account_type) query.append('account_type', params.account_type);
     if (params?.is_active !== undefined) query.append('is_active', params.is_active.toString());
     if (params?.search) query.append('search', params.search);
-    return apiRequest<Account[]>(`/accounts?${query.toString()}`);
+    query.append('paginate', 'false');
+    const res = await apiRequest<Account[] | PaginatedResponse<Account>>(`/accounts?${query.toString()}`);
+    return extractItems(res);
   },
 
   createAccount: (data: AccountCreateData) =>
@@ -230,12 +239,25 @@ export const accountingApi = {
     }),
 
   // Journal Entries
-  getJournalEntries: (params?: { entity_id?: number; status?: JournalStatus; search?: string }) => {
+  getJournalEntries: async (params?: { entity_id?: number; status?: JournalStatus; search?: string }) => {
     const query = new URLSearchParams();
     if (params?.entity_id) query.append('entity_id', params.entity_id.toString());
     if (params?.status) query.append('status', params.status);
     if (params?.search) query.append('search', params.search);
-    return apiRequest<JournalEntry[]>(`/journal-entries?${query.toString()}`);
+    query.append('paginate', 'false');
+    const res = await apiRequest<JournalEntry[] | PaginatedResponse<JournalEntry>>(`/journal-entries?${query.toString()}`);
+    return extractItems(res);
+  },
+
+  getJournalEntriesPaginated: async (params?: { entity_id?: number; status?: JournalStatus; search?: string; page?: number; page_size?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.entity_id) query.append('entity_id', params.entity_id.toString());
+    if (params?.status) query.append('status', params.status);
+    if (params?.search) query.append('search', params.search);
+    query.append('page', (params?.page || 1).toString());
+    query.append('page_size', (params?.page_size || 20).toString());
+    query.append('paginate', 'true');
+    return apiRequest<PaginatedResponse<JournalEntry>>(`/journal-entries?${query.toString()}`);
   },
 
   getJournalEntryDetail: (id: number) =>
@@ -300,6 +322,8 @@ export const accountingApi = {
     start_date?: string;
     end_date?: string;
     include_unposted?: boolean;
+    page?: number;
+    page_size?: number;
   }) => {
     const query = new URLSearchParams();
     query.append('entity_id', params.entity_id.toString());
@@ -308,6 +332,8 @@ export const accountingApi = {
     if (params.include_unposted !== undefined) {
       query.append('include_unposted', params.include_unposted.toString());
     }
+    if (params.page !== undefined) query.append('page', params.page.toString());
+    if (params.page_size !== undefined) query.append('page_size', params.page_size.toString());
     return apiRequest<AccountLedgerResponse>(`/ledger/account/${params.account_id}?${query.toString()}`);
   },
 
@@ -1306,8 +1332,25 @@ export const getCustomers = async (entityId?: number, search?: string): Promise<
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (search) params.append('search', search);
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<Customer[]>(`/customers${q}`);
+  const res = await apiRequest<Customer[] | PaginatedResponse<Customer>>(`/customers${q}`);
+  return extractItems(res);
+};
+
+export const getCustomersPaginated = async (
+  entityId?: number,
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Customer>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Customer>>(`/customers?${params.toString()}`);
 };
 
 export const createCustomer = async (data: CustomerCreateData): Promise<Customer> => {
@@ -1333,8 +1376,25 @@ export const getProducts = async (entityId?: number, search?: string): Promise<P
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (search) params.append('search', search);
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<Product[]>(`/products${q}`);
+  const res = await apiRequest<Product[] | PaginatedResponse<Product>>(`/products${q}`);
+  return extractItems(res);
+};
+
+export const getProductsPaginated = async (
+  entityId?: number,
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Product>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Product>>(`/products?${params.toString()}`);
 };
 
 export const createProduct = async (data: ProductCreateData): Promise<Product> => {
@@ -1350,8 +1410,29 @@ export const getInvoices = async (entityId?: number, customerId?: number, status
   if (entityId) params.append('entity_id', entityId.toString());
   if (customerId) params.append('customer_id', customerId.toString());
   if (status) params.append('status', status);
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<Invoice[]>(`/invoices${q}`);
+  const res = await apiRequest<Invoice[] | PaginatedResponse<Invoice>>(`/invoices${q}`);
+  return extractItems(res);
+};
+
+export const getInvoicesPaginated = async (
+  entityId?: number,
+  customerId?: number,
+  status?: string,
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Invoice>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (customerId) params.append('customer_id', customerId.toString());
+  if (status && status !== 'ALL') params.append('status', status);
+  if (search) params.append('search', search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Invoice>>(`/invoices?${params.toString()}`);
 };
 
 export const getInvoiceDetail = async (id: number): Promise<Invoice> => {
@@ -1414,8 +1495,24 @@ export const recordCustomerPayment = async (data: CustomerPaymentCreateData): Pr
 
 // Estimates API
 export const getEstimates = async (entityId?: number): Promise<Estimate[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<Estimate[]>(`/estimates${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<Estimate[] | PaginatedResponse<Estimate>>(`/estimates?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getEstimatesPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Estimate>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Estimate>>(`/estimates?${params.toString()}`);
 };
 
 export const createEstimate = async (data: EstimateCreateData): Promise<Estimate> => {
@@ -1617,8 +1714,25 @@ export const getVendors = async (entityId?: number, search?: string): Promise<Ve
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (search) params.append('search', search);
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<Vendor[]>(`/vendors${q}`);
+  const res = await apiRequest<Vendor[] | PaginatedResponse<Vendor>>(`/vendors${q}`);
+  return extractItems(res);
+};
+
+export const getVendorsPaginated = async (
+  entityId?: number,
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Vendor>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (search) params.append('search', search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Vendor>>(`/vendors?${params.toString()}`);
 };
 
 export const createVendor = async (data: VendorCreateData): Promise<Vendor> => {
@@ -1638,8 +1752,29 @@ export const getBills = async (entityId?: number, vendorId?: number, status?: st
   if (entityId) params.append('entity_id', entityId.toString());
   if (vendorId) params.append('vendor_id', vendorId.toString());
   if (status) params.append('status', status);
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<Bill[]>(`/bills${q}`);
+  const res = await apiRequest<Bill[] | PaginatedResponse<Bill>>(`/bills${q}`);
+  return extractItems(res);
+};
+
+export const getBillsPaginated = async (
+  entityId?: number,
+  vendorId?: number,
+  status?: string,
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Bill>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (vendorId) params.append('vendor_id', vendorId.toString());
+  if (status && status !== 'ALL') params.append('status', status);
+  if (search) params.append('search', search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Bill>>(`/bills?${params.toString()}`);
 };
 
 export const getBillDetail = async (id: number): Promise<Bill> => {
@@ -1664,8 +1799,25 @@ export const getVendorPayments = async (entityId?: number, vendorId?: number): P
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (vendorId) params.append('vendor_id', vendorId.toString());
+  params.append('paginate', 'false');
   const q = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest<VendorPayment[]>(`/vendor-payments${q}`);
+  const res = await apiRequest<VendorPayment[] | PaginatedResponse<VendorPayment>>(`/vendor-payments${q}`);
+  return extractItems(res);
+};
+
+export const getVendorPaymentsPaginated = async (
+  entityId?: number,
+  vendorId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<VendorPayment>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  if (vendorId) params.append('vendor_id', vendorId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<VendorPayment>>(`/vendor-payments?${params.toString()}`);
 };
 
 export const recordVendorPayment = async (data: VendorPaymentCreateData): Promise<VendorPayment> => {
@@ -1774,7 +1926,27 @@ export const getExpenses = async (
   if (filters?.category_id) params.append('category_id', filters.category_id.toString());
   if (filters?.is_reimbursable !== undefined) params.append('is_reimbursable', filters.is_reimbursable.toString());
   if (filters?.search) params.append('search', filters.search);
-  return apiRequest<Expense[]>(`/expenses/expenses?${params.toString()}`);
+  params.append('paginate', 'false');
+  const res = await apiRequest<Expense[] | PaginatedResponse<Expense>>(`/expenses/expenses?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getExpensesPaginated = async (
+  entityId: number, 
+  filters?: { status?: string; category_id?: number; is_reimbursable?: boolean; search?: string },
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Expense>> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (filters?.status && filters.status !== 'ALL') params.append('status_filter', filters.status);
+  if (filters?.category_id) params.append('category_id', filters.category_id.toString());
+  if (filters?.is_reimbursable !== undefined) params.append('is_reimbursable', filters.is_reimbursable.toString());
+  if (filters?.search) params.append('search', filters.search);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<Expense>>(`/expenses/expenses?${params.toString()}`);
 };
 
 export const createExpense = async (data: ExpenseCreateData, autoPost: boolean = false): Promise<Expense> => {
@@ -1952,7 +2124,24 @@ export const getBankTransactions = async (bankAccountId: number, status?: string
   const params = new URLSearchParams();
   params.append('bank_account_id', bankAccountId.toString());
   if (status) params.append('status_filter', status);
-  return apiRequest<BankTransaction[]>(`/banking/transactions?${params.toString()}`);
+  params.append('paginate', 'false');
+  const res = await apiRequest<BankTransaction[] | PaginatedResponse<BankTransaction>>(`/banking/transactions?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getBankTransactionsPaginated = async (
+  bankAccountId: number,
+  status?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<BankTransaction>> => {
+  const params = new URLSearchParams();
+  params.append('bank_account_id', bankAccountId.toString());
+  if (status && status !== 'ALL') params.append('status_filter', status);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<BankTransaction>>(`/banking/transactions?${params.toString()}`);
 };
 
 export const createBankTransfer = async (data: BankTransferCreateData): Promise<BankTransfer> => {
@@ -1963,7 +2152,16 @@ export const createBankTransfer = async (data: BankTransferCreateData): Promise<
 };
 
 export const getBankTransfers = async (entityId: number): Promise<BankTransfer[]> => {
-  return apiRequest<BankTransfer[]>(`/banking/transfers?entity_id=${entityId}`);
+  const res = await apiRequest<BankTransfer[] | PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&paginate=false`);
+  return extractItems(res);
+};
+
+export const getBankTransfersPaginated = async (
+  entityId: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<BankTransfer>> => {
+  return apiRequest<PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&page=${page}&page_size=${pageSize}&paginate=true`);
 };
 
 export const createBankReconciliation = async (data: { bank_account_id: number; statement_date: string; statement_balance: number; notes?: string }): Promise<BankReconciliation> => {
@@ -2098,7 +2296,24 @@ export const getInventoryMovements = async (entityId: number, productId?: number
   const params = new URLSearchParams();
   params.append('entity_id', entityId.toString());
   if (productId) params.append('product_id', productId.toString());
-  return apiRequest<InventoryMovement[]>(`/inventory/movements?${params.toString()}`);
+  params.append('paginate', 'false');
+  const res = await apiRequest<InventoryMovement[] | PaginatedResponse<InventoryMovement>>(`/inventory/movements?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getInventoryMovementsPaginated = async (
+  entityId: number,
+  productId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<InventoryMovement>> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (productId) params.append('product_id', productId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<InventoryMovement>>(`/inventory/movements?${params.toString()}`);
 };
 
 export const createStockAdjustment = async (data: StockAdjustmentCreateData): Promise<StockAdjustment> => {
@@ -2109,7 +2324,16 @@ export const createStockAdjustment = async (data: StockAdjustmentCreateData): Pr
 };
 
 export const getStockAdjustments = async (entityId: number): Promise<StockAdjustment[]> => {
-  return apiRequest<StockAdjustment[]>(`/inventory/adjustments?entity_id=${entityId}`);
+  const res = await apiRequest<StockAdjustment[] | PaginatedResponse<StockAdjustment>>(`/inventory/adjustments?entity_id=${entityId}&paginate=false`);
+  return extractItems(res);
+};
+
+export const getStockAdjustmentsPaginated = async (
+  entityId: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<StockAdjustment>> => {
+  return apiRequest<PaginatedResponse<StockAdjustment>>(`/inventory/adjustments?entity_id=${entityId}&page=${page}&page_size=${pageSize}&paginate=true`);
 };
 
 // ==========================================
@@ -2315,7 +2539,24 @@ export const getProjects = async (entityId: number, statusFilter?: string): Prom
   const params = new URLSearchParams();
   params.append('entity_id', entityId.toString());
   if (statusFilter && statusFilter !== 'ALL') params.append('status_filter', statusFilter);
-  return apiRequest<ProjectDetail[]>(`/projects?${params.toString()}`);
+  params.append('paginate', 'false');
+  const res = await apiRequest<ProjectDetail[] | PaginatedResponse<ProjectDetail>>(`/projects?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getProjectsPaginated = async (
+  entityId: number,
+  statusFilter?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<ProjectDetail>> => {
+  const params = new URLSearchParams();
+  params.append('entity_id', entityId.toString());
+  if (statusFilter && statusFilter !== 'ALL') params.append('status_filter', statusFilter);
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<ProjectDetail>>(`/projects?${params.toString()}`);
 };
 
 export const createProject = async (data: {
@@ -2596,8 +2837,24 @@ export interface DebitNote {
 }
 
 export const getSalesOrders = async (entityId?: number): Promise<SalesOrder[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<SalesOrder[]>(`/orders${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<SalesOrder[] | PaginatedResponse<SalesOrder>>(`/orders?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getSalesOrdersPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<SalesOrder>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<SalesOrder>>(`/orders?${params.toString()}`);
 };
 
 export const createSalesOrder = async (data: any): Promise<SalesOrder> => {
@@ -2608,8 +2865,24 @@ export const createSalesOrder = async (data: any): Promise<SalesOrder> => {
 };
 
 export const getCreditNotes = async (entityId?: number): Promise<CreditNote[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<CreditNote[]>(`/credit-notes${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<CreditNote[] | PaginatedResponse<CreditNote>>(`/credit-notes?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getCreditNotesPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<CreditNote>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<CreditNote>>(`/credit-notes?${params.toString()}`);
 };
 
 export const createCreditNote = async (data: any): Promise<CreditNote> => {
@@ -2620,8 +2893,24 @@ export const createCreditNote = async (data: any): Promise<CreditNote> => {
 };
 
 export const getRecurringInvoices = async (entityId?: number): Promise<RecurringInvoice[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<RecurringInvoice[]>(`/recurring${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<RecurringInvoice[] | PaginatedResponse<RecurringInvoice>>(`/recurring?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getRecurringInvoicesPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<RecurringInvoice>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<RecurringInvoice>>(`/recurring?${params.toString()}`);
 };
 
 export const createRecurringInvoice = async (data: any): Promise<RecurringInvoice> => {
@@ -2632,8 +2921,24 @@ export const createRecurringInvoice = async (data: any): Promise<RecurringInvoic
 };
 
 export const getPurchaseOrders = async (entityId?: number): Promise<PurchaseOrder[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<PurchaseOrder[]>(`/purchase-orders${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<PurchaseOrder[] | PaginatedResponse<PurchaseOrder>>(`/purchase-orders?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getPurchaseOrdersPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<PurchaseOrder>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<PurchaseOrder>>(`/purchase-orders?${params.toString()}`);
 };
 
 export const createPurchaseOrder = async (data: any): Promise<PurchaseOrder> => {
@@ -2650,8 +2955,24 @@ export const convertPoToBill = async (poId: number): Promise<Bill> => {
 };
 
 export const getDebitNotes = async (entityId?: number): Promise<DebitNote[]> => {
-  const q = entityId ? `?entity_id=${entityId}` : '';
-  return apiRequest<DebitNote[]>(`/debit-notes${q}`);
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('paginate', 'false');
+  const res = await apiRequest<DebitNote[] | PaginatedResponse<DebitNote>>(`/debit-notes?${params.toString()}`);
+  return extractItems(res);
+};
+
+export const getDebitNotesPaginated = async (
+  entityId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<DebitNote>> => {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId.toString());
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  params.append('paginate', 'true');
+  return apiRequest<PaginatedResponse<DebitNote>>(`/debit-notes?${params.toString()}`);
 };
 
 export const createDebitNote = async (data: any): Promise<DebitNote> => {

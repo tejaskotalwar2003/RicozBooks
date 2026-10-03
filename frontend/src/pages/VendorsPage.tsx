@@ -18,8 +18,10 @@ import {
   Landmark
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   getVendors, 
+  getVendorsPaginated,
   createVendor, 
   getVendorStatement, 
   Vendor, 
@@ -34,6 +36,13 @@ export const VendorsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [allVendorsSummary, setAllVendorsSummary] = useState<Vendor[]>([]);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -62,13 +71,19 @@ export const VendorsPage: React.FC = () => {
 
   const currencySymbol = activeEntity?.base_currency === 'USD' ? '$' : (activeEntity?.base_currency === 'EUR' ? '€' : (activeEntity?.base_currency === 'GBP' ? '£' : '₹'));
 
-  const fetchVendorsList = async () => {
+  const fetchVendorsList = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getVendors(activeEntity.id, searchTerm);
-      setVendors(data);
+      const [allV, pagV] = await Promise.all([
+        getVendors(activeEntity.id),
+        getVendorsPaginated(activeEntity.id, searchTerm.trim() || undefined, page, size)
+      ]);
+      setAllVendorsSummary(allV || []);
+      setVendors(pagV.items || []);
+      setTotalRecords(pagV.total);
+      setTotalPages(pagV.total_pages);
     } catch (err: any) {
       console.error('Failed to load vendors:', err);
       setError(err.message || 'Failed to load vendor directory');
@@ -78,8 +93,20 @@ export const VendorsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchVendorsList();
+    setCurrentPage(1);
+    fetchVendorsList(1, pageSize);
   }, [activeEntity?.id, searchTerm]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchVendorsList(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchVendorsList(1, newSize);
+  };
 
   const handleCreateVendor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +160,7 @@ export const VendorsPage: React.FC = () => {
 
       setSuccessMsg(`Vendor "${payload.name}" registered successfully!`);
       setTimeout(() => setSuccessMsg(null), 5000);
-      await fetchVendorsList();
+      await fetchVendorsList(1, pageSize);
     } catch (err: any) {
       setError(err.message || 'Failed to create vendor');
     } finally {
@@ -158,9 +185,9 @@ export const VendorsPage: React.FC = () => {
   };
 
   // Metrics
-  const totalPayables = vendors.reduce((acc, v) => acc + Number(v.current_balance || 0), 0);
-  const activeCount = vendors.filter(v => v.is_active).length;
-  const highBalanceCount = vendors.filter(v => Number(v.current_balance || 0) > 0).length;
+  const totalPayables = allVendorsSummary.reduce((acc, v) => acc + Number(v.current_balance || 0), 0);
+  const activeCount = allVendorsSummary.filter(v => v.is_active).length;
+  const highBalanceCount = allVendorsSummary.filter(v => Number(v.current_balance || 0) > 0).length;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -180,7 +207,7 @@ export const VendorsPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={fetchVendorsList}
+            onClick={() => fetchVendorsList()}
             disabled={isLoading}
             className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh Directory"
@@ -215,7 +242,7 @@ export const VendorsPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Vendors</div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{vendors.length}</div>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{allVendorsSummary.length}</div>
           <div className="mt-1 text-xs text-slate-500">{activeCount} active corporate suppliers</div>
         </div>
 
@@ -353,6 +380,14 @@ export const VendorsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={currentPage}
+          pageSize={pageSize}
+          totalRecords={totalRecords}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
 
       {/* ADD VENDOR MODAL */}

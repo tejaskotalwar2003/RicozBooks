@@ -87,6 +87,8 @@ class DemoListResponse(BaseModel):
     total: int
     page: int
     limit: int
+    page_size: Optional[int] = None
+    total_pages: Optional[int] = None
     items: List[DemoRequestDetailResponse]
 
 # Action Request Bodies

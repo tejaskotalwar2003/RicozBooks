@@ -51,7 +51,7 @@ class DemoScheduleHistory(Base):
     __tablename__ = "demo_schedule_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    demo_request_id = Column(Integer, ForeignKey("demo_requests.id"), nullable=False)
+    demo_request_id = Column(Integer, ForeignKey("demo_requests.id"), nullable=False, index=True)
     old_date = Column(Date, nullable=True)
     old_time = Column(String(64), nullable=True)
     new_date = Column(Date, nullable=True)

@@ -21,8 +21,10 @@ import {
   Scale
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   getBills, 
+  getBillsPaginated,
   getVendors, 
   getProducts, 
   createBill, 
@@ -54,6 +56,13 @@ export const BillsPage: React.FC = () => {
   // Filters
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [allBillsSummary, setAllBillsSummary] = useState<Bill[]>([]);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -94,19 +103,30 @@ export const BillsPage: React.FC = () => {
 
   const currencySymbol = activeEntity?.base_currency === 'USD' ? '$' : (activeEntity?.base_currency === 'EUR' ? '€' : (activeEntity?.base_currency === 'GBP' ? '£' : '₹'));
 
-  const fetchData = async () => {
+  const fetchData = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [billsData, vendorsData, prodsData, poData, dnData] = await Promise.all([
+      const [allB, pagB, vendorsData, prodsData, poData, dnData] = await Promise.all([
         getBills(activeEntity.id),
+        getBillsPaginated(
+          activeEntity.id,
+          undefined,
+          statusFilter !== 'ALL' ? statusFilter : undefined,
+          searchTerm.trim() || undefined,
+          page,
+          size
+        ),
         getVendors(activeEntity.id),
         getProducts(activeEntity.id),
         getPurchaseOrders(activeEntity.id).catch(() => []),
         getDebitNotes(activeEntity.id).catch(() => [])
       ]);
-      setBills(billsData || []);
+      setAllBillsSummary(allB || []);
+      setBills(pagB.items || []);
+      setTotalRecords(pagB.total);
+      setTotalPages(pagB.total_pages);
       setVendors(vendorsData || []);
       setProducts(prodsData || []);
       setPurchaseOrders(poData || []);
@@ -120,8 +140,20 @@ export const BillsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [activeEntity?.id]);
+    setCurrentPage(1);
+    fetchData(1, pageSize);
+  }, [activeEntity?.id, searchTerm, statusFilter]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchData(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchData(1, newSize);
+  };
 
   const handleConvertPoToBill = async (poId: number) => {
     if (!window.confirm('Convert this Purchase Order into a Vendor Bill?')) return;
@@ -333,19 +365,10 @@ export const BillsPage: React.FC = () => {
   };
 
   // Metrics summary
-  const totalBilled = bills.reduce((acc, b) => acc + Number(b.total_amount), 0);
-  const totalPaid = bills.reduce((acc, b) => acc + Number(b.paid_amount), 0);
-  const totalOutstanding = bills.reduce((acc, b) => acc + Number(b.balance_amount), 0);
-  const overdueCount = bills.filter(b => b.status === 'OVERDUE' || (new Date(b.due_date) < new Date() && Number(b.balance_amount) > 0)).length;
-
-  const filteredBills = bills.filter(b => {
-    const matchesSearch = 
-      b.bill_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (b.vendor_name && b.vendor_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (b.vendor_invoice_ref && b.vendor_invoice_ref.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'ALL' || b.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const totalBilled = allBillsSummary.reduce((acc, b) => acc + Number(b.total_amount), 0);
+  const totalPaid = allBillsSummary.reduce((acc, b) => acc + Number(b.paid_amount), 0);
+  const totalOutstanding = allBillsSummary.reduce((acc, b) => acc + Number(b.balance_amount), 0);
+  const overdueCount = allBillsSummary.filter(b => b.status === 'OVERDUE' || (new Date(b.due_date) < new Date() && Number(b.balance_amount) > 0)).length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -383,7 +406,7 @@ export const BillsPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={isLoading}
             className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh Bills"
@@ -411,7 +434,7 @@ export const BillsPage: React.FC = () => {
           }`}
         >
           <FileSpreadsheet className="w-4 h-4" />
-          <span>Vendor Bills ({bills.length})</span>
+          <span>Vendor Bills ({allBillsSummary.length})</span>
         </button>
 
         <button
@@ -460,7 +483,7 @@ export const BillsPage: React.FC = () => {
           <div className="mt-2 text-2xl font-bold text-slate-900">
             {currencySymbol}{totalBilled.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <div className="mt-1 text-xs text-slate-500">{bills.length} vendor bills recorded</div>
+          <div className="mt-1 text-xs text-slate-500">{allBillsSummary.length} vendor bills recorded</div>
         </div>
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -539,7 +562,7 @@ export const BillsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredBills.length === 0 ? (
+                {bills.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-slate-500">
                       <FileSpreadsheet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -552,7 +575,7 @@ export const BillsPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBills.map((b) => (
+                  bills.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                         {b.bill_number}
@@ -620,6 +643,14 @@ export const BillsPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            totalRecords={totalRecords}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </div>
       )}
 

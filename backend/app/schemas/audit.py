@@ -21,5 +21,12 @@ class AuditLogResponse(BaseModel):
 class PaginatedAuditLogResponse(BaseModel):
     items: List[AuditLogResponse]
     total: int
-    skip: int
-    limit: int
+    skip: Optional[int] = 0
+    limit: Optional[int] = 50
+    page: Optional[int] = 1
+    page_size: Optional[int] = 50
+    total_pages: Optional[int] = 1
+
+    class Config:
+        from_attributes = True
+

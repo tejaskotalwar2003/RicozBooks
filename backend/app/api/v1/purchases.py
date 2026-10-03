@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,6 +21,8 @@ from app.schemas.purchases import (
     VendorPaymentCreate, VendorPaymentResponse,
     DebitNoteCreate, DebitNoteResponse
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.purchase_engine import (
     quantize_amount, generate_po_number, generate_bill_number,
     generate_vendor_payment_number, generate_debit_note_number,
@@ -37,10 +39,13 @@ router = APIRouter()
 # =========================================================================
 # 1. VENDORS
 # =========================================================================
-@router.get("/vendors", response_model=List[VendorResponse])
+@router.get("/vendors", response_model=Union[PaginatedResponse[VendorResponse], List[VendorResponse]])
 def get_vendors(
     entity_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -62,7 +67,8 @@ def get_vendors(
             (Vendor.email.ilike(s)) | (Vendor.gstin.ilike(s))
         )
 
-    return query.order_by(Vendor.name.asc()).all()
+    return paginate_or_all(query.order_by(Vendor.name.asc()), page=page, page_size=page_size, paginate=paginate)
+
 
 @router.post("/vendors", response_model=VendorResponse, status_code=status.HTTP_201_CREATED)
 def create_vendor(
@@ -258,10 +264,13 @@ def get_vendor_ledger_statement(
 # =========================================================================
 # 2. PURCHASE ORDERS
 # =========================================================================
-@router.get("/purchase-orders", response_model=List[PurchaseOrderResponse])
+@router.get("/purchase-orders", response_model=Union[PaginatedResponse[PurchaseOrderResponse], List[PurchaseOrderResponse]])
 def get_purchase_orders(
     entity_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -279,14 +288,16 @@ def get_purchase_orders(
     if vendor_id:
         query = query.filter(PurchaseOrder.vendor_id == vendor_id)
 
-    pos = query.order_by(desc(PurchaseOrder.order_date), desc(PurchaseOrder.id)).all()
-    results = []
-    for po in pos:
+    ordered_query = query.order_by(desc(PurchaseOrder.order_date), desc(PurchaseOrder.id))
+
+    def transform_po(po):
         res = PurchaseOrderResponse.model_validate(po, from_attributes=True)
         if po.vendor:
             res.vendor_name = po.vendor.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_po)
+
 
 @router.post("/purchase-orders", response_model=PurchaseOrderDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_purchase_order(
@@ -482,11 +493,15 @@ def convert_po_to_bill(
 # =========================================================================
 # 3. VENDOR BILLS
 # =========================================================================
-@router.get("/bills", response_model=List[BillResponse])
+@router.get("/bills", response_model=Union[PaginatedResponse[BillResponse], List[BillResponse]])
 def get_bills(
     entity_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -507,14 +522,20 @@ def get_bills(
     if status and status.upper() != "ALL":
         query = query.filter(Bill.status == status.upper())
 
-    bills = query.order_by(desc(Bill.bill_date), desc(Bill.id)).all()
-    results = []
-    for b in bills:
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter((Bill.bill_number.ilike(s)) | (Bill.vendor_invoice_number.ilike(s)) | (Bill.notes.ilike(s)))
+
+    ordered_query = query.order_by(desc(Bill.bill_date), desc(Bill.id))
+
+    def transform_bill(b):
         res = BillResponse.model_validate(b, from_attributes=True)
         if b.vendor:
             res.vendor_name = b.vendor.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_bill)
+
 
 @router.post("/bills", response_model=BillDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_bill(
@@ -693,11 +714,14 @@ def post_bill_to_ledger(
 # =========================================================================
 # 4. VENDOR PAYMENTS
 # =========================================================================
-@router.get("/payments/vendor", response_model=List[VendorPaymentResponse])
-@router.get("/vendor-payments", response_model=List[VendorPaymentResponse])
+@router.get("/payments/vendor", response_model=Union[PaginatedResponse[VendorPaymentResponse], List[VendorPaymentResponse]])
+@router.get("/vendor-payments", response_model=Union[PaginatedResponse[VendorPaymentResponse], List[VendorPaymentResponse]])
 def get_vendor_payments(
     entity_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -719,9 +743,9 @@ def get_vendor_payments(
     if vendor_id:
         query = query.filter(VendorPayment.vendor_id == vendor_id)
 
-    payments = query.order_by(desc(VendorPayment.payment_date), desc(VendorPayment.id)).all()
-    results = []
-    for p in payments:
+    ordered_query = query.order_by(desc(VendorPayment.payment_date), desc(VendorPayment.id))
+
+    def transform_payment(p):
         res = VendorPaymentResponse.model_validate(p, from_attributes=True)
         if p.vendor:
             res.vendor_name = p.vendor.name
@@ -729,8 +753,10 @@ def get_vendor_payments(
             res.bill_number = p.bill.bill_number
         if p.disbursement_account:
             res.disbursement_account_name = f"{p.disbursement_account.code} - {p.disbursement_account.name}"
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_payment)
+
 
 @router.post("/payments/vendor", response_model=VendorPaymentResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/vendor-payments", response_model=VendorPaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -799,10 +825,13 @@ def record_vendor_payment(
 # =========================================================================
 # 5. DEBIT NOTES
 # =========================================================================
-@router.get("/debit-notes", response_model=List[DebitNoteResponse])
+@router.get("/debit-notes", response_model=Union[PaginatedResponse[DebitNoteResponse], List[DebitNoteResponse]])
 def get_debit_notes(
     entity_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -820,16 +849,18 @@ def get_debit_notes(
     if vendor_id:
         query = query.filter(DebitNote.vendor_id == vendor_id)
 
-    notes = query.order_by(desc(DebitNote.note_date), desc(DebitNote.id)).all()
-    results = []
-    for n in notes:
+    ordered_query = query.order_by(desc(DebitNote.note_date), desc(DebitNote.id))
+
+    def transform_note(n):
         res = DebitNoteResponse.model_validate(n, from_attributes=True)
         if n.vendor:
             res.vendor_name = n.vendor.name
         if n.bill:
             res.bill_number = n.bill.bill_number
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_note)
+
 
 @router.post("/debit-notes", response_model=DebitNoteResponse, status_code=status.HTTP_201_CREATED)
 def create_debit_note(

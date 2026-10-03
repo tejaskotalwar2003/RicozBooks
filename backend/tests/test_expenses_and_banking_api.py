@@ -191,9 +191,11 @@ def test_banking_accounts_and_transfers(auth_headers, active_entity):
     assert Decimal(str(b2_check["current_balance"])) == Decimal("150000.00") # 100,000 + 50,000
 
     # 5. Verify transactions generated
-    txs_b1 = client.get(f"/api/v1/banking/transactions?bank_account_id={bank1_id}", headers=auth_headers).json()
+    txs_data = client.get(f"/api/v1/banking/transactions?bank_account_id={bank1_id}", headers=auth_headers).json()
+    txs_b1 = txs_data.get("items", txs_data) if isinstance(txs_data, dict) else txs_data
     assert len(txs_b1) >= 1
     assert txs_b1[0]["transaction_type"] == "TRANSFER_OUT"
+
 
 
 def test_bank_reconciliation_workflow(auth_headers, active_entity):

@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, Request
@@ -29,6 +29,8 @@ from app.schemas.sales import (
     RecurringInvoiceCreate, RecurringInvoiceResponse,
     PublicInvoiceResponse, PublicInvoicePaymentRequest, PublicInvoicePaymentResponse
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.sales_engine import (
     quantize_amount, generate_invoice_number, generate_payment_number, 
     generate_estimate_number, is_intra_state_supply, 
@@ -45,10 +47,13 @@ router = APIRouter()
 # =========================================================================
 # 1. CUSTOMERS
 # =========================================================================
-@router.get("/customers", response_model=List[CustomerResponse])
+@router.get("/customers", response_model=Union[PaginatedResponse[CustomerResponse], List[CustomerResponse]])
 def get_customers(
     entity_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -70,7 +75,8 @@ def get_customers(
             (Customer.email.ilike(s)) | (Customer.gstin.ilike(s))
         )
 
-    return query.order_by(Customer.name.asc()).all()
+    return paginate_or_all(query.order_by(Customer.name.asc()), page=page, page_size=page_size, paginate=paginate)
+
 
 @router.post("/customers", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)
 def create_customer(
@@ -271,10 +277,13 @@ def get_customer_ledger_statement(
 # =========================================================================
 # 2. PRODUCTS & SERVICES
 # =========================================================================
-@router.get("/products", response_model=List[ProductResponse])
+@router.get("/products", response_model=Union[PaginatedResponse[ProductResponse], List[ProductResponse]])
 def get_products(
     entity_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -293,7 +302,8 @@ def get_products(
         s = f"%{search.strip()}%"
         query = query.filter((Product.name.ilike(s)) | (Product.sku.ilike(s)))
 
-    return query.order_by(Product.name.asc()).all()
+    return paginate_or_all(query.order_by(Product.name.asc()), page=page, page_size=page_size, paginate=paginate)
+
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
@@ -345,12 +355,15 @@ def update_product(
 # =========================================================================
 # 3. SALES INVOICES
 # =========================================================================
-@router.get("/invoices", response_model=List[InvoiceResponse])
+@router.get("/invoices", response_model=Union[PaginatedResponse[InvoiceResponse], List[InvoiceResponse]])
 def get_invoices(
     entity_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     customer_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -373,14 +386,16 @@ def get_invoices(
         s = f"%{search.strip()}%"
         query = query.filter((Invoice.invoice_number.ilike(s)) | (Invoice.notes.ilike(s)))
 
-    invoices = query.order_by(desc(Invoice.invoice_date), desc(Invoice.id)).all()
-    results = []
-    for inv in invoices:
+    ordered_query = query.order_by(desc(Invoice.invoice_date), desc(Invoice.id))
+
+    def transform_invoice(inv):
         res = InvoiceResponse.model_validate(inv, from_attributes=True)
         if inv.customer:
             res.customer_name = inv.customer.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_invoice)
+
 
 @router.post("/invoices", response_model=InvoiceDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_invoice(
@@ -565,11 +580,14 @@ def post_invoice(
 # =========================================================================
 # 4. CUSTOMER PAYMENTS
 # =========================================================================
-@router.get("/payments/customer", response_model=List[CustomerPaymentResponse])
-@router.get("/payments", response_model=List[CustomerPaymentResponse])
+@router.get("/payments/customer", response_model=Union[PaginatedResponse[CustomerPaymentResponse], List[CustomerPaymentResponse]])
+@router.get("/payments", response_model=Union[PaginatedResponse[CustomerPaymentResponse], List[CustomerPaymentResponse]])
 def get_customer_payments(
     entity_id: Optional[int] = Query(None),
     customer_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -591,9 +609,9 @@ def get_customer_payments(
     if customer_id:
         query = query.filter(CustomerPayment.customer_id == customer_id)
 
-    payments = query.order_by(desc(CustomerPayment.payment_date), desc(CustomerPayment.id)).all()
-    results = []
-    for p in payments:
+    ordered_query = query.order_by(desc(CustomerPayment.payment_date), desc(CustomerPayment.id))
+
+    def transform_payment(p):
         res = CustomerPaymentResponse.model_validate(p, from_attributes=True)
         if p.customer:
             res.customer_name = p.customer.name
@@ -601,8 +619,10 @@ def get_customer_payments(
             res.invoice_number = p.invoice.invoice_number
         if p.deposit_account:
             res.deposit_account_name = f"{p.deposit_account.code} - {p.deposit_account.name}"
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_payment)
+
 
 @router.post("/payments/customer", response_model=CustomerPaymentResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/payments", response_model=CustomerPaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -671,9 +691,12 @@ def record_customer_payment(
 # =========================================================================
 # 5. ESTIMATES / QUOTES
 # =========================================================================
-@router.get("/estimates", response_model=List[EstimateResponse])
+@router.get("/estimates", response_model=Union[PaginatedResponse[EstimateResponse], List[EstimateResponse]])
 def get_estimates(
     entity_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -688,14 +711,16 @@ def get_estimates(
     elif current_user.default_entity_id:
         query = query.filter(Estimate.entity_id == current_user.default_entity_id)
 
-    estimates = query.order_by(desc(Estimate.estimate_date), desc(Estimate.id)).all()
-    results = []
-    for est in estimates:
+    ordered_query = query.order_by(desc(Estimate.estimate_date), desc(Estimate.id))
+
+    def transform_estimate(est):
         res = EstimateResponse.model_validate(est, from_attributes=True)
         if est.customer:
             res.customer_name = est.customer.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_estimate)
+
 
 @router.post("/estimates", response_model=EstimateResponse, status_code=status.HTTP_201_CREATED)
 def create_estimate(
@@ -898,10 +923,13 @@ def convert_estimate_to_invoice(
 # =========================================================================
 # 6. SALES ORDERS
 # =========================================================================
-@router.get("/orders", response_model=List[SalesOrderResponse])
+@router.get("/orders", response_model=Union[PaginatedResponse[SalesOrderResponse], List[SalesOrderResponse]])
 def get_sales_orders(
     entity_id: Optional[int] = Query(None),
     customer_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -912,14 +940,16 @@ def get_sales_orders(
     if customer_id:
         query = query.filter(SalesOrder.customer_id == customer_id)
 
-    orders = query.order_by(desc(SalesOrder.order_date), desc(SalesOrder.id)).all()
-    results = []
-    for so in orders:
+    ordered_query = query.order_by(desc(SalesOrder.order_date), desc(SalesOrder.id))
+
+    def transform_so(so):
         res = SalesOrderResponse.model_validate(so, from_attributes=True)
         if so.customer:
             res.customer_name = so.customer.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_so)
+
 
 @router.post("/orders", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED)
 def create_sales_order(
@@ -992,10 +1022,13 @@ def create_sales_order(
 # =========================================================================
 # 7. CREDIT NOTES (SALES RETURNS & AR ADJUSTMENTS)
 # =========================================================================
-@router.get("/credit-notes", response_model=List[CreditNoteResponse])
+@router.get("/credit-notes", response_model=Union[PaginatedResponse[CreditNoteResponse], List[CreditNoteResponse]])
 def get_credit_notes(
     entity_id: Optional[int] = Query(None),
     customer_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1006,14 +1039,16 @@ def get_credit_notes(
     if customer_id:
         query = query.filter(CreditNote.customer_id == customer_id)
 
-    notes = query.order_by(desc(CreditNote.credit_note_date), desc(CreditNote.id)).all()
-    results = []
-    for cn in notes:
+    ordered_query = query.order_by(desc(CreditNote.credit_note_date), desc(CreditNote.id))
+
+    def transform_cn(cn):
         res = CreditNoteResponse.model_validate(cn, from_attributes=True)
         if cn.customer:
             res.customer_name = cn.customer.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_cn)
+
 
 @router.post("/credit-notes", response_model=CreditNoteResponse, status_code=status.HTTP_201_CREATED)
 def create_credit_note(
@@ -1112,9 +1147,12 @@ def create_credit_note(
 # =========================================================================
 # 8. RECURRING INVOICES
 # =========================================================================
-@router.get("/recurring", response_model=List[RecurringInvoiceResponse])
+@router.get("/recurring", response_model=Union[PaginatedResponse[RecurringInvoiceResponse], List[RecurringInvoiceResponse]])
 def get_recurring_invoices(
     entity_id: Optional[int] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1123,14 +1161,16 @@ def get_recurring_invoices(
         verify_entity_access(entity_id, current_user, db)
         query = query.filter(RecurringInvoice.entity_id == entity_id)
 
-    profiles = query.order_by(desc(RecurringInvoice.created_at)).all()
-    results = []
-    for r in profiles:
+    ordered_query = query.order_by(desc(RecurringInvoice.created_at))
+
+    def transform_recurring(r):
         res = RecurringInvoiceResponse.model_validate(r, from_attributes=True)
         if r.customer:
             res.customer_name = r.customer.name
-        results.append(res)
-    return results
+        return res
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_recurring)
+
 
 @router.post("/recurring", response_model=RecurringInvoiceResponse, status_code=status.HTTP_201_CREATED)
 def create_recurring_invoice(

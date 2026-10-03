@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   accountingApi, 
   Account, 
@@ -68,6 +69,10 @@ export const GeneralLedger: React.FC = () => {
 
   // Account search filter
   const [accountSearch, setAccountSearch] = useState<string>('');
+
+  // Pagination for Ledger Detail
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
 
   // Load Accounts on entity change
   useEffect(() => {
@@ -121,7 +126,7 @@ export const GeneralLedger: React.FC = () => {
   };
 
   // Load Ledger Data
-  const fetchLedger = async () => {
+  const fetchLedger = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setLoading(true);
     setError(null);
@@ -134,6 +139,8 @@ export const GeneralLedger: React.FC = () => {
           start_date: dateRange.start,
           end_date: dateRange.end,
           include_unposted: includeUnposted,
+          page: page,
+          page_size: size,
         });
         setLedgerDetail(data);
       } else if (viewMode === 'summary') {
@@ -153,8 +160,20 @@ export const GeneralLedger: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchLedger();
+    setCurrentPage(1);
+    fetchLedger(1, pageSize);
   }, [activeEntity, selectedAccountId, dateRange, includeUnposted, viewMode]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchLedger(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchLedger(1, newSize);
+  };
 
   // Open Journal Drawer
   const handleOpenJournal = async (journalId: number) => {
@@ -607,6 +626,16 @@ export const GeneralLedger: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            {ledgerDetail.total !== undefined && ledgerDetail.total > 0 && (
+              <Pagination
+                page={currentPage}
+                pageSize={pageSize}
+                totalRecords={ledgerDetail.total}
+                totalPages={ledgerDetail.total_pages || 1}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
           </div>
 
         </div>

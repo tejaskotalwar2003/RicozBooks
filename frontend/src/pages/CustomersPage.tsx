@@ -20,8 +20,10 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   getCustomers, 
+  getCustomersPaginated,
   createCustomer, 
   getCustomerStatement, 
   Customer, 
@@ -36,6 +38,13 @@ export const CustomersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [allCustomersSummary, setAllCustomersSummary] = useState<Customer[]>([]);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -61,13 +70,19 @@ export const CustomersPage: React.FC = () => {
 
   const currencySymbol = activeEntity?.base_currency === 'USD' ? '$' : (activeEntity?.base_currency === 'EUR' ? '€' : (activeEntity?.base_currency === 'GBP' ? '£' : '₹'));
 
-  const fetchCustomersList = async () => {
+  const fetchCustomersList = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getCustomers(activeEntity.id, searchTerm);
-      setCustomers(data);
+      const [allCusts, pagCusts] = await Promise.all([
+        getCustomers(activeEntity.id),
+        getCustomersPaginated(activeEntity.id, searchTerm.trim() || undefined, page, size)
+      ]);
+      setAllCustomersSummary(allCusts || []);
+      setCustomers(pagCusts.items || []);
+      setTotalRecords(pagCusts.total);
+      setTotalPages(pagCusts.total_pages);
     } catch (err: any) {
       console.error('Failed to load customers:', err);
       setError(err.message || 'Failed to load customer directory');
@@ -77,8 +92,20 @@ export const CustomersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCustomersList();
+    setCurrentPage(1);
+    fetchCustomersList(1, pageSize);
   }, [activeEntity?.id, searchTerm]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchCustomersList(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchCustomersList(1, newSize);
+  };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,9 +178,10 @@ export const CustomersPage: React.FC = () => {
   };
 
   // Metrics
-  const totalReceivables = customers.reduce((acc, c) => acc + Number(c.current_balance || 0), 0);
-  const activeCount = customers.filter(c => c.is_active).length;
-  const highBalanceCount = customers.filter(c => Number(c.current_balance || 0) > 0).length;
+  const summarySource = allCustomersSummary.length > 0 ? allCustomersSummary : customers;
+  const totalReceivables = summarySource.reduce((acc, c) => acc + Number(c.current_balance || 0), 0);
+  const activeCount = summarySource.filter(c => c.is_active).length;
+  const highBalanceCount = summarySource.filter(c => Number(c.current_balance || 0) > 0).length;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -173,7 +201,7 @@ export const CustomersPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={fetchCustomersList}
+            onClick={() => fetchCustomersList(currentPage, pageSize)}
             disabled={isLoading}
             className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh Directory"
@@ -208,7 +236,7 @@ export const CustomersPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Customers</div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{customers.length}</div>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{allCustomersSummary.length > 0 ? allCustomersSummary.length : totalRecords}</div>
           <div className="mt-1 text-xs text-slate-500">{activeCount} active corporate profiles</div>
         </div>
 
@@ -338,6 +366,15 @@ export const CustomersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={currentPage}
+          pageSize={pageSize}
+          total={totalRecords}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* ADD CUSTOMER MODAL */}

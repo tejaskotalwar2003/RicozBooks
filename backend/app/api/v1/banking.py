@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
@@ -21,6 +21,8 @@ from app.schemas.banking import (
     BankReconciliationMatchRequest, BankStatementLineResponse,
     BankingSummaryResponse
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.banking_engine import (
     quantize_amount, process_internal_transfer, parse_and_load_csv_statement,
     recalculate_reconciliation_difference
@@ -146,12 +148,15 @@ def get_bank_account(
 # =========================================================================
 # 2. BANK TRANSACTIONS
 # =========================================================================
-@router.get("/transactions", response_model=List[BankTransactionResponse])
+@router.get("/transactions", response_model=Union[PaginatedResponse[BankTransactionResponse], List[BankTransactionResponse]])
 def list_bank_transactions(
     bank_account_id: int = Query(...),
     status_filter: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -165,8 +170,8 @@ def list_bank_transactions(
     if status_filter:
         q = q.filter(BankTransaction.status == status_filter.upper())
 
-    txs = q.order_by(desc(BankTransaction.transaction_date), desc(BankTransaction.id)).offset(offset).limit(limit).all()
-    return txs
+    ordered_q = q.order_by(desc(BankTransaction.transaction_date), desc(BankTransaction.id))
+    return paginate_or_all(ordered_q, page=page, page_size=page_size, paginate=paginate)
 
 
 # =========================================================================
@@ -205,19 +210,23 @@ def create_transfer(
     return transfer
 
 
-@router.get("/transfers", response_model=List[BankTransferResponse])
+@router.get("/transfers", response_model=Union[PaginatedResponse[BankTransferResponse], List[BankTransferResponse]])
 def list_transfers(
     entity_id: int = Query(...),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     verify_entity_access(entity_id, current_user, db)
-    transfers = db.query(BankTransfer).filter(
+    q = db.query(BankTransfer).filter(
         BankTransfer.entity_id == entity_id
-    ).order_by(desc(BankTransfer.transfer_date), desc(BankTransfer.id)).offset(offset).limit(limit).all()
-    return transfers
+    ).order_by(desc(BankTransfer.transfer_date), desc(BankTransfer.id))
+    return paginate_or_all(q, page=page, page_size=page_size, paginate=paginate)
+
 
 
 # =========================================================================

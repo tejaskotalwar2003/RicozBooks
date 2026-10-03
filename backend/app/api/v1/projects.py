@@ -1,7 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -14,10 +13,11 @@ from app.models.projects import (
     Project, ProjectTask, Timesheet, ProjectBillingType, ProjectStatus, TaskStatus
 )
 from app.schemas.projects import (
-    ProjectCreate, ProjectResponse, ProjectTaskCreate, ProjectTaskResponse,
     ProjectCreate, ProjectResponse, ProjectTaskBase, ProjectTaskCreate, ProjectTaskResponse,
     TimesheetCreate, TimesheetResponse, ProjectProfitabilityResponse
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.project_engine import calculate_project_profitability
 from app.api.deps import (
     get_current_user, require_roles, verify_entity_access, log_audit
@@ -25,10 +25,13 @@ from app.api.deps import (
 
 router = APIRouter()
 
-@router.get("", response_model=List[ProjectResponse])
+@router.get("", response_model=Union[PaginatedResponse[ProjectResponse], List[ProjectResponse]])
 def get_projects(
     entity_id: int = Query(...),
     status_filter: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -37,20 +40,18 @@ def get_projects(
     if status_filter and status_filter != "ALL":
         query = query.filter(Project.status == status_filter)
 
-    projects = query.order_by(desc(Project.created_at)).all()
-    results = []
-    for p in projects:
+    ordered_query = query.order_by(desc(Project.created_at))
+
+    def transform_project(p):
         cust_name = p.customer.name if p.customer else None
         tasks_cnt = len(p.tasks)
         hrs = sum((ts.hours for ts in p.timesheets), Decimal("0.00"))
-        
         prof = None
         try:
             prof = calculate_project_profitability(p.id, db)
         except Exception:
             pass
-
-        results.append(ProjectResponse(
+        return ProjectResponse(
             id=p.id,
             entity_id=p.entity_id,
             customer_id=p.customer_id,
@@ -68,8 +69,10 @@ def get_projects(
             tasks_count=tasks_cnt,
             total_hours_logged=hrs,
             profitability=prof
-        ))
-    return results
+        )
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_project)
+
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
@@ -175,9 +178,12 @@ def create_project_task(
     db.refresh(task)
     return task
 
-@router.get("/{project_id}/timesheets", response_model=List[TimesheetResponse])
+@router.get("/{project_id}/timesheets", response_model=Union[PaginatedResponse[TimesheetResponse], List[TimesheetResponse]])
 def get_project_timesheets(
     project_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -186,16 +192,15 @@ def get_project_timesheets(
         raise HTTPException(status_code=404, detail="Project not found")
     verify_entity_access(project.entity_id, current_user, db)
 
-    timesheets = db.query(Timesheet).filter(
+    ordered_query = db.query(Timesheet).filter(
         Timesheet.project_id == project_id
-    ).order_by(desc(Timesheet.entry_date)).all()
+    ).order_by(desc(Timesheet.entry_date))
 
-    results = []
-    for ts in timesheets:
+    def transform_timesheet(ts):
         u_name = f"{ts.user.first_name} {ts.user.last_name}" if ts.user else "Staff"
         bill_tot = ts.hours * ts.hourly_billable_rate
         cost_tot = ts.hours * ts.hourly_cost_rate
-        results.append(TimesheetResponse(
+        return TimesheetResponse(
             id=ts.id,
             entity_id=ts.entity_id,
             project_id=ts.project_id,
@@ -212,8 +217,10 @@ def get_project_timesheets(
             is_invoiced=ts.is_invoiced,
             notes=ts.notes,
             created_at=ts.created_at
-        ))
-    return results
+        )
+
+    return paginate_or_all(ordered_query, page=page, page_size=page_size, paginate=paginate, item_transform=transform_timesheet)
+
 
 @router.post("/timesheets", response_model=TimesheetResponse, status_code=status.HTTP_201_CREATED)
 def log_timesheet(

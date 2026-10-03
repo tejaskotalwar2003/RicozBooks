@@ -53,10 +53,13 @@ def test_vendor_lifecycle(auth_headers, active_entity):
     vendor_id = vendor["id"]
 
     # 2. Search vendor
-    search_res = client.get(f"/api/v1/vendors?entity_id={entity_id}&search=Amazon", headers=auth_headers)
+    search_res = client.get(f"/api/v1/vendors?entity_id={entity_id}&search=Amazon&paginate=false", headers=auth_headers)
     assert search_res.status_code == 200
     results = search_res.json()
-    assert any(v["id"] == vendor_id for v in results)
+    items = results.get("items", results) if isinstance(results, dict) else results
+    assert any(v["id"] == vendor_id for v in items)
+
+
 
     # 3. Get vendor ledger statement
     stmt_res = client.get(f"/api/v1/vendors/{vendor_id}/statement", headers=auth_headers)

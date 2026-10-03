@@ -2,6 +2,7 @@ import io
 import csv
 from datetime import date
 from decimal import Decimal
+from math import ceil
 from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -66,11 +67,14 @@ def get_account_ledger(
     account_id: int,
     start_date: date,
     end_date: date,
-    include_unposted: bool = False
+    include_unposted: bool = False,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None
 ) -> AccountLedgerResponse:
     """
     Computes the full ledger statement for a single account over a date range.
     """
+
     account = db.query(Account).filter(Account.id == account_id).first()
     if not account:
         raise HTTPException(
@@ -168,6 +172,22 @@ def get_account_ledger(
         net_movement = period_credit - period_debit
         closing_type = "CR" if current_signed >= 0 else "DR"
 
+    total = len(ledger_lines)
+    p_page = page
+    p_page_size = page_size
+    p_total_pages = 1
+
+    if page is not None and page_size is not None:
+        safe_page = max(1, page)
+        safe_page_size = max(1, min(page_size, 100))
+        offset = (safe_page - 1) * safe_page_size
+        p_total_pages = ceil(total / safe_page_size) if total > 0 else 1
+        output_lines = ledger_lines[offset:offset + safe_page_size]
+        p_page = safe_page
+        p_page_size = safe_page_size
+    else:
+        output_lines = ledger_lines
+
     return AccountLedgerResponse(
         account_id=account.id,
         account_code=account.code,
@@ -184,8 +204,13 @@ def get_account_ledger(
         net_movement=net_movement,
         closing_balance=abs(current_signed),
         closing_balance_type=closing_type,
-        lines=ledger_lines
+        lines=output_lines,
+        total=total,
+        page=p_page,
+        page_size=p_page_size,
+        total_pages=p_total_pages
     )
+
 
 def get_entity_ledger_summary(
     db: Session,

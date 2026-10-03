@@ -39,6 +39,13 @@ async def lifespan(app: FastAPI):
         Base.metadata.create_all(bind=engine)
         from app.migrate_entities import migrate_entities
         migrate_entities()
+        try:
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config("alembic.ini")
+            command.upgrade(alembic_cfg, "head")
+        except Exception as alembic_err:
+            print(f"Alembic auto-upgrade notice: {alembic_err}")
     except Exception as e:
         print(f"Startup database migration status: {e}")
     try:

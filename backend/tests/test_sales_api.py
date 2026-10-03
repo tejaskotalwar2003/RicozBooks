@@ -49,10 +49,11 @@ def test_customer_lifecycle(auth_headers, active_entity):
     customer_id = customer["id"]
 
     # 2. Search customer
-    search_res = client.get(f"/api/v1/customers?entity_id={entity_id}&search=Tata", headers=auth_headers)
+    search_res = client.get(f"/api/v1/customers?entity_id={entity_id}&search=Tata&paginate=false", headers=auth_headers)
     assert search_res.status_code == 200
     results = search_res.json()
-    assert any(c["id"] == customer_id for c in results)
+    items = results.get("items", results) if isinstance(results, dict) else results
+    assert any(c["id"] == customer_id for c in items)
 
     # 3. Get customer detail & statement
     stmt_res = client.get(f"/api/v1/customers/{customer_id}/statement", headers=auth_headers)
@@ -83,9 +84,12 @@ def test_product_catalog(auth_headers, active_entity):
     assert float(product["tax_rate"]) == 18.00
 
     # List products
-    list_res = client.get(f"/api/v1/products?entity_id={entity_id}", headers=auth_headers)
+    list_res = client.get(f"/api/v1/products?entity_id={entity_id}&paginate=false", headers=auth_headers)
     assert list_res.status_code == 200
-    assert any(p["id"] == product["id"] for p in list_res.json())
+    prod_data = list_res.json()
+    prod_items = prod_data.get("items", prod_data) if isinstance(prod_data, dict) else prod_data
+    assert any(p["id"] == product["id"] for p in prod_items)
+
 
 def test_invoice_creation_intra_state_gst(auth_headers, active_entity):
     entity_id = active_entity["id"]

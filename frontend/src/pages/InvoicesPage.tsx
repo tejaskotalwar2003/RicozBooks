@@ -28,8 +28,10 @@ import {
   Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   getInvoices, 
+  getInvoicesPaginated,
   getCustomers, 
   getProducts, 
   createInvoice, 
@@ -72,6 +74,13 @@ export const InvoicesPage: React.FC = () => {
   // Filters
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [allInvoicesSummary, setAllInvoicesSummary] = useState<Invoice[]>([]);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -126,13 +135,21 @@ export const InvoicesPage: React.FC = () => {
 
   const currencySymbol = activeEntity?.base_currency === 'USD' ? '$' : (activeEntity?.base_currency === 'EUR' ? '€' : (activeEntity?.base_currency === 'GBP' ? '£' : '₹'));
 
-  const fetchData = async () => {
+  const fetchData = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [invData, custData, prodData, estData, ordData, cnData, recData] = await Promise.all([
+      const [allInvs, pagInvs, custData, prodData, estData, ordData, cnData, recData] = await Promise.all([
         getInvoices(activeEntity.id),
+        getInvoicesPaginated(
+          activeEntity.id,
+          undefined,
+          statusFilter !== 'ALL' ? statusFilter : undefined,
+          searchTerm.trim() || undefined,
+          page,
+          size
+        ),
         getCustomers(activeEntity.id),
         getProducts(activeEntity.id),
         getEstimates(activeEntity.id).catch(() => []),
@@ -140,7 +157,10 @@ export const InvoicesPage: React.FC = () => {
         getCreditNotes(activeEntity.id).catch(() => []),
         getRecurringInvoices(activeEntity.id).catch(() => [])
       ]);
-      setInvoices(invData || []);
+      setAllInvoicesSummary(allInvs || []);
+      setInvoices(pagInvs.items || []);
+      setTotalRecords(pagInvs.total);
+      setTotalPages(pagInvs.total_pages);
       setCustomers(custData || []);
       setProducts(prodData || []);
       setEstimates(estData || []);
@@ -156,8 +176,20 @@ export const InvoicesPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [activeEntity?.id]);
+    setCurrentPage(1);
+    fetchData(1, pageSize);
+  }, [activeEntity?.id, searchTerm, statusFilter]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchData(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchData(1, newSize);
+  };
 
   const handleCustomerChange = (custId: number) => {
     setSelectedCustomerId(custId);
@@ -379,19 +411,10 @@ export const InvoicesPage: React.FC = () => {
   };
 
   // Metrics summary
-  const totalInvoiced = invoices.reduce((acc, i) => acc + Number(i.total_amount), 0);
-  const totalCollected = invoices.reduce((acc, i) => acc + Number(i.paid_amount), 0);
-  const totalOutstanding = invoices.reduce((acc, i) => acc + Number(i.balance_amount), 0);
-  const overdueCount = invoices.filter(i => i.status === 'OVERDUE' || (new Date(i.due_date) < new Date() && Number(i.balance_amount) > 0)).length;
-
-  // Filtered invoices
-  const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = 
-      inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inv.customer_name && inv.customer_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const totalInvoiced = allInvoicesSummary.reduce((acc, i) => acc + Number(i.total_amount), 0);
+  const totalCollected = allInvoicesSummary.reduce((acc, i) => acc + Number(i.paid_amount), 0);
+  const totalOutstanding = allInvoicesSummary.reduce((acc, i) => acc + Number(i.balance_amount), 0);
+  const overdueCount = allInvoicesSummary.filter(i => i.status === 'OVERDUE' || (new Date(i.due_date) < new Date() && Number(i.balance_amount) > 0)).length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -429,7 +452,7 @@ export const InvoicesPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={isLoading}
             className="p-2 text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh Invoices"
@@ -530,7 +553,7 @@ export const InvoicesPage: React.FC = () => {
           <div className="mt-2 text-2xl font-bold text-slate-900">
             {currencySymbol}{totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <div className="mt-1 text-xs text-slate-500">{invoices.length} invoices generated</div>
+          <div className="mt-1 text-xs text-slate-500">{allInvoicesSummary.length} invoices generated</div>
         </div>
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -561,7 +584,7 @@ export const InvoicesPage: React.FC = () => {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
@@ -608,7 +631,7 @@ export const InvoicesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredInvoices.length === 0 ? (
+                {invoices.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-500">
                       <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -621,7 +644,7 @@ export const InvoicesPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((inv) => (
+                  invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                         {inv.invoice_number}
@@ -693,6 +716,14 @@ export const InvoicesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            totalRecords={totalRecords}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </div>
       )}
 

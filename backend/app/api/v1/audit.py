@@ -1,5 +1,6 @@
 import io
 import csv
+from math import ceil
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query, Response
@@ -61,6 +62,8 @@ def get_audit_logs(
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
@@ -75,13 +78,28 @@ def get_audit_logs(
         search=search,
     )
     total = query.count()
-    items = query.order_by(desc(AuditLog.timestamp)).offset(skip).limit(limit).all()
+    
+    if page is not None:
+        eff_size = page_size or limit
+        eff_skip = (page - 1) * eff_size
+        eff_page = page
+    else:
+        eff_size = page_size or limit
+        eff_skip = skip
+        eff_page = (eff_skip // eff_size) + 1
+
+    total_pages = ceil(total / eff_size) if total > 0 else 1
+    items = query.order_by(desc(AuditLog.timestamp)).offset(eff_skip).limit(eff_size).all()
     return PaginatedAuditLogResponse(
         items=items,
         total=total,
-        skip=skip,
-        limit=limit
+        skip=eff_skip,
+        limit=eff_size,
+        page=eff_page,
+        page_size=eff_size,
+        total_pages=total_pages
     )
+
 
 @router.get("/audit-logs/export")
 def export_audit_logs_csv(

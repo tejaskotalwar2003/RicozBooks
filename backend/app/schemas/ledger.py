@@ -38,6 +38,10 @@ class AccountLedgerResponse(BaseModel):
     closing_balance: Decimal
     closing_balance_type: str  # "DR" or "CR"
     lines: List[LedgerLineItem]
+    total: Optional[int] = None
+    page: Optional[int] = None
+    page_size: Optional[int] = None
+    total_pages: Optional[int] = None
 
 class LedgerSummaryItem(BaseModel):
     account_id: int

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +18,8 @@ from app.schemas.expenses import (
     ExpenseCreate, ExpenseUpdate, ExpenseResponse, ExpenseApprovalAction,
     ExpenseReimburseAction, ExpenseSummaryResponse
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.expense_engine import (
     quantize_amount, generate_expense_number, seed_default_expense_categories,
     post_expense_to_gl, reimburse_expense_claim, ensure_account
@@ -151,15 +153,18 @@ def format_expense_response(exp: Expense) -> dict:
     }
 
 
-@router.get("/expenses", response_model=List[ExpenseResponse])
+@router.get("/expenses", response_model=Union[PaginatedResponse[ExpenseResponse], List[ExpenseResponse]])
 def list_expenses(
     entity_id: int = Query(...),
     status_filter: Optional[str] = Query(None),
     category_id: Optional[int] = Query(None),
     is_reimbursable: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -182,8 +187,15 @@ def list_expenses(
         s = f"%{search}%"
         q = q.filter((Expense.title.ilike(s)) | (Expense.merchant_name.ilike(s)) | (Expense.expense_number.ilike(s)))
 
-    expenses = q.order_by(desc(Expense.expense_date), desc(Expense.id)).offset(offset).limit(limit).all()
-    return [format_expense_response(e) for e in expenses]
+    ordered_q = q.order_by(desc(Expense.expense_date), desc(Expense.id))
+    return paginate_or_all(
+        ordered_q,
+        page=page,
+        page_size=page_size,
+        paginate=paginate,
+        item_transform=format_expense_response
+    )
+
 
 
 @router.get("/expenses/{id}", response_model=ExpenseResponse)

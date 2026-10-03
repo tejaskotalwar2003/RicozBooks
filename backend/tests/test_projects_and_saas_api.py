@@ -125,8 +125,10 @@ def test_projects_lifecycle_and_profitability(auth_headers, active_entity):
     # 5. List Projects
     list_res = client.get(f"/api/v1/projects?entity_id={entity_id}", headers=auth_headers)
     assert list_res.status_code == 200
-    projects = list_res.json()
+    p_data = list_res.json()
+    projects = p_data.get("items", p_data) if isinstance(p_data, dict) else p_data
     assert any(p["id"] == project_id for p in projects)
+
 
 
 def test_notifications_and_automation_checks(auth_headers, active_entity):

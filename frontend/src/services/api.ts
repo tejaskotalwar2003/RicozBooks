@@ -24,6 +24,21 @@ const getApiBase = (): string => {
 
 export const API_BASE = getApiBase();
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export function extractItems<T>(res: PaginatedResponse<T> | T[] | null | undefined): T[] {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray((res as any).items)) return (res as any).items;
+  return [];
+}
+
 export interface UserAuthSummary {
   id: number;
   email: string;

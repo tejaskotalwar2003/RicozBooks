@@ -1,4 +1,4 @@
-from app.models.user import User, Role, Permission, user_roles, role_permissions, user_entities, user_companies
+from app.models.user import User, Role, Permission, UserSession, user_roles, role_permissions, user_entities, user_companies
 from app.models.company import Company, Entity, Currency, ExchangeRate, FiscalPeriod, OrganizationInvitation, InvitationStatus
 from app.models.account import Account, AccountType, NormalBalance, AccountDimension
 from app.models.journal import JournalEntry, JournalEntryLine, Approval, JournalStatus

@@ -55,6 +55,8 @@ def get_account_ledger_details(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     include_unposted: bool = Query(False, description="Preview unposted submitted/approved vouchers"),
+    page: Optional[int] = Query(None, ge=1, description="Page number for statement lines"),
+    page_size: Optional[int] = Query(None, ge=1, le=100, description="Lines per page"),
     current_user: User = Depends(require_roles(["ADMIN", "REVIEWER", "ACCOUNTANT", "VIEWER"])),
     db: Session = Depends(get_db)
 ):
@@ -66,8 +68,11 @@ def get_account_ledger_details(
         account_id=account_id,
         start_date=s_date,
         end_date=e_date,
-        include_unposted=include_unposted
+        include_unposted=include_unposted,
+        page=page,
+        page_size=page_size
     )
+
 
 @router.get("/ledger/account/{account_id}/export")
 def export_account_ledger_csv(

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +18,8 @@ from app.schemas.journal import (
     ApprovalResponse, 
     JournalActionRequest
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.accounting_engine import (
     validate_journal_balance, 
     validate_period_open, 
@@ -68,14 +70,17 @@ def _enrich_journal_detail(journal: JournalEntry) -> JournalEntryDetailResponse:
 
     return res
 
-@router.get("/journal-entries", response_model=List[JournalEntryResponse])
+@router.get("/journal-entries", response_model=Union[PaginatedResponse[JournalEntryResponse], List[JournalEntryResponse]])
 def get_journal_entries(
     entity_id: Optional[int] = Query(None),
     status: Optional[JournalStatus] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -112,8 +117,15 @@ def get_journal_entries(
             )
         )
 
-    journals = query.order_by(desc(JournalEntry.entry_date), desc(JournalEntry.id)).limit(limit).all()
-    return [_enrich_journal_response(j) for j in journals]
+    ordered_query = query.order_by(desc(JournalEntry.entry_date), desc(JournalEntry.id))
+    return paginate_or_all(
+        ordered_query,
+        page=page,
+        page_size=page_size,
+        paginate=paginate,
+        item_transform=_enrich_journal_response
+    )
+
 
 @router.get("/journal-entries/{id}", response_model=JournalEntryDetailResponse)
 def get_journal_entry_detail(

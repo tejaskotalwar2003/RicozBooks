@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -7,19 +7,24 @@ from app.database.session import get_db
 from app.models.user import User
 from app.models.account import Account, AccountType, NormalBalance
 from app.schemas.account import AccountResponse, AccountCreate, AccountUpdate
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
 from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access, get_tenant_entity_ids
 
 router = APIRouter()
 
-@router.get("/accounts", response_model=List[AccountResponse])
+@router.get("/accounts", response_model=Union[PaginatedResponse[AccountResponse], List[AccountResponse]])
 def get_accounts(
     entity_id: Optional[int] = Query(None),
     account_type: Optional[AccountType] = Query(None),
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+
     query = db.query(Account)
     
     tenant_entity_ids = get_tenant_entity_ids(current_user, db)
@@ -41,7 +46,8 @@ def get_accounts(
         term = f"%{search.strip()}%"
         query = query.filter(or_(Account.code.ilike(term), Account.name.ilike(term)))
 
-    return query.order_by(Account.code).all()
+    return paginate_or_all(query.order_by(Account.code.asc()), page=page, page_size=page_size, paginate=paginate)
+
 
 @router.get("/accounts/{id}", response_model=AccountResponse)
 def get_account_by_id(

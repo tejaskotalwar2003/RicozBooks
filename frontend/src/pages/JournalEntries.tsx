@@ -16,6 +16,7 @@ import {
   Ban
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/common/Pagination';
 import { 
   accountingApi, 
   JournalEntry, 
@@ -48,6 +49,12 @@ export const JournalEntries: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
   // New Journal Modal
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -78,21 +85,25 @@ export const JournalEntries: React.FC = () => {
   const isReviewer = user?.roles.includes('REVIEWER') || user?.roles.includes('ADMIN');
   const isAdmin = Boolean(user?.roles.includes('ADMIN'));
 
-  const loadData = async () => {
+  const loadData = async (page: number = currentPage, size: number = pageSize) => {
     if (!activeEntity) return;
     setLoading(true);
     try {
       const [journalsData, accountsData] = await Promise.all([
-        accountingApi.getJournalEntries({
+        accountingApi.getJournalEntriesPaginated({
           entity_id: activeEntity.id,
           status: statusFilter === 'ALL' ? undefined : statusFilter,
           search: search.trim() || undefined,
+          page,
+          page_size: size
         }),
         accountingApi.getAccounts({
           entity_id: activeEntity.id,
         })
       ]);
-      setJournals(journalsData);
+      setJournals(journalsData.items || []);
+      setTotalRecords(journalsData.total);
+      setTotalPages(journalsData.total_pages);
       setAccounts(accountsData.filter(a => a.is_active));
       setCurrency(activeEntity.base_currency);
     } catch (err) {
@@ -103,8 +114,20 @@ export const JournalEntries: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
+    setCurrentPage(1);
+    loadData(1, pageSize);
   }, [activeEntity?.id, statusFilter, search]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    loadData(newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    loadData(1, newSize);
+  };
 
   // Balance Calculations for Form
   const totalDebit = lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
@@ -399,6 +422,15 @@ export const JournalEntries: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={currentPage}
+          pageSize={pageSize}
+          total={totalRecords}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={loading}
+        />
       </div>
 
       {/* MODAL: CREATE JOURNAL ENTRY (STRICT DOUBLE-ENTRY FORM) */}

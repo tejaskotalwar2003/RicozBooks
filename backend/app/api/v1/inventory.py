@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import date, datetime
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,6 +16,8 @@ from app.schemas.inventory import (
     ProductInventoryDetail, InventoryMovementResponse,
     StockAdjustmentCreate, StockAdjustmentResponse, InventoryValuationSummary
 )
+from app.schemas.pagination import PaginatedResponse, paginate_or_all
+
 from app.services.inventory_engine import (
     quantize_amount, process_stock_adjustment, record_stock_movement
 )
@@ -92,13 +94,16 @@ def get_inventory_valuation(
     )
 
 
-@router.get("/movements", response_model=List[InventoryMovementResponse])
+@router.get("/movements", response_model=Union[PaginatedResponse[InventoryMovementResponse], List[InventoryMovementResponse]])
 def list_movements(
     entity_id: int = Query(...),
     product_id: Optional[int] = Query(None),
     movement_type: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -112,10 +117,10 @@ def list_movements(
     if movement_type:
         q = q.filter(InventoryMovement.movement_type == movement_type.upper())
 
-    movements = q.order_by(desc(InventoryMovement.movement_date), desc(InventoryMovement.id)).offset(offset).limit(limit).all()
+    ordered_q = q.order_by(desc(InventoryMovement.movement_date), desc(InventoryMovement.id))
 
-    return [
-        InventoryMovementResponse(
+    def transform_movement(m):
+        return InventoryMovementResponse(
             id=m.id,
             entity_id=m.entity_id,
             product_id=m.product_id,
@@ -133,8 +138,9 @@ def list_movements(
             journal_entry_id=m.journal_entry_id,
             created_at=m.created_at
         )
-        for m in movements
-    ]
+
+    return paginate_or_all(ordered_q, page=page, page_size=page_size, paginate=paginate, item_transform=transform_movement)
+
 
 
 @router.post("/adjustments", response_model=StockAdjustmentResponse, status_code=status.HTTP_201_CREATED)
@@ -189,22 +195,25 @@ def create_stock_adjustment(
     )
 
 
-@router.get("/adjustments", response_model=List[StockAdjustmentResponse])
+@router.get("/adjustments", response_model=Union[PaginatedResponse[StockAdjustmentResponse], List[StockAdjustmentResponse]])
 def list_adjustments(
     entity_id: int = Query(...),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    paginate: bool = Query(True),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     verify_entity_access(entity_id, current_user, db)
 
-    adjustments = db.query(StockAdjustment).options(joinedload(StockAdjustment.product)).filter(
+    q = db.query(StockAdjustment).options(joinedload(StockAdjustment.product)).filter(
         StockAdjustment.entity_id == entity_id
-    ).order_by(desc(StockAdjustment.adjustment_date), desc(StockAdjustment.id)).offset(offset).limit(limit).all()
+    ).order_by(desc(StockAdjustment.adjustment_date), desc(StockAdjustment.id))
 
-    return [
-        StockAdjustmentResponse(
+    def transform_adjustment(a):
+        return StockAdjustmentResponse(
             id=a.id,
             entity_id=a.entity_id,
             adjustment_number=a.adjustment_number,
@@ -220,6 +229,7 @@ def list_adjustments(
             journal_entry_id=a.journal_entry_id,
             created_at=a.created_at
         )
-        for a in adjustments
-    ]
+
+    return paginate_or_all(q, page=page, page_size=page_size, paginate=paginate, item_transform=transform_adjustment)
+
 
