@@ -118,7 +118,7 @@ def generate_entry_number(db: Session, entity_id: int, prefix: str = "JE") -> st
         seq += 1
 
 def submit_journal_for_review(db: Session, journal_id: int, user: User) -> JournalEntry:
-    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).first()
+    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).with_for_update().first()
     if not journal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
 
@@ -157,7 +157,7 @@ def submit_journal_for_review(db: Session, journal_id: int, user: User) -> Journ
     return journal
 
 def approve_journal_entry(db: Session, journal_id: int, reviewer: User, comments: str = None) -> JournalEntry:
-    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).first()
+    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).with_for_update().first()
     if not journal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
 
@@ -200,7 +200,7 @@ def reject_journal_entry(db: Session, journal_id: int, reviewer: User, reason: s
             detail="A specific rejection reason is mandatory when rejecting a journal entry."
         )
 
-    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).first()
+    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).with_for_update().first()
     if not journal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
 
@@ -231,6 +231,58 @@ def reject_journal_entry(db: Session, journal_id: int, reviewer: User, reason: s
         user=reviewer,
         entity_id=journal.entity_id,
         details=f"Journal {journal.entry_number} rejected. Reason: {reason.strip()}"
+    )
+    return journal
+
+def reopen_journal_entry(db: Session, journal_id: int, user: User, reason: str) -> JournalEntry:
+    """
+    Reopens an approved (unposted) journal back to SUBMITTED state for correction or re-review.
+    Guarantees immutable approval history by appending a new REOPENED action to the trail.
+    """
+    if not reason or not reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A mandatory reason is required to reopen an approved journal entry."
+        )
+
+    journal = db.query(JournalEntry).filter(JournalEntry.id == journal_id).with_for_update().first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+
+    if journal.status == JournalStatus.POSTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Posted journal entries cannot be reopened. They must be reversed or corrected via reversal entry."
+        )
+
+    if journal.status != JournalStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot reopen journal with status '{journal.status.value}'. Only APPROVED journals can be reopened for review."
+        )
+
+    validate_journal_balance(journal.lines)
+
+    journal.status = JournalStatus.SUBMITTED
+    
+    approval = Approval(
+        journal_entry_id=journal.id,
+        reviewer_id=user.id,
+        action="REOPENED",
+        comments=reason.strip()
+    )
+    db.add(approval)
+    db.commit()
+    db.refresh(journal)
+
+    log_audit(
+        db=db,
+        action="JOURNAL_REOPENED",
+        record_type="JournalEntry",
+        record_id=journal.entry_number,
+        user=user,
+        entity_id=journal.entity_id,
+        details=f"Journal {journal.entry_number} reopened for review. Reason: {reason.strip()}"
     )
     return journal
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -26,6 +26,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { accountingApi } from '../../services/accountingApi';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -35,6 +36,34 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { user, activeEntity, entities, switchEntity, logout } = useAuth();
   const navigate = useNavigate();
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchApprovalsCount = async () => {
+      try {
+        const summary = await accountingApi.getApprovalsSummary(activeEntity?.id);
+        if (isMounted) {
+          setPendingApprovalsCount(summary.pending_count || 0);
+        }
+      } catch (err) {
+        if (isMounted) setPendingApprovalsCount(0);
+      }
+    };
+
+    fetchApprovalsCount();
+
+    const handleApprovalsUpdated = () => {
+      fetchApprovalsCount();
+    };
+
+    window.addEventListener('approvals-updated', handleApprovalsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('approvals-updated', handleApprovalsUpdated);
+    };
+  }, [activeEntity?.id, user?.id]);
 
   const salesItems = [
     { to: '/invoices', label: 'Invoices', icon: Receipt },
@@ -61,7 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     { to: '/ledger', label: 'General Ledger', icon: BookOpen },
     { to: '/chart-of-accounts', label: 'Chart of Accounts', icon: Layers },
     { to: '/journals', label: 'Journal Entries', icon: FileText },
-    { to: '/approvals', label: 'Approvals', icon: CheckSquare, badge: '3' },
+    { 
+      to: '/approvals', 
+      label: 'Approvals', 
+      icon: CheckSquare, 
+      badge: pendingApprovalsCount > 0 ? String(pendingApprovalsCount) : undefined 
+    },
     { to: '/close-manager', label: 'Close Manager', icon: CalendarCheck, badge: 'Sep' },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
   ];

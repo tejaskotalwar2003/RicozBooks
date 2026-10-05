@@ -64,6 +64,14 @@ export interface ApprovalTrail {
   timestamp: string;
 }
 
+export interface ApprovalSummaryResponse {
+  pending_count: number;
+  approved_count: number;
+  rejected_count: number;
+  can_approve: boolean;
+  entity_pending_count: number;
+}
+
 export interface JournalEntry {
   id: number;
   entry_number: string;
@@ -289,6 +297,18 @@ export const accountingApi = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+
+  reopenJournal: (id: number, reason: string) =>
+    apiRequest<JournalEntry>(`/journal-entries/${id}/reopen`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  getApprovalsSummary: (entityId?: number) => {
+    const query = new URLSearchParams();
+    if (entityId) query.append('entity_id', entityId.toString());
+    return apiRequest<ApprovalSummaryResponse>(`/journal-entries/approvals/summary?${query.toString()}`);
+  },
 
   postJournal: (id: number) =>
     apiRequest<JournalEntry>(`/journal-entries/${id}/post`, { method: 'POST' }),

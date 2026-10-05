@@ -16,7 +16,8 @@ from app.schemas.journal import (
     JournalEntryDetailResponse, 
     JournalLineResponse, 
     ApprovalResponse, 
-    JournalActionRequest
+    JournalActionRequest,
+    ApprovalSummaryResponse
 )
 from app.schemas.pagination import PaginatedResponse, paginate_or_all
 
@@ -27,6 +28,7 @@ from app.services.accounting_engine import (
     submit_journal_for_review,
     approve_journal_entry,
     reject_journal_entry,
+    reopen_journal_entry,
     post_journal_to_ledger,
     reverse_posted_journal
 )
@@ -124,6 +126,51 @@ def get_journal_entries(
         page_size=page_size,
         paginate=paginate,
         item_transform=_enrich_journal_response
+    )
+
+
+
+@router.get("/journal-entries/approvals/summary", response_model=ApprovalSummaryResponse)
+def get_approvals_summary(
+    entity_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns pending review, approved, and rejected journal counts.
+    Enforces user tenant isolation, active entity scoping, and role-based approval permissions.
+    """
+    user_role_names = set(role.name for role in current_user.roles)
+    can_approve = current_user.is_superuser or bool(
+        user_role_names.intersection({"ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"})
+    )
+
+    query = db.query(JournalEntry)
+    tenant_entity_ids = get_tenant_entity_ids(current_user, db)
+
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        query = query.filter(JournalEntry.entity_id == entity_id)
+    elif tenant_entity_ids:
+        query = query.filter(JournalEntry.entity_id.in_(tenant_entity_ids))
+    elif current_user.default_entity_id:
+        query = query.filter(JournalEntry.entity_id == current_user.default_entity_id)
+
+    entity_pending = query.filter(
+        JournalEntry.status.in_([JournalStatus.SUBMITTED, JournalStatus.UNDER_REVIEW])
+    ).count()
+    approved_count = query.filter(JournalEntry.status == JournalStatus.APPROVED).count()
+    rejected_count = query.filter(JournalEntry.status == JournalStatus.REJECTED).count()
+
+    # If the user lacks reviewer/admin permissions, their actionable pending count is 0
+    pending_count = entity_pending if can_approve else 0
+
+    return ApprovalSummaryResponse(
+        pending_count=pending_count,
+        approved_count=approved_count,
+        rejected_count=rejected_count,
+        can_approve=can_approve,
+        entity_pending_count=entity_pending
     )
 
 
@@ -361,6 +408,28 @@ def reject_journal(
         )
     journal = reject_journal_entry(db, id, current_user, reason)
     return get_journal_entry_detail(journal.id, current_user, db)
+
+@router.post("/journal-entries/{id}/reopen", response_model=JournalEntryDetailResponse)
+def reopen_journal(
+    id: int,
+    action_in: JournalActionRequest,
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "REVIEWER", "MANAGER"])),
+    db: Session = Depends(get_db)
+):
+    journal = db.query(JournalEntry).filter(JournalEntry.id == id).first()
+    if not journal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+    verify_entity_access(journal.entity_id, current_user, db)
+
+    reason = action_in.reason or action_in.comments
+    if not reason or not reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="A mandatory reason is required to reopen an approved journal entry."
+        )
+    journal = reopen_journal_entry(db, id, current_user, reason.strip())
+    return get_journal_entry_detail(journal.id, current_user, db)
+
 
 @router.post("/journal-entries/{id}/post", response_model=JournalEntryDetailResponse)
 def post_journal(

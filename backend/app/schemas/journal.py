@@ -80,5 +80,14 @@ class JournalEntryDetailResponse(JournalEntryResponse):
 
 class JournalActionRequest(BaseModel):
     comments: Optional[str] = None
-    reason: Optional[str] = None  # for rejection
+    reason: Optional[str] = None  # for rejection or reopen
 
+class ApprovalSummaryResponse(BaseModel):
+    pending_count: int
+    approved_count: int
+    rejected_count: int
+    can_approve: bool
+    entity_pending_count: int
+
+    class Config:
+        from_attributes = True

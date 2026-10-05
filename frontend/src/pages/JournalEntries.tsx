@@ -77,6 +77,10 @@ export const JournalEntries: React.FC = () => {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Reopen Dialog
+  const [reopeningId, setReopeningId] = useState<number | null>(null);
+  const [reopenReason, setReopenReason] = useState('');
+
   // Reversal Dialog
   const [reversingId, setReversingId] = useState<number | null>(null);
   const [reversalReason, setReversalReason] = useState('');
@@ -205,6 +209,7 @@ export const JournalEntries: React.FC = () => {
         { account_id: 0, description: '', debit: '', credit: '' },
         { account_id: 0, description: '', debit: '', credit: '' }
       ]);
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
       loadData();
     } catch (err: any) {
       setFormError(err.message || 'Failed to save journal voucher.');
@@ -228,6 +233,7 @@ export const JournalEntries: React.FC = () => {
   const handleApprove = async (id: number) => {
     try {
       await accountingApi.approveJournal(id, 'Approved by Reviewer');
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
       loadData();
       if (selectedJournal?.id === id) openJournalDetail(id);
     } catch (err: any) {
@@ -244,6 +250,7 @@ export const JournalEntries: React.FC = () => {
       await accountingApi.rejectJournal(rejectingId, rejectionReason.trim());
       setRejectingId(null);
       setRejectionReason('');
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
       loadData();
       if (selectedJournal?.id === rejectingId) openJournalDetail(rejectingId);
     } catch (err: any) {
@@ -251,9 +258,27 @@ export const JournalEntries: React.FC = () => {
     }
   };
 
+  const handleReopenConfirm = async () => {
+    if (!reopeningId || !reopenReason.trim()) {
+      alert('Please provide a mandatory reason to reopen.');
+      return;
+    }
+    try {
+      await accountingApi.reopenJournal(reopeningId, reopenReason.trim());
+      setReopeningId(null);
+      setReopenReason('');
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
+      loadData();
+      if (selectedJournal?.id === reopeningId) openJournalDetail(reopeningId);
+    } catch (err: any) {
+      alert(err.message || 'Reopen failed.');
+    }
+  };
+
   const handlePost = async (id: number) => {
     try {
       await accountingApi.postJournal(id);
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
       loadData();
       if (selectedJournal?.id === id) openJournalDetail(id);
     } catch (err: any) {
@@ -267,6 +292,7 @@ export const JournalEntries: React.FC = () => {
       await accountingApi.reverseJournal(reversingId, reversalReason.trim() || undefined);
       setReversingId(null);
       setReversalReason('');
+      window.dispatchEvent(new CustomEvent('approvals-updated'));
       loadData();
       setSelectedJournal(null);
     } catch (err: any) {
@@ -811,6 +837,7 @@ export const JournalEntries: React.FC = () => {
                   <button
                     onClick={async () => {
                       await accountingApi.submitJournal(selectedJournal.id);
+                      window.dispatchEvent(new CustomEvent('approvals-updated'));
                       loadData();
                       openJournalDetail(selectedJournal.id);
                     }}
@@ -840,15 +867,24 @@ export const JournalEntries: React.FC = () => {
                   </>
                 )}
 
-                {/* Post to ledger action for Approved */}
+                {/* Actions for Approved: Reopen or Post */}
                 {selectedJournal.status === 'APPROVED' && (isReviewer || isAdmin) && (
-                  <button
-                    onClick={() => handlePost(selectedJournal.id)}
-                    className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1 shadow-sm"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#E6B676]" />
-                    <span>Post to Ledger</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setReopeningId(selectedJournal.id)}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center space-x-1"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Reopen for Review</span>
+                    </button>
+                    <button
+                      onClick={() => handlePost(selectedJournal.id)}
+                      className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1 shadow-sm"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#E6B676]" />
+                      <span>Post to Ledger</span>
+                    </button>
+                  </>
                 )}
 
                 {/* Reverse action for Posted */}
@@ -898,6 +934,52 @@ export const JournalEntries: React.FC = () => {
                 className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold"
               >
                 Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REOPEN APPROVED JOURNAL DIALOG */}
+      {reopeningId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center space-x-2 text-amber-700">
+              <RotateCcw className="w-5 h-5 text-amber-600" />
+              <h3 className="text-base font-bold text-slate-900">Reopen Approved Journal</h3>
+            </div>
+            <p className="text-xs text-slate-600">
+              Reverting approval returns this journal to <strong>Pending Review</strong> so corrections can be made. 
+              A mandatory justification reason is required and will be permanently recorded in the audit trail.
+            </p>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Reason for Reopening <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                required
+                rows={3}
+                placeholder="e.g. Incorrect account credited. Needs line items adjustment..."
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg border-slate-300 focus:ring-1 focus:ring-amber-500 text-xs text-slate-900"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => { setReopeningId(null); setReopenReason(''); }}
+                className="px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!reopenReason.trim()}
+                onClick={handleReopenConfirm}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Confirm Reopen
               </button>
             </div>
           </div>
