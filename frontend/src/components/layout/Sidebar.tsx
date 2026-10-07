@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -23,7 +23,11 @@ import {
   Boxes,
   FileCheck,
   FolderKanban,
-  Sparkles
+  Sparkles,
+  Package,
+  TrendingUp,
+  ArrowRightLeft,
+  Sliders
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { accountingApi } from '../../services/accountingApi';
@@ -36,7 +40,9 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { user, activeEntity, entities, switchEntity, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -292,28 +298,143 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-[#E6B676] uppercase">
             Taxes & Inventory
           </div>
-          {taxInventoryItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => onClose && onClose()}
-                className={({ isActive }) =>
-                  `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
-                    isActive
-                      ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
-                      : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
-                  }`
-                }
-              >
-                <div className="flex items-center space-x-2.5">
-                  <Icon className="w-4 h-4 text-slate-300" />
-                  <span>{item.label}</span>
-                </div>
-              </NavLink>
-            );
-          })}
+
+          {/* Inventory & Stock Expandable Accordion */}
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                location.pathname === '/items' || location.pathname.startsWith('/inventory')
+                  ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <Boxes className="w-4 h-4 text-slate-300" />
+                <span>Inventory & Stock</span>
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                  isInventoryOpen ? 'rotate-0' : '-rotate-90'
+                }`}
+              />
+            </button>
+
+            {isInventoryOpen && (
+              <div className="pl-3.5 pr-1 py-1 space-y-0.5 border-l border-[#55080E] ml-4">
+                {/* 1. Items / Products */}
+                <NavLink
+                  to="/items"
+                  onClick={() => onClose && onClose()}
+                  className={({ isActive }) =>
+                    `flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-[#390003] text-[#E6B676] font-semibold border-l-2 border-[#E6B676] shadow-sm'
+                        : 'text-slate-300 hover:text-white hover:bg-[#390003]/50'
+                    }`
+                  }
+                >
+                  <Package className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  <span>Items / Products</span>
+                </NavLink>
+
+                {/* 2. Stock Valuation */}
+                <NavLink
+                  to="/inventory?tab=valuation"
+                  onClick={() => onClose && onClose()}
+                  className={() => {
+                    const isValActive =
+                      location.pathname === '/inventory' &&
+                      (!new URLSearchParams(location.search).get('tab') ||
+                        new URLSearchParams(location.search).get('tab') === 'valuation');
+                    return `flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      isValActive
+                        ? 'bg-[#390003] text-[#E6B676] font-semibold border-l-2 border-[#E6B676] shadow-sm'
+                        : 'text-slate-300 hover:text-white hover:bg-[#390003]/50'
+                    }`;
+                  }}
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  <span>Stock Valuation</span>
+                </NavLink>
+
+                {/* 3. Stock Movements */}
+                <NavLink
+                  to="/inventory?tab=movements"
+                  onClick={() => onClose && onClose()}
+                  className={() => {
+                    const isMovActive =
+                      location.pathname === '/inventory' &&
+                      new URLSearchParams(location.search).get('tab') === 'movements';
+                    return `flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      isMovActive
+                        ? 'bg-[#390003] text-[#E6B676] font-semibold border-l-2 border-[#E6B676] shadow-sm'
+                        : 'text-slate-300 hover:text-white hover:bg-[#390003]/50'
+                    }`;
+                  }}
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  <span>Stock Movements</span>
+                </NavLink>
+
+                {/* 4. Adjustments */}
+                <NavLink
+                  to="/inventory?tab=adjustments"
+                  onClick={() => onClose && onClose()}
+                  className={() => {
+                    const isAdjActive =
+                      location.pathname === '/inventory' &&
+                      new URLSearchParams(location.search).get('tab') === 'adjustments';
+                    return `flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      isAdjActive
+                        ? 'bg-[#390003] text-[#E6B676] font-semibold border-l-2 border-[#E6B676] shadow-sm'
+                        : 'text-slate-300 hover:text-white hover:bg-[#390003]/50'
+                    }`;
+                  }}
+                >
+                  <Sliders className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  <span>Adjustments</span>
+                </NavLink>
+              </div>
+            )}
+          </div>
+
+          {/* GST & Tax Center */}
+          <NavLink
+            to="/gst"
+            onClick={() => onClose && onClose()}
+            className={({ isActive }) =>
+              `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                isActive
+                  ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+              }`
+            }
+          >
+            <div className="flex items-center space-x-2.5">
+              <FileCheck className="w-4 h-4 text-slate-300" />
+              <span>GST & Tax Center</span>
+            </div>
+          </NavLink>
+
+          {/* Projects & Billing */}
+          <NavLink
+            to="/projects"
+            onClick={() => onClose && onClose()}
+            className={({ isActive }) =>
+              `flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                isActive
+                  ? 'bg-[#390003] text-white border-l-4 border-[#E6B676] shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-[#390003]/60'
+              }`
+            }
+          >
+            <div className="flex items-center space-x-2.5">
+              <FolderKanban className="w-4 h-4 text-slate-300" />
+              <span>Projects & Billing</span>
+            </div>
+          </NavLink>
 
           {/* Finance & General Ledger */}
           <div className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">

@@ -66,6 +66,13 @@ def test_customer_lifecycle(auth_headers, active_entity):
 def test_product_catalog(auth_headers, active_entity):
     entity_id = active_entity["id"]
 
+    from app.database.session import SessionLocal
+    from app.models.sales import Product
+    _db = SessionLocal()
+    _db.query(Product).filter(Product.entity_id == entity_id, Product.sku == "SRV-CLOUD-001").delete()
+    _db.commit()
+    _db.close()
+
     payload = {
         "entity_id": entity_id,
         "sku": "SRV-CLOUD-001",

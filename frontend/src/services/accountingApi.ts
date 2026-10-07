@@ -1120,35 +1120,86 @@ export interface Product {
   entity_id: number;
   name: string;
   sku?: string;
-  product_type: 'GOODS' | 'SERVICE';
+  product_type: 'GOODS' | 'PRODUCT' | 'SERVICE';
+  category?: string;
   unit: string;
+  description?: string;
   selling_price: number;
   purchase_price: number;
   hsn_sac_code?: string;
   tax_rate: number;
   income_account_id?: number;
   expense_account_id?: number;
-  current_stock: number;
+  sales_account_id?: number;
+  purchase_account_id?: number;
+  inventory_account_id?: number;
+  track_inventory: boolean;
+  opening_stock: number;
+  opening_stock_rate: number;
+  reorder_level: number;
   min_stock_alert: number;
+  warehouse_location?: string;
+  current_stock: number;
   is_active: boolean;
+  income_account_name?: string;
+  expense_account_name?: string;
+  inventory_account_name?: string;
   created_at: string;
   updated_at: string;
 }
+
+export type Item = Product;
 
 export interface ProductCreateData {
   entity_id: number;
   name: string;
   sku?: string;
   product_type?: string;
+  category?: string;
   unit?: string;
+  description?: string;
   selling_price?: number;
   purchase_price?: number;
   hsn_sac_code?: string;
   tax_rate?: number;
   income_account_id?: number;
   expense_account_id?: number;
-  current_stock?: number;
+  sales_account_id?: number;
+  purchase_account_id?: number;
+  inventory_account_id?: number;
+  track_inventory?: boolean;
+  opening_stock?: number;
+  opening_stock_rate?: number;
+  reorder_level?: number;
   min_stock_alert?: number;
+  warehouse_location?: string;
+  current_stock?: number;
+  is_active?: boolean;
+}
+
+export type ItemCreateData = ProductCreateData;
+
+export interface ItemSummary {
+  total_items: number;
+  inventory_tracked: number;
+  active_items: number;
+  inactive_items: number;
+  low_stock_items: number;
+  products_count: number;
+  services_count: number;
+}
+
+export interface ItemFilterParams {
+  entity_id?: number;
+  search?: string;
+  name_search?: string;
+  sku_search?: string;
+  type?: string;
+  status?: string;
+  category?: string;
+  page?: number;
+  page_size?: number;
+  paginate?: boolean;
 }
 
 export interface InvoiceLine {
@@ -1422,6 +1473,53 @@ export const createProduct = async (data: ProductCreateData): Promise<Product> =
     method: 'POST',
     body: JSON.stringify(data)
   });
+};
+
+export const createItem = createProduct;
+
+export const updateProduct = async (id: number, data: Partial<ProductCreateData>): Promise<Product> => {
+  return apiRequest<Product>(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+};
+
+export const updateItem = updateProduct;
+
+export const toggleProductStatus = async (id: number, isActive: boolean): Promise<Product> => {
+  return apiRequest<Product>(`/products/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_active: isActive })
+  });
+};
+
+export const toggleItemStatus = toggleProductStatus;
+
+export const getItemDetail = async (id: number): Promise<Product> => {
+  return apiRequest<Product>(`/products/${id}`);
+};
+
+export const getItems = async (params: ItemFilterParams): Promise<PaginatedResponse<Product>> => {
+  const query = new URLSearchParams();
+  if (params.entity_id) query.append('entity_id', params.entity_id.toString());
+  if (params.search) query.append('search', params.search);
+  if (params.name_search) query.append('name_search', params.name_search);
+  if (params.sku_search) query.append('sku_search', params.sku_search);
+  if (params.type && params.type !== 'ALL') query.append('type', params.type);
+  if (params.status && params.status !== 'ALL') query.append('status', params.status);
+  if (params.category && params.category !== 'ALL') query.append('category', params.category);
+  query.append('page', (params.page || 1).toString());
+  query.append('page_size', (params.page_size || 20).toString());
+  query.append('paginate', params.paginate !== false ? 'true' : 'false');
+  return apiRequest<PaginatedResponse<Product>>(`/items?${query.toString()}`);
+};
+
+export const getItemSummary = async (entityId: number): Promise<ItemSummary> => {
+  return apiRequest<ItemSummary>(`/items/summary?entity_id=${entityId}`);
+};
+
+export const getItemCategories = async (entityId: number): Promise<string[]> => {
+  return apiRequest<string[]>(`/items/categories?entity_id=${entityId}`);
 };
 
 // Invoices API

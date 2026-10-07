@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Boxes, 
   Plus, 
@@ -31,12 +32,28 @@ import {
 
 export const InventoryPage: React.FC = () => {
   const { activeEntity } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [valuationData, setValuationData] = useState<InventoryValuationSummary | null>(null);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'valuation' | 'movements' | 'adjustments'>('valuation');
+  
+  const initialTab = searchParams.get('tab');
+  const validTab = (initialTab === 'movements' || initialTab === 'adjustments' || initialTab === 'valuation') ? initialTab : 'valuation';
+  const [activeTab, setActiveTab] = useState<'valuation' | 'movements' | 'adjustments'>(validTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'movements' || tabParam === 'adjustments' || tabParam === 'valuation') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'valuation' | 'movements' | 'adjustments') => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -288,7 +305,7 @@ export const InventoryPage: React.FC = () => {
       {/* TABS NAVIGATION */}
       <div className="flex items-center space-x-2 border-b border-slate-200 overflow-x-auto pb-px">
         <button
-          onClick={() => setActiveTab('valuation')}
+          onClick={() => handleTabChange('valuation')}
           className={`flex items-center space-x-2 py-2.5 px-4 font-bold text-xs border-b-2 transition-all shrink-0 cursor-pointer ${
             activeTab === 'valuation'
               ? 'border-[#781019] text-[#781019]'
@@ -303,7 +320,7 @@ export const InventoryPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('movements')}
+          onClick={() => handleTabChange('movements')}
           className={`flex items-center space-x-2 py-2.5 px-4 font-bold text-xs border-b-2 transition-all shrink-0 cursor-pointer ${
             activeTab === 'movements'
               ? 'border-[#781019] text-[#781019]'
@@ -318,7 +335,7 @@ export const InventoryPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('adjustments')}
+          onClick={() => handleTabChange('adjustments')}
           className={`flex items-center space-x-2 py-2.5 px-4 font-bold text-xs border-b-2 transition-all shrink-0 cursor-pointer ${
             activeTab === 'adjustments'
               ? 'border-[#781019] text-[#781019]'

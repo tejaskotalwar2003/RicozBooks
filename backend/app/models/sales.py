@@ -9,6 +9,7 @@ from app.database.session import Base
 
 class ProductType(str, enum.Enum):
     GOODS = "GOODS"
+    PRODUCT = "PRODUCT"
     SERVICE = "SERVICE"
 
 class InvoiceStatus(str, enum.Enum):
@@ -95,7 +96,10 @@ class Product(Base):
     name = Column(String(200), nullable=False, index=True)
     sku = Column(String(50), nullable=True, index=True)
     product_type = Column(String(20), default=ProductType.GOODS.value)
+    category = Column(String(100), nullable=True, index=True)
     unit = Column(String(30), default="PCS")
+    description = Column(Text, nullable=True)
+
     selling_price = Column(Numeric(15, 2), default=0.00, nullable=False)
     purchase_price = Column(Numeric(15, 2), default=0.00, nullable=False)
     hsn_sac_code = Column(String(20), nullable=True)
@@ -103,6 +107,13 @@ class Product(Base):
     
     income_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
     expense_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    inventory_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+
+    track_inventory = Column(Boolean, default=True, nullable=False)
+    opening_stock = Column(Numeric(12, 2), default=0.00, nullable=False)
+    opening_stock_rate = Column(Numeric(15, 2), default=0.00, nullable=False)
+    reorder_level = Column(Numeric(12, 2), default=0.00, nullable=False)
+    warehouse_location = Column(String(100), default="Main Warehouse", nullable=True)
     
     current_stock = Column(Numeric(12, 2), default=0.00)
     min_stock_alert = Column(Numeric(12, 2), default=0.00)
@@ -114,6 +125,15 @@ class Product(Base):
     entity = relationship("Entity")
     income_account = relationship("Account", foreign_keys=[income_account_id])
     expense_account = relationship("Account", foreign_keys=[expense_account_id])
+    inventory_account = relationship("Account", foreign_keys=[inventory_account_id])
+
+    @property
+    def sales_account_id(self):
+        return self.income_account_id
+
+    @property
+    def purchase_account_id(self):
+        return self.expense_account_id
 
 # =========================================================================
 # 3. SALES INVOICE & LINES

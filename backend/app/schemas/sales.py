@@ -81,18 +81,28 @@ class CustomerStatementResponse(BaseModel):
 # 2. PRODUCT / ITEM SCHEMAS
 # =========================================================================
 class ProductBase(BaseModel):
-    name: str = Field(..., min_length=2, max_length=200)
+    name: str = Field(..., min_length=1, max_length=200)
     sku: Optional[str] = None
-    product_type: str = "GOODS"
+    product_type: str = "PRODUCT"
+    category: Optional[str] = None
     unit: str = "PCS"
-    selling_price: Decimal = Decimal("0.00")
-    purchase_price: Decimal = Decimal("0.00")
+    description: Optional[str] = None
+    selling_price: Decimal = Field(default=Decimal("0.00"), ge=0)
+    purchase_price: Decimal = Field(default=Decimal("0.00"), ge=0)
     hsn_sac_code: Optional[str] = None
-    tax_rate: Decimal = Decimal("18.00")
+    tax_rate: Decimal = Field(default=Decimal("18.00"), ge=0)
     income_account_id: Optional[int] = None
     expense_account_id: Optional[int] = None
+    sales_account_id: Optional[int] = None
+    purchase_account_id: Optional[int] = None
+    inventory_account_id: Optional[int] = None
+    track_inventory: bool = True
+    opening_stock: Decimal = Field(default=Decimal("0.00"), ge=0)
+    opening_stock_rate: Decimal = Field(default=Decimal("0.00"), ge=0)
+    reorder_level: Decimal = Field(default=Decimal("0.00"), ge=0)
+    min_stock_alert: Decimal = Field(default=Decimal("0.00"), ge=0)
+    warehouse_location: Optional[str] = "Main Warehouse"
     current_stock: Decimal = Decimal("0.00")
-    min_stock_alert: Decimal = Decimal("0.00")
 
 class ProductCreate(ProductBase):
     entity_id: int
@@ -101,26 +111,51 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     sku: Optional[str] = None
     product_type: Optional[str] = None
+    category: Optional[str] = None
     unit: Optional[str] = None
-    selling_price: Optional[Decimal] = None
-    purchase_price: Optional[Decimal] = None
+    description: Optional[str] = None
+    selling_price: Optional[Decimal] = Field(default=None, ge=0)
+    purchase_price: Optional[Decimal] = Field(default=None, ge=0)
     hsn_sac_code: Optional[str] = None
-    tax_rate: Optional[Decimal] = None
+    tax_rate: Optional[Decimal] = Field(default=None, ge=0)
     income_account_id: Optional[int] = None
     expense_account_id: Optional[int] = None
+    sales_account_id: Optional[int] = None
+    purchase_account_id: Optional[int] = None
+    inventory_account_id: Optional[int] = None
+    track_inventory: Optional[bool] = None
+    opening_stock: Optional[Decimal] = Field(default=None, ge=0)
+    opening_stock_rate: Optional[Decimal] = Field(default=None, ge=0)
+    reorder_level: Optional[Decimal] = Field(default=None, ge=0)
+    min_stock_alert: Optional[Decimal] = Field(default=None, ge=0)
+    warehouse_location: Optional[str] = None
     current_stock: Optional[Decimal] = None
-    min_stock_alert: Optional[Decimal] = None
     is_active: Optional[bool] = None
+
+class ProductStatusUpdate(BaseModel):
+    is_active: bool
 
 class ProductResponse(ProductBase):
     id: int
     entity_id: int
     is_active: bool
+    income_account_name: Optional[str] = None
+    expense_account_name: Optional[str] = None
+    inventory_account_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+class ItemSummaryResponse(BaseModel):
+    total_items: int
+    inventory_tracked: int
+    active_items: int
+    inactive_items: int
+    low_stock_items: int
+    products_count: int
+    services_count: int
 
 # =========================================================================
 # 3. INVOICE SCHEMAS

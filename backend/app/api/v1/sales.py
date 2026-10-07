@@ -4,14 +4,14 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, Request
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy import desc, func, or_
 
 from app.database.session import get_db
 from app.models.user import User
 from app.models.company import Entity
 from app.models.account import Account, AccountType, NormalBalance
 from app.models.sales import (
-    Customer, Product, Invoice, InvoiceLine, InvoiceStatus, 
+    Customer, Product, ProductType, Invoice, InvoiceLine, InvoiceStatus, 
     CustomerPayment, Estimate, EstimateLine, EstimateStatus,
     SalesOrder, SalesOrderLine, SalesOrderStatus,
     CreditNote, CreditNoteLine, CreditNoteStatus,
@@ -20,7 +20,7 @@ from app.models.sales import (
 from app.schemas.sales import (
     CustomerCreate, CustomerUpdate, CustomerResponse, 
     CustomerLedgerEntry, CustomerStatementResponse,
-    ProductCreate, ProductUpdate, ProductResponse,
+    ProductCreate, ProductUpdate, ProductResponse, ProductStatusUpdate, ItemSummaryResponse,
     InvoiceCreate, InvoiceUpdate, InvoiceResponse, InvoiceDetailResponse, InvoiceLineResponse,
     CustomerPaymentCreate, CustomerPaymentResponse,
     EstimateCreate, EstimateResponse, EstimateLineResponse,
@@ -275,19 +275,139 @@ def get_customer_ledger_statement(
     )
 
 # =========================================================================
-# 2. PRODUCTS & SERVICES
+# 2. PRODUCTS & SERVICES (ITEMS MASTER)
 # =========================================================================
+def serialize_product(prod: Product) -> ProductResponse:
+    resp = ProductResponse(
+        id=prod.id,
+        entity_id=prod.entity_id,
+        name=prod.name,
+        sku=prod.sku,
+        product_type=prod.product_type or "PRODUCT",
+        category=prod.category,
+        unit=prod.unit or "PCS",
+        description=prod.description,
+        selling_price=quantize_amount(prod.selling_price),
+        purchase_price=quantize_amount(prod.purchase_price),
+        hsn_sac_code=prod.hsn_sac_code,
+        tax_rate=quantize_amount(prod.tax_rate),
+        income_account_id=prod.income_account_id,
+        expense_account_id=prod.expense_account_id,
+        sales_account_id=prod.income_account_id,
+        purchase_account_id=prod.expense_account_id,
+        inventory_account_id=prod.inventory_account_id,
+        track_inventory=bool(prod.track_inventory) if (prod.product_type or "").upper() != "SERVICE" else False,
+        opening_stock=quantize_amount(prod.opening_stock or Decimal("0.00")),
+        opening_stock_rate=quantize_amount(prod.opening_stock_rate or Decimal("0.00")),
+        reorder_level=quantize_amount(prod.reorder_level if prod.reorder_level is not None else (prod.min_stock_alert or Decimal("0.00"))),
+        min_stock_alert=quantize_amount(prod.min_stock_alert or prod.reorder_level or Decimal("0.00")),
+        warehouse_location=prod.warehouse_location or "Main Warehouse",
+        current_stock=quantize_amount(prod.current_stock or Decimal("0.00")),
+        is_active=prod.is_active,
+        income_account_name=prod.income_account.name if prod.income_account else None,
+        expense_account_name=prod.expense_account.name if prod.expense_account else None,
+        inventory_account_name=prod.inventory_account.name if prod.inventory_account else None,
+        created_at=prod.created_at,
+        updated_at=prod.updated_at
+    )
+    return resp
+
+@router.get("/products/summary", response_model=ItemSummaryResponse)
+@router.get("/items/summary", response_model=ItemSummaryResponse)
+def get_items_summary(
+    entity_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        target_id = entity_id
+    elif current_user.default_entity_id:
+        target_id = current_user.default_entity_id
+    else:
+        tenant_ids = get_tenant_entity_ids(current_user, db)
+        target_id = tenant_ids[0] if tenant_ids else None
+
+    if not target_id:
+        raise HTTPException(status_code=400, detail="Entity ID is required to calculate item summary")
+
+    base = db.query(Product).filter(Product.entity_id == target_id)
+    total_items = base.count()
+    active_items = base.filter(Product.is_active == True).count()
+    inactive_items = base.filter(Product.is_active == False).count()
+    products_count = base.filter(Product.product_type.in_(["PRODUCT", "GOODS"])).count()
+    services_count = base.filter(Product.product_type == "SERVICE").count()
+    
+    inventory_tracked = base.filter(
+        Product.track_inventory == True,
+        Product.product_type != "SERVICE"
+    ).count()
+
+    low_stock_items = base.filter(
+        Product.is_active == True,
+        Product.track_inventory == True,
+        Product.product_type != "SERVICE",
+        Product.current_stock <= func.coalesce(Product.reorder_level, Product.min_stock_alert, 0)
+    ).count()
+
+    return ItemSummaryResponse(
+        total_items=total_items,
+        inventory_tracked=inventory_tracked,
+        active_items=active_items,
+        inactive_items=inactive_items,
+        low_stock_items=low_stock_items,
+        products_count=products_count,
+        services_count=services_count
+    )
+
+@router.get("/products/categories", response_model=List[str])
+@router.get("/items/categories", response_model=List[str])
+def get_item_categories(
+    entity_id: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if entity_id:
+        verify_entity_access(entity_id, current_user, db)
+        target_id = entity_id
+    elif current_user.default_entity_id:
+        target_id = current_user.default_entity_id
+    else:
+        tenant_ids = get_tenant_entity_ids(current_user, db)
+        target_id = tenant_ids[0] if tenant_ids else None
+
+    if not target_id:
+        return []
+
+    cats = db.query(Product.category).filter(
+        Product.entity_id == target_id,
+        Product.category.isnot(None),
+        Product.category != ""
+    ).distinct().all()
+
+    return sorted(list(set(c[0] for c in cats if c[0] and c[0].strip())))
+
 @router.get("/products", response_model=Union[PaginatedResponse[ProductResponse], List[ProductResponse]])
+@router.get("/items", response_model=Union[PaginatedResponse[ProductResponse], List[ProductResponse]])
 def get_products(
     entity_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    name_search: Optional[str] = Query(None),
+    sku_search: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     paginate: bool = Query(True),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Product)
+    query = db.query(Product).options(
+        joinedload(Product.income_account),
+        joinedload(Product.expense_account),
+        joinedload(Product.inventory_account)
+    )
     tenant_entity_ids = get_tenant_entity_ids(current_user, db)
 
     if entity_id:
@@ -298,14 +418,66 @@ def get_products(
     elif current_user.default_entity_id:
         query = query.filter(Product.entity_id == current_user.default_entity_id)
 
-    if search:
+    # General Search (name or sku)
+    if search and search.strip():
         s = f"%{search.strip()}%"
-        query = query.filter((Product.name.ilike(s)) | (Product.sku.ilike(s)))
+        query = query.filter(or_(Product.name.ilike(s), Product.sku.ilike(s)))
 
-    return paginate_or_all(query.order_by(Product.name.asc()), page=page, page_size=page_size, paginate=paginate)
+    # Specific Name Search
+    if name_search and name_search.strip():
+        query = query.filter(Product.name.ilike(f"%{name_search.strip()}%"))
 
+    # Specific SKU Search
+    if sku_search and sku_search.strip():
+        query = query.filter(Product.sku.ilike(f"%{sku_search.strip()}%"))
+
+    # Type Filter
+    if type and type.strip().upper() != "ALL":
+        t_upper = type.strip().upper()
+        if t_upper in ["PRODUCT", "GOODS"]:
+            query = query.filter(Product.product_type.in_(["PRODUCT", "GOODS"]))
+        elif t_upper == "SERVICE":
+            query = query.filter(Product.product_type == "SERVICE")
+
+    # Status Filter
+    if status and status.strip().upper() != "ALL":
+        st_upper = status.strip().upper()
+        if st_upper == "ACTIVE":
+            query = query.filter(Product.is_active == True)
+        elif st_upper == "INACTIVE":
+            query = query.filter(Product.is_active == False)
+
+    # Category Filter
+    if category and category.strip().upper() != "ALL":
+        query = query.filter(Product.category.ilike(category.strip()))
+
+    return paginate_or_all(
+        query.order_by(Product.name.asc()), 
+        page=page, 
+        page_size=page_size, 
+        paginate=paginate,
+        item_transform=serialize_product
+    )
+
+@router.get("/products/{product_id}", response_model=ProductResponse)
+@router.get("/items/{product_id}", response_model=ProductResponse)
+def get_product(
+    product_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    prod = db.query(Product).options(
+        joinedload(Product.income_account),
+        joinedload(Product.expense_account),
+        joinedload(Product.inventory_account)
+    ).filter(Product.id == product_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Item not found")
+    verify_entity_access(prod.entity_id, current_user, db)
+    return serialize_product(prod)
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/items", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
     prod_in: ProductCreate,
     current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "MANAGER", "ACCOUNTANT"])),
@@ -313,27 +485,89 @@ def create_product(
 ):
     verify_entity_access(prod_in.entity_id, current_user, db)
 
+    # Validation: Item Name
+    if not prod_in.name or not prod_in.name.strip():
+        raise HTTPException(status_code=400, detail="Item Name is required.")
+
+    # Validation: SKU Uniqueness per company
+    sku_val = prod_in.sku.strip() if prod_in.sku and prod_in.sku.strip() else None
+    if sku_val:
+        existing_sku = db.query(Product).filter(
+            Product.entity_id == prod_in.entity_id,
+            func.lower(Product.sku) == func.lower(sku_val)
+        ).first()
+        if existing_sku:
+            raise HTTPException(status_code=400, detail=f"SKU '{sku_val}' already exists for this entity.")
+
+    # Product vs Service Rules
+    raw_type = (prod_in.product_type or "PRODUCT").strip().upper()
+    is_service = raw_type == "SERVICE"
+
+    if is_service:
+        p_type = "SERVICE"
+        track_inv = False
+        op_stock = Decimal("0.00")
+        op_rate = Decimal("0.00")
+        reorder_lvl = Decimal("0.00")
+        inv_acc_id = None
+        warehouse = None
+        curr_stock = Decimal("0.00")
+    else:
+        p_type = "PRODUCT" if raw_type in ["PRODUCT", "GOODS"] else raw_type
+        track_inv = bool(prod_in.track_inventory)
+        op_stock = Decimal(str(prod_in.opening_stock or 0)) if track_inv else Decimal("0.00")
+        op_rate = Decimal(str(prod_in.opening_stock_rate or 0)) if track_inv else Decimal("0.00")
+        reorder_lvl = Decimal(str(prod_in.reorder_level or prod_in.min_stock_alert or 0)) if track_inv else Decimal("0.00")
+        inv_acc_id = prod_in.inventory_account_id if track_inv else None
+        warehouse = prod_in.warehouse_location or "Main Warehouse" if track_inv else None
+        # In Phase 1, initializing product stock to opening stock without creating General Ledger journals
+        curr_stock = op_stock if track_inv else Decimal("0.00")
+
+    inc_acc_id = prod_in.sales_account_id or prod_in.income_account_id
+    exp_acc_id = prod_in.purchase_account_id or prod_in.expense_account_id
+
     prod = Product(
         entity_id=prod_in.entity_id,
         name=prod_in.name.strip(),
-        sku=prod_in.sku.strip() if prod_in.sku else None,
-        product_type=prod_in.product_type,
-        unit=prod_in.unit,
-        selling_price=prod_in.selling_price,
-        purchase_price=prod_in.purchase_price,
-        hsn_sac_code=prod_in.hsn_sac_code.strip() if prod_in.hsn_sac_code else None,
-        tax_rate=prod_in.tax_rate,
-        income_account_id=prod_in.income_account_id,
-        expense_account_id=prod_in.expense_account_id,
-        current_stock=prod_in.current_stock,
-        min_stock_alert=prod_in.min_stock_alert
+        sku=sku_val,
+        product_type=p_type,
+        category=prod_in.category.strip() if prod_in.category and prod_in.category.strip() else None,
+        unit=(prod_in.unit or "PCS").strip().upper(),
+        description=prod_in.description.strip() if prod_in.description and prod_in.description.strip() else None,
+        selling_price=Decimal(str(prod_in.selling_price or 0)),
+        purchase_price=Decimal(str(prod_in.purchase_price or 0)),
+        hsn_sac_code=prod_in.hsn_sac_code.strip() if prod_in.hsn_sac_code and prod_in.hsn_sac_code.strip() else None,
+        tax_rate=Decimal(str(prod_in.tax_rate if prod_in.tax_rate is not None else 18.00)),
+        income_account_id=inc_acc_id,
+        expense_account_id=exp_acc_id,
+        inventory_account_id=inv_acc_id,
+        track_inventory=track_inv,
+        opening_stock=op_stock,
+        opening_stock_rate=op_rate,
+        reorder_level=reorder_lvl,
+        min_stock_alert=reorder_lvl,
+        warehouse_location=warehouse,
+        current_stock=curr_stock,
+        is_active=True
     )
     db.add(prod)
     db.commit()
     db.refresh(prod)
-    return prod
+
+    log_audit(
+        db=db,
+        action="CREATE",
+        record_type="Product",
+        record_id=str(prod.id),
+        user=current_user,
+        entity_id=prod.entity_id,
+        details=f"Created {p_type} item '{prod.name}' (SKU: {prod.sku or 'N/A'}, Track Inventory: {track_inv})"
+    )
+
+    return serialize_product(prod)
 
 @router.put("/products/{product_id}", response_model=ProductResponse)
+@router.put("/items/{product_id}", response_model=ProductResponse)
 def update_product(
     product_id: int,
     prod_in: ProductUpdate,
@@ -342,15 +576,132 @@ def update_product(
 ):
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Item not found")
     verify_entity_access(prod.entity_id, current_user, db)
 
-    for field, val in prod_in.model_dump(exclude_unset=True).items():
-        setattr(prod, field, val)
+    # Check SKU uniqueness if changed
+    if prod_in.sku is not None:
+        sku_clean = prod_in.sku.strip() if prod_in.sku.strip() else None
+        if sku_clean:
+            conflict = db.query(Product).filter(
+                Product.entity_id == prod.entity_id,
+                Product.id != prod.id,
+                func.lower(Product.sku) == func.lower(sku_clean)
+            ).first()
+            if conflict:
+                raise HTTPException(status_code=400, detail=f"SKU '{sku_clean}' already exists for this entity.")
+        prod.sku = sku_clean
+
+    if prod_in.name is not None:
+        if not prod_in.name.strip():
+            raise HTTPException(status_code=400, detail="Item Name cannot be empty.")
+        prod.name = prod_in.name.strip()
+
+    if prod_in.product_type is not None:
+        raw_t = prod_in.product_type.strip().upper()
+        if raw_t == "SERVICE":
+            prod.product_type = "SERVICE"
+            prod.track_inventory = False
+        else:
+            prod.product_type = "PRODUCT" if raw_t in ["PRODUCT", "GOODS"] else raw_t
+
+    if prod_in.category is not None:
+        prod.category = prod_in.category.strip() if prod_in.category.strip() else None
+    if prod_in.unit is not None:
+        prod.unit = prod_in.unit.strip().upper()
+    if prod_in.description is not None:
+        prod.description = prod_in.description.strip() if prod_in.description.strip() else None
+    if prod_in.selling_price is not None:
+        prod.selling_price = prod_in.selling_price
+    if prod_in.purchase_price is not None:
+        prod.purchase_price = prod_in.purchase_price
+    if prod_in.hsn_sac_code is not None:
+        prod.hsn_sac_code = prod_in.hsn_sac_code.strip() if prod_in.hsn_sac_code.strip() else None
+    if prod_in.tax_rate is not None:
+        prod.tax_rate = prod_in.tax_rate
+
+    if prod_in.sales_account_id is not None:
+        prod.income_account_id = prod_in.sales_account_id
+    elif prod_in.income_account_id is not None:
+        prod.income_account_id = prod_in.income_account_id
+
+    if prod_in.purchase_account_id is not None:
+        prod.expense_account_id = prod_in.purchase_account_id
+    elif prod_in.expense_account_id is not None:
+        prod.expense_account_id = prod_in.expense_account_id
+
+    if prod_in.inventory_account_id is not None:
+        prod.inventory_account_id = prod_in.inventory_account_id
+
+    if prod_in.track_inventory is not None:
+        if (prod.product_type or "").upper() == "SERVICE":
+            prod.track_inventory = False
+        else:
+            prod.track_inventory = prod_in.track_inventory
+
+    if prod_in.opening_stock is not None:
+        prod.opening_stock = prod_in.opening_stock
+    if prod_in.opening_stock_rate is not None:
+        prod.opening_stock_rate = prod_in.opening_stock_rate
+
+    if prod_in.reorder_level is not None:
+        prod.reorder_level = prod_in.reorder_level
+        prod.min_stock_alert = prod_in.reorder_level
+    elif prod_in.min_stock_alert is not None:
+        prod.reorder_level = prod_in.min_stock_alert
+        prod.min_stock_alert = prod_in.min_stock_alert
+
+    if prod_in.warehouse_location is not None:
+        prod.warehouse_location = prod_in.warehouse_location
+    if prod_in.current_stock is not None:
+        prod.current_stock = prod_in.current_stock
+    if prod_in.is_active is not None:
+        prod.is_active = prod_in.is_active
 
     db.commit()
     db.refresh(prod)
-    return prod
+
+    log_audit(
+        db=db,
+        action="UPDATE",
+        record_type="Product",
+        record_id=str(prod.id),
+        user=current_user,
+        entity_id=prod.entity_id,
+        details=f"Updated item '{prod.name}' (SKU: {prod.sku or 'N/A'})"
+    )
+
+    return serialize_product(prod)
+
+@router.patch("/products/{product_id}/status", response_model=ProductResponse)
+@router.patch("/items/{product_id}/status", response_model=ProductResponse)
+def toggle_product_status(
+    product_id: int,
+    status_in: ProductStatusUpdate,
+    current_user: User = Depends(require_roles(["ADMIN", "ORG_ADMIN", "MANAGER", "ACCOUNTANT"])),
+    db: Session = Depends(get_db)
+):
+    prod = db.query(Product).filter(Product.id == product_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Item not found")
+    verify_entity_access(prod.entity_id, current_user, db)
+
+    prod.is_active = status_in.is_active
+    db.commit()
+    db.refresh(prod)
+
+    state_str = "Activated" if prod.is_active else "Deactivated"
+    log_audit(
+        db=db,
+        action="STATUS_CHANGE",
+        record_type="Product",
+        record_id=str(prod.id),
+        user=current_user,
+        entity_id=prod.entity_id,
+        details=f"{state_str} item '{prod.name}'"
+    )
+
+    return serialize_product(prod)
 
 # =========================================================================
 # 3. SALES INVOICES
