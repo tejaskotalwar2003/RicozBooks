@@ -398,3 +398,4 @@ def test_regression_existing_items_and_summary_endpoint(auth_headers, active_ent
     assert "active_items" in summary
     assert "low_stock_items" in summary
     assert summary["total_items"] >= summary["active_items"]
+
