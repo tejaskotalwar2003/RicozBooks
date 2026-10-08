@@ -79,6 +79,15 @@ async def lifespan(app: FastAPI):
             _db.close()
     except Exception as e:
         print(f"Startup demo admin users seed status: {e}")
+    try:
+        from app.services.account_defaults import ensure_standard_accounts_for_all_entities
+        from app.database.session import SessionLocal
+        with SessionLocal() as _acc_db:
+            provisioned_count = ensure_standard_accounts_for_all_entities(_acc_db)
+            if provisioned_count > 0:
+                print(f"[OK] Provisioned/verified standard COGS 5700 across {provisioned_count} entities.")
+    except Exception as e:
+        print(f"Startup COGS account provisioning status: {e}")
     yield
 
 app = FastAPI(

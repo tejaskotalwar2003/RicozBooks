@@ -15,6 +15,7 @@ from app.schemas.entity import (
     CurrencyResponse
 )
 from app.api.deps import get_current_user, require_roles, log_audit, verify_entity_access, get_tenant_entity_ids
+from app.services.account_defaults import ensure_cogs_account
 
 router = APIRouter()
 
@@ -94,6 +95,10 @@ def create_entity(
     db.add(entity)
     db.commit()
     db.refresh(entity)
+
+    # Provision standard COGS account for newly created entity
+    ensure_cogs_account(db, entity.id, entity.base_currency)
+    db.commit()
     
     log_audit(
         db=db,

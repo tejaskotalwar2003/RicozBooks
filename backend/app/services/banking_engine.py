@@ -43,12 +43,12 @@ def generate_transfer_number(db: Session, entity_id: int) -> str:
 def ensure_bank_fee_account(db: Session, entity_id: int) -> Account:
     acc = db.query(Account).filter(
         Account.entity_id == entity_id,
-        Account.code == "5700"
+        Account.code == "5750"
     ).first()
     if not acc:
         acc = Account(
             entity_id=entity_id,
-            code="5700",
+            code="5750",
             name="Bank Charges & Fees",
             account_type=AccountType.EXPENSE,
             normal_balance=NormalBalance.DEBIT,
@@ -78,7 +78,7 @@ def process_internal_transfer(
     Executes an internal transfer between two bank accounts:
     - Balanced GL Entry:
       - Dr Destination Bank GL Account (amount)
-      - Dr Bank Charges 5700 (fee_amount if > 0)
+      - Dr Bank Charges 5750 (fee_amount if > 0)
       - Cr Source Bank GL Account (amount + fee_amount)
     - Updates BankAccount current balances
     - Creates corresponding BankTransaction records

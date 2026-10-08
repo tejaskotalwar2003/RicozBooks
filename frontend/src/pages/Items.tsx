@@ -187,8 +187,37 @@ export const Items: React.FC = () => {
     setCurrentPage(1);
   };
 
+  // Categorize Chart of Accounts to enforce GAAP/standard mappings
+  const isCogsOrPurchaseAccount = (a: any) => {
+    if (a.account_type !== 'EXPENSE') return false;
+    const nameLower = (a.name || '').toLowerCase();
+    const code = (a.code || '').trim();
+    const disallowedKeywords = [
+      'salary', 'payroll', 'rent', 'lease', 'travel', 'lodging',
+      'marketing', 'advertising', 'legal', 'professional',
+      'utilities', 'office supplies', 'meals', 'entertainment'
+    ];
+    if (disallowedKeywords.some((kw: string) => nameLower.includes(kw))) {
+      return false;
+    }
+    const allowedKeywords = [
+      'cogs', 'cost of goods', 'cost of sales', 'direct cost', 
+      'direct purchase', 'merchandise', 'purchase', 'trading'
+    ];
+    return code.startsWith('57') || code === '5050' || allowedKeywords.some((kw: string) => nameLower.includes(kw));
+  };
+
+  const revenueAccounts = accounts.filter(a => a.account_type === 'REVENUE');
+  const expenseAccounts = accounts.filter(a => a.account_type === 'EXPENSE');
+  const cogsAccounts = expenseAccounts.filter(isCogsOrPurchaseAccount);
+  const assetAccounts = accounts.filter(a => a.account_type === 'ASSET');
+
   const openCreateModal = () => {
     setEditingItem(null);
+    const defaultCogs = cogsAccounts.find(a => a.code === '5700') || cogsAccounts[0];
+    const defaultRevenue = revenueAccounts.find(a => a.code === '4000') || revenueAccounts[0];
+    const defaultInventory = assetAccounts.find(a => a.code === '1300' || a.name.toLowerCase().includes('inventory')) || assetAccounts[0];
+
     setFormData({
       name: '',
       sku: '',
@@ -198,15 +227,15 @@ export const Items: React.FC = () => {
       hsn_sac_code: '',
       description: '',
       selling_price: 0,
-      sales_account_id: accounts.find(a => a.account_type === 'REVENUE')?.id,
+      sales_account_id: defaultRevenue?.id,
       tax_rate: 18.0,
       purchase_price: 0,
-      purchase_account_id: accounts.find(a => a.account_type === 'EXPENSE')?.id,
+      purchase_account_id: defaultCogs?.id,
       track_inventory: true,
       opening_stock: 0,
       opening_stock_rate: 0,
       reorder_level: 0,
-      inventory_account_id: accounts.find(a => a.account_type === 'ASSET' && a.name.toLowerCase().includes('inventory'))?.id,
+      inventory_account_id: defaultInventory?.id,
       warehouse_location: 'Main Warehouse'
     });
     setActionError(null);
@@ -309,11 +338,6 @@ export const Items: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
-  // Group accounts by type for intuitive dropdowns
-  const revenueAccounts = accounts.filter(a => a.account_type === 'REVENUE');
-  const expenseAccounts = accounts.filter(a => a.account_type === 'EXPENSE');
-  const assetAccounts = accounts.filter(a => a.account_type === 'ASSET');
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -876,9 +900,18 @@ export const Items: React.FC = () => {
                       value={formData.product_type}
                       onChange={(e) => {
                         const newType = e.target.value as 'PRODUCT' | 'SERVICE';
+                        let newPurAccId = formData.purchase_account_id;
+                        if (newType === 'PRODUCT') {
+                          const curAcc = accounts.find(a => a.id === formData.purchase_account_id);
+                          if (!curAcc || !isCogsOrPurchaseAccount(curAcc)) {
+                            const defaultCogs = cogsAccounts.find(a => a.code === '5700') || cogsAccounts[0];
+                            newPurAccId = defaultCogs?.id;
+                          }
+                        }
                         setFormData({
                           ...formData,
                           product_type: newType,
+                          purchase_account_id: newPurAccId,
                           track_inventory: newType === 'SERVICE' ? false : formData.track_inventory
                         });
                       }}
@@ -992,15 +1025,10 @@ export const Items: React.FC = () => {
                     <select
                       value={formData.sales_account_id || ''}
                       onChange={(e) => setFormData({ ...formData, sales_account_id: e.target.value ? Number(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                     >
                       <option value="">Select Account...</option>
                       {revenueAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.code} - {a.name}
-                        </option>
-                      ))}
-                      {revenueAccounts.length === 0 && accounts.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.code} - {a.name}
                         </option>
@@ -1058,19 +1086,32 @@ export const Items: React.FC = () => {
                     <select
                       value={formData.purchase_account_id || ''}
                       onChange={(e) => setFormData({ ...formData, purchase_account_id: e.target.value ? Number(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                     >
                       <option value="">Select Account...</option>
-                      {expenseAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.code} - {a.name}
-                        </option>
-                      ))}
-                      {expenseAccounts.length === 0 && accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.code} - {a.name}
-                        </option>
-                      ))}
+                      {formData.product_type === 'PRODUCT' ? (
+                        <>
+                          {cogsAccounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.code} - {a.name}
+                            </option>
+                          ))}
+                          {formData.purchase_account_id && !cogsAccounts.some(a => a.id === formData.purchase_account_id) && (() => {
+                            const legacyAcc = accounts.find(a => a.id === formData.purchase_account_id);
+                            return legacyAcc ? (
+                              <option key={legacyAcc.id} value={legacyAcc.id}>
+                                {legacyAcc.code} - {legacyAcc.name} (Legacy Account)
+                              </option>
+                            ) : null;
+                          })()}
+                        </>
+                      ) : (
+                        expenseAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.code} - {a.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
@@ -1164,15 +1205,10 @@ export const Items: React.FC = () => {
                       <select
                         value={formData.inventory_account_id || ''}
                         onChange={(e) => setFormData({ ...formData, inventory_account_id: e.target.value ? Number(e.target.value) : undefined })}
-                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white"
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                       >
                         <option value="">Select Account...</option>
                         {assetAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.code} - {a.name}
-                          </option>
-                        ))}
-                        {assetAccounts.length === 0 && accounts.map((a) => (
                           <option key={a.id} value={a.id}>
                             {a.code} - {a.name}
                           </option>

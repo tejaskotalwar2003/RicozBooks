@@ -237,6 +237,7 @@ def seed():
             ("1000", "Cash on Hand", AccountType.ASSET, NormalBalance.DEBIT, "INR", "Petty cash and liquid currency"),
             ("1100", "Bank Accounts (HDFC & ICICI)", AccountType.ASSET, NormalBalance.DEBIT, "INR", "Primary operating bank accounts"),
             ("1200", "Accounts Receivable (Debtors)", AccountType.ASSET, NormalBalance.DEBIT, "INR", "Invoiced customer receivables"),
+            ("1300", "Merchandise Inventory", AccountType.ASSET, NormalBalance.DEBIT, "INR", "Current trading inventory asset"),
             ("2000", "Accounts Payable (Creditors)", AccountType.LIABILITY, NormalBalance.CREDIT, "INR", "Outstanding vendor bills and payables"),
             ("2100", "GST / Tax Output Payable", AccountType.LIABILITY, NormalBalance.CREDIT, "INR", "Statutory GST output liability"),
             ("3000", "Share Capital", AccountType.EQUITY, NormalBalance.CREDIT, "INR", "Paid-up equity share capital"),
@@ -245,6 +246,7 @@ def seed():
             ("5000", "Salary & Payroll Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "INR", "Employee compensation and benefits"),
             ("5100", "Office Rent Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "INR", "Commercial real estate lease expenses"),
             ("5200", "Utilities & Cloud Infra Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "INR", "Electricity, AWS/Azure, internet utilities"),
+            ("5700", "Cost of Goods Sold (COGS)", AccountType.EXPENSE, NormalBalance.DEBIT, "INR", "Cost of inventory and merchandise sold"),
         ]
         
         for ent_code, entity in entities_dict.items():

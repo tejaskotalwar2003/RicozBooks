@@ -41,6 +41,7 @@ from app.api.deps import (
     get_current_user, require_roles, verify_entity_access, 
     get_tenant_entity_ids, log_audit
 )
+from app.services.account_defaults import is_valid_cogs_account
 
 router = APIRouter()
 
@@ -476,6 +477,97 @@ def get_product(
     verify_entity_access(prod.entity_id, current_user, db)
     return serialize_product(prod)
 
+
+def validate_product_account_mappings(
+    db: Session,
+    entity_id: int,
+    product_type: str,
+    sales_account_id: Optional[int] = None,
+    purchase_account_id: Optional[int] = None,
+    inventory_account_id: Optional[int] = None,
+    track_inventory: bool = False
+):
+    """
+    Strictly validates chart of accounts mappings for products and services:
+    - Sales Account must be an active REVENUE account belonging to the company/entity.
+    - Inventory Account must be an active ASSET account belonging to the company/entity.
+    - Purchase / COGS Account must be an active EXPENSE account belonging to the company/entity.
+      For products (goods / merchandise), it must be an approved COGS or direct cost account.
+    """
+    if sales_account_id is not None:
+        sales_acc = db.query(Account).filter(
+            Account.id == sales_account_id,
+            Account.entity_id == entity_id
+        ).first()
+        if not sales_acc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Sales Account #{sales_account_id} not found for this company/entity."
+            )
+        if sales_acc.account_type != AccountType.REVENUE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Sales Account must be a REVENUE account. '{sales_acc.code} - {sales_acc.name}' is an {sales_acc.account_type.value} account."
+            )
+        if not sales_acc.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Sales Account '{sales_acc.code} - {sales_acc.name}' is inactive."
+            )
+
+    if inventory_account_id is not None:
+        inv_acc = db.query(Account).filter(
+            Account.id == inventory_account_id,
+            Account.entity_id == entity_id
+        ).first()
+        if not inv_acc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Inventory Account #{inventory_account_id} not found for this company/entity."
+            )
+        if inv_acc.account_type != AccountType.ASSET:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Inventory Account must be an ASSET account. '{inv_acc.code} - {inv_acc.name}' is an {inv_acc.account_type.value} account."
+            )
+        if not inv_acc.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Inventory Account '{inv_acc.code} - {inv_acc.name}' is inactive."
+            )
+
+    if purchase_account_id is not None:
+        pur_acc = db.query(Account).filter(
+            Account.id == purchase_account_id,
+            Account.entity_id == entity_id
+        ).first()
+        if not pur_acc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Purchase / COGS Account #{purchase_account_id} not found for this company/entity."
+            )
+        if pur_acc.account_type != AccountType.EXPENSE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Purchase Account must be an active EXPENSE account. '{pur_acc.code} - {pur_acc.name}' is an {pur_acc.account_type.value} account."
+            )
+        if not pur_acc.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Purchase / COGS Account '{pur_acc.code} - {pur_acc.name}' is inactive."
+            )
+        if (product_type or "").upper() in ["PRODUCT", "GOODS"]:
+            if not is_valid_cogs_account(pur_acc):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Purchase Account for products must be a valid Cost of Goods Sold (COGS) "
+                        f"or direct cost account (e.g. 5700). '{pur_acc.code} - {pur_acc.name}' "
+                        f"is an operating expense and cannot be mapped as product COGS."
+                    )
+                )
+
+
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/items", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
@@ -525,6 +617,17 @@ def create_product(
 
     inc_acc_id = prod_in.sales_account_id or prod_in.income_account_id
     exp_acc_id = prod_in.purchase_account_id or prod_in.expense_account_id
+
+    # Strict Chart of Accounts validation
+    validate_product_account_mappings(
+        db=db,
+        entity_id=prod_in.entity_id,
+        product_type=p_type,
+        sales_account_id=inc_acc_id,
+        purchase_account_id=exp_acc_id,
+        inventory_account_id=inv_acc_id,
+        track_inventory=track_inv
+    )
 
     prod = Product(
         entity_id=prod_in.entity_id,
@@ -597,13 +700,38 @@ def update_product(
             raise HTTPException(status_code=400, detail="Item Name cannot be empty.")
         prod.name = prod_in.name.strip()
 
+    target_type = prod.product_type
     if prod_in.product_type is not None:
         raw_t = prod_in.product_type.strip().upper()
-        if raw_t == "SERVICE":
-            prod.product_type = "SERVICE"
+        target_type = "SERVICE" if raw_t == "SERVICE" else ("PRODUCT" if raw_t in ["PRODUCT", "GOODS"] else raw_t)
+        prod.product_type = target_type
+        if target_type == "SERVICE":
             prod.track_inventory = False
-        else:
-            prod.product_type = "PRODUCT" if raw_t in ["PRODUCT", "GOODS"] else raw_t
+
+    target_sales_id = None
+    if prod_in.sales_account_id is not None:
+        target_sales_id = prod_in.sales_account_id
+    elif prod_in.income_account_id is not None:
+        target_sales_id = prod_in.income_account_id
+
+    target_pur_id = None
+    if prod_in.purchase_account_id is not None:
+        target_pur_id = prod_in.purchase_account_id
+    elif prod_in.expense_account_id is not None:
+        target_pur_id = prod_in.expense_account_id
+
+    target_inv_id = prod_in.inventory_account_id
+
+    # Validate accounts being modified
+    validate_product_account_mappings(
+        db=db,
+        entity_id=prod.entity_id,
+        product_type=target_type,
+        sales_account_id=target_sales_id,
+        purchase_account_id=target_pur_id,
+        inventory_account_id=target_inv_id,
+        track_inventory=prod_in.track_inventory if prod_in.track_inventory is not None else prod.track_inventory
+    )
 
     if prod_in.category is not None:
         prod.category = prod_in.category.strip() if prod_in.category.strip() else None
@@ -620,18 +748,14 @@ def update_product(
     if prod_in.tax_rate is not None:
         prod.tax_rate = prod_in.tax_rate
 
-    if prod_in.sales_account_id is not None:
-        prod.income_account_id = prod_in.sales_account_id
-    elif prod_in.income_account_id is not None:
-        prod.income_account_id = prod_in.income_account_id
+    if target_sales_id is not None:
+        prod.income_account_id = target_sales_id
 
-    if prod_in.purchase_account_id is not None:
-        prod.expense_account_id = prod_in.purchase_account_id
-    elif prod_in.expense_account_id is not None:
-        prod.expense_account_id = prod_in.expense_account_id
+    if target_pur_id is not None:
+        prod.expense_account_id = target_pur_id
 
-    if prod_in.inventory_account_id is not None:
-        prod.inventory_account_id = prod_in.inventory_account_id
+    if target_inv_id is not None:
+        prod.inventory_account_id = target_inv_id
 
     if prod_in.track_inventory is not None:
         if (prod.product_type or "").upper() == "SERVICE":

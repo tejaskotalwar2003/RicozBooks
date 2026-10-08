@@ -46,6 +46,7 @@ def _provision_company_workspace(db: Session, company: Company, entity: Entity):
         ("5000", "Salary & Payroll Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "Wages and employee payroll expense"),
         ("5100", "Office Rent Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "Commercial real estate lease expense"),
         ("5200", "Utilities & Software Expense", AccountType.EXPENSE, NormalBalance.DEBIT, "Cloud infrastructure, SaaS, and utilities"),
+        ("5700", "Cost of Goods Sold (COGS)", AccountType.EXPENSE, NormalBalance.DEBIT, "Cost of inventory and merchandise sold"),
     ]
     for code, name, acc_type, norm_bal, desc in standard_accounts:
         acc = Account(
