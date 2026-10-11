@@ -60,29 +60,47 @@ export const AcceptInvitationPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      setSubmitError('Please enter your first and last name.');
-      return;
-    }
-    if (password.length < 6) {
-      setSubmitError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setSubmitError('Passwords do not match.');
-      return;
+    
+    if (!inviteInfo?.user_exists) {
+      if (!firstName.trim() || !lastName.trim()) {
+        setSubmitError('Please enter your first and last name.');
+        return;
+      }
+      if (password.length < 6) {
+        setSubmitError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setSubmitError('Passwords do not match.');
+        return;
+      }
+    } else {
+      if (!password) {
+        setSubmitError('Please enter your account password.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
-      const res = await acceptTenantInvitation({
+      const payload: {
+        token: string;
+        password: string;
+        first_name?: string;
+        last_name?: string;
+      } = {
         token: token!,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
         password: password,
-      });
+      };
+
+      if (!inviteInfo?.user_exists) {
+        payload.first_name = firstName.trim();
+        payload.last_name = lastName.trim();
+      }
+
+      const res = await acceptTenantInvitation(payload);
 
       // Automatically sign in
       if (res.access_token && res.user) {
@@ -125,13 +143,21 @@ export const AcceptInvitationPage: React.FC = () => {
   }
 
   if (error || !inviteInfo) {
+    const errorTitle = error?.toLowerCase().includes('revoked')
+      ? 'Invitation Revoked'
+      : error?.toLowerCase().includes('already accepted')
+      ? 'Invitation Already Accepted'
+      : error?.toLowerCase().includes('expired')
+      ? 'Invitation Expired'
+      : 'Invitation Expired or Invalid';
+
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl p-8 border border-slate-200 shadow-xl text-center">
           <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4 border border-red-200">
             <AlertCircle className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Invitation Expired or Invalid</h2>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">{errorTitle}</h2>
           <p className="text-sm text-slate-600 mb-6 leading-relaxed">
             {error || 'This invitation link has either already been accepted, revoked, or has expired after 7 days.'}
           </p>
@@ -231,8 +257,14 @@ export const AcceptInvitationPage: React.FC = () => {
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Invitation Verified</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Set Up Your Profile</h2>
-          <p className="text-xs text-slate-500 mt-1">Complete your user profile and choose a password to join the company.</p>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {inviteInfo.user_exists ? 'Sign In & Join Workspace' : 'Set Up Your Profile'}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            {inviteInfo.user_exists 
+              ? `An existing RicozBooks account was found for ${inviteInfo.email}. Enter your password to accept and join ${inviteInfo.company_name}.`
+              : 'Complete your user profile and choose a password to join the company.'}
+          </p>
         </div>
 
         {submitError && (
@@ -262,43 +294,88 @@ export const AcceptInvitationPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                First Name <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+          {!inviteInfo.user_exists && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="e.g. Maya"
+                    required
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="e.g. Maya"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="e.g. Patel"
                   required
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
                 />
               </div>
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Last Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="e.g. Patel"
-                required
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
-              />
+          {!inviteInfo.user_exists ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Create Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    required
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat password"
+                    required
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          ) : (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Create Password <span className="text-red-500">*</span>
+                Account Password <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
@@ -306,7 +383,7 @@ export const AcceptInvitationPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 characters"
+                  placeholder="Enter your current RicozBooks password"
                   required
                   className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
                 />
@@ -319,24 +396,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Confirm Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat password"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
-                />
-              </div>
-            </div>
-          </div>
+          )}
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-center space-x-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -352,11 +412,11 @@ export const AcceptInvitationPage: React.FC = () => {
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Accepting & Logging in...</span>
+                  <span>Joining Workspace...</span>
                 </>
               ) : (
                 <>
-                  <span>Accept Invitation & Launch Workspace</span>
+                  <span>{inviteInfo.user_exists ? 'Sign In & Join Workspace' : 'Accept Invitation & Launch Workspace'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

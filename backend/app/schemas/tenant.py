@@ -46,6 +46,11 @@ class InvitationResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
     invited_by_name: Optional[str] = None
+    email_status: str = "PENDING"
+    email_sent_at: Optional[datetime] = None
+    email_error: Optional[str] = None
+    email_message: Optional[str] = None
+    is_existing: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -59,11 +64,12 @@ class InvitationPublicInfoResponse(BaseModel):
     inviter_name: Optional[str] = None
     is_valid: bool
     message: Optional[str] = None
+    user_exists: bool = False
 
 class InvitationAcceptRequest(BaseModel):
     token: str
-    first_name: str = Field(..., min_length=1, max_length=100)
-    last_name: str = Field(..., min_length=1, max_length=100)
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     password: str = Field(..., min_length=6)
 
 class CompanyMemberResponse(BaseModel):

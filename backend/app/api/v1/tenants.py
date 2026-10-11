@@ -5,13 +5,15 @@ from datetime import datetime, date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from app.database.session import get_db
-from app.core.security import get_password_hash, create_access_token
+from app.core.security import get_password_hash, create_access_token, verify_password
+from app.core.config import settings
 from app.models.user import User, Role, user_roles, user_entities, user_companies
 from app.models.company import Company, Entity, FiscalPeriod, OrganizationInvitation, InvitationStatus
 from app.models.account import Account, AccountType, NormalBalance
+from app.services.email_service import send_invitation_email, is_smtp_configured
 from app.schemas.tenant import (
     CompanyRegistrationRequest,
     CompanyRegistrationResponse,
@@ -302,17 +304,34 @@ def list_company_members(
         ))
     return members
 
+def build_invitation_url(token: str, request: Optional[Request] = None) -> str:
+    """Builds a full, absolute invitation URL conforming to configured frontend routing."""
+    base = settings.FRONTEND_URL.strip().rstrip('/')
+    if request:
+        origin = request.headers.get("origin")
+        if origin and origin.strip():
+            origin_clean = origin.strip().rstrip('/')
+            if "localhost" in origin_clean or "127.0.0.1" in origin_clean or origin_clean.endswith(".onrender.com"):
+                base = origin_clean
+    return f"{base}/invite/{token.strip()}"
+
+
 @router.post("/invitations", response_model=InvitationResponse, status_code=status.HTTP_201_CREATED)
 def create_organization_invitation(
     invite_in: InvitationCreateRequest,
+    request: Request,
     current_user: User = Depends(require_roles(["ORG_ADMIN", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
     """
     Organization Admin invites an employee to join the company workspace.
-    Generates a secure cryptographic invitation link.
+    Generates a secure cryptographic invitation link and sends an email if configured.
     """
     company_id = get_current_tenant_id(current_user)
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+
     clean_email = invite_in.email.lower().strip()
     target_role = invite_in.role.upper().strip()
 
@@ -323,41 +342,89 @@ def create_organization_invitation(
             detail=f"Invalid role '{target_role}'. Allowed roles: {valid_roles}"
         )
 
-    # Check if user is already a member
+    # Check if user is already an active member of this organization
     existing_user = db.query(User).filter(
-        User.email == clean_email,
+        func.lower(User.email) == clean_email,
+        User.is_active == True,
         or_(User.default_company_id == company_id, User.companies.any(id=company_id))
     ).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with email '{clean_email}' is already an active member of this organization."
+            detail="This user is already an active member of this organization."
         )
 
-    # Generate secure 64-char URL-safe token
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(days=7)
+    now = datetime.utcnow()
+    expires_at = now + timedelta(days=7)
 
-    invitation = OrganizationInvitation(
-        company_id=company_id,
-        email=clean_email,
-        role=target_role,
-        token=token,
-        invited_by_id=current_user.id,
-        status=InvitationStatus.PENDING,
+    # Check for existing pending/expired invitation for this recipient in this company
+    existing_inv = db.query(OrganizationInvitation).filter(
+        OrganizationInvitation.company_id == company_id,
+        func.lower(OrganizationInvitation.email) == clean_email,
+        OrganizationInvitation.status.in_([InvitationStatus.PENDING, InvitationStatus.EXPIRED])
+    ).first()
+
+    is_refresh = False
+    if existing_inv:
+        if existing_inv.status == InvitationStatus.PENDING and existing_inv.expires_at > now:
+            invitation = existing_inv
+            invitation.role = target_role
+            invitation.expires_at = expires_at
+            invitation.invited_by_id = current_user.id
+            is_refresh = True
+        else:
+            invitation = existing_inv
+            invitation.token = secrets.token_urlsafe(32)
+            invitation.role = target_role
+            invitation.status = InvitationStatus.PENDING
+            invitation.expires_at = expires_at
+            invitation.invited_by_id = current_user.id
+            invitation.created_at = now
+            is_refresh = True
+    else:
+        token = secrets.token_urlsafe(32)
+        invitation = OrganizationInvitation(
+            company_id=company_id,
+            email=clean_email,
+            role=target_role,
+            token=token,
+            invited_by_id=current_user.id,
+            status=InvitationStatus.PENDING,
+            expires_at=expires_at,
+            email_status="PENDING"
+        )
+        db.add(invitation)
+
+    db.flush()
+
+    invite_url = build_invitation_url(invitation.token, request)
+
+    email_success, email_status_code, email_msg = send_invitation_email(
+        recipient_email=clean_email,
+        invitation_url=invite_url,
+        company_name=company.name,
+        role_name=target_role,
+        inviter_name=current_user.full_name,
         expires_at=expires_at
     )
-    db.add(invitation)
+
+    invitation.email_status = email_status_code
+    if email_success:
+        invitation.email_sent_at = datetime.utcnow()
+        invitation.email_error = None
+    else:
+        invitation.email_error = email_msg if email_status_code == "FAILED" else None
+
     db.commit()
     db.refresh(invitation)
 
     log_audit(
         db=db,
-        action="INVITATION_CREATED",
+        action="INVITATION_REFRESHED" if is_refresh else "INVITATION_CREATED",
         record_type="OrganizationInvitation",
         record_id=str(invitation.id),
         user=current_user,
-        details=f"Invited '{clean_email}' as {target_role}"
+        details=f"{'Refreshed' if is_refresh else 'Created'} invitation for '{clean_email}' as {target_role} (Email: {email_status_code})"
     )
 
     return InvitationResponse(
@@ -366,14 +433,21 @@ def create_organization_invitation(
         role=invitation.role,
         status=invitation.status.value,
         token=invitation.token,
-        invite_url=f"/invite/{invitation.token}",
+        invite_url=invite_url,
         expires_at=invitation.expires_at,
         created_at=invitation.created_at,
-        invited_by_name=current_user.full_name
+        invited_by_name=current_user.full_name,
+        email_status=invitation.email_status,
+        email_sent_at=invitation.email_sent_at,
+        email_error=invitation.email_error,
+        email_message=email_msg,
+        is_existing=is_refresh
     )
+
 
 @router.get("/invitations", response_model=List[InvitationResponse])
 def list_organization_invitations(
+    request: Request,
     current_user: User = Depends(require_roles(["ORG_ADMIN", "ADMIN", "MANAGER"])),
     db: Session = Depends(get_db)
 ):
@@ -385,11 +459,15 @@ def list_organization_invitations(
 
     now = datetime.utcnow()
     res = []
+    has_updates = False
     for inv in invitations:
-        # Check if expired
         inv_status = inv.status.value
         if inv.status == InvitationStatus.PENDING and inv.expires_at < now:
+            inv.status = InvitationStatus.EXPIRED
             inv_status = "EXPIRED"
+            has_updates = True
+
+        invite_url = build_invitation_url(inv.token, request)
 
         res.append(InvitationResponse(
             id=inv.id,
@@ -397,14 +475,23 @@ def list_organization_invitations(
             role=inv.role,
             status=inv_status,
             token=inv.token,
-            invite_url=f"/invite/{inv.token}",
+            invite_url=invite_url,
             expires_at=inv.expires_at,
             created_at=inv.created_at,
-            invited_by_name=inv.invited_by.full_name if inv.invited_by else None
+            invited_by_name=inv.invited_by.full_name if inv.invited_by else None,
+            email_status=inv.email_status or "PENDING",
+            email_sent_at=inv.email_sent_at,
+            email_error=inv.email_error
         ))
+
+    if has_updates:
+        db.commit()
+
     return res
 
+
 @router.delete("/invitations/{invitation_id}", response_model=dict)
+@router.post("/invitations/{invitation_id}/revoke", response_model=dict)
 def revoke_invitation(
     invitation_id: int,
     current_user: User = Depends(require_roles(["ORG_ADMIN", "ADMIN"])),
@@ -419,6 +506,15 @@ def revoke_invitation(
     if not inv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found")
 
+    if inv.status == InvitationStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot revoke an invitation that has already been accepted."
+        )
+
+    if inv.status == InvitationStatus.REVOKED:
+        return {"message": "Invitation is already revoked", "status": "REVOKED"}
+
     inv.status = InvitationStatus.REVOKED
     db.commit()
 
@@ -431,7 +527,99 @@ def revoke_invitation(
         details=f"Revoked invitation for '{inv.email}'"
     )
 
-    return {"message": "Invitation revoked successfully"}
+    return {"message": f"Invitation for '{inv.email}' revoked successfully.", "status": "REVOKED"}
+
+
+@router.post("/invitations/{invitation_id}/resend", response_model=InvitationResponse)
+def resend_invitation(
+    invitation_id: int,
+    request: Request,
+    current_user: User = Depends(require_roles(["ORG_ADMIN", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """Resend an invitation email for an eligible pending or expired invitation."""
+    company_id = get_current_tenant_id(current_user)
+    inv = db.query(OrganizationInvitation).filter(
+        OrganizationInvitation.id == invitation_id,
+        OrganizationInvitation.company_id == company_id
+    ).first()
+    if not inv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found")
+
+    if inv.status == InvitationStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot resend an invitation that has already been accepted."
+        )
+
+    if inv.status == InvitationStatus.REVOKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot resend a revoked invitation. Please create a new invitation instead."
+        )
+
+    now = datetime.utcnow()
+    # Rate limit: allow resending at most once per 60 seconds
+    last_attempt = inv.email_sent_at or inv.created_at
+    if last_attempt and (now - last_attempt).total_seconds() < 60:
+        remaining = max(1, int(60 - (now - last_attempt).total_seconds()))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining} seconds before requesting another email resend."
+        )
+
+    # If expired, refresh expiry date and reactivate
+    if inv.expires_at < now or inv.status == InvitationStatus.EXPIRED:
+        inv.expires_at = now + timedelta(days=7)
+        inv.status = InvitationStatus.PENDING
+
+    company = inv.company
+    invite_url = build_invitation_url(inv.token, request)
+
+    email_success, email_status_code, email_msg = send_invitation_email(
+        recipient_email=inv.email,
+        invitation_url=invite_url,
+        company_name=company.name if company else "RicozBooks",
+        role_name=inv.role,
+        inviter_name=current_user.full_name,
+        expires_at=inv.expires_at
+    )
+
+    inv.email_status = email_status_code
+    inv.email_sent_at = now
+    if email_success:
+        inv.email_error = None
+    else:
+        inv.email_error = email_msg if email_status_code == "FAILED" else None
+
+    db.commit()
+    db.refresh(inv)
+
+    log_audit(
+        db=db,
+        action="INVITATION_RESENT",
+        record_type="OrganizationInvitation",
+        record_id=str(inv.id),
+        user=current_user,
+        details=f"Resent invitation to '{inv.email}' (Email: {email_status_code})"
+    )
+
+    return InvitationResponse(
+        id=inv.id,
+        email=inv.email,
+        role=inv.role,
+        status=inv.status.value,
+        token=inv.token,
+        invite_url=invite_url,
+        expires_at=inv.expires_at,
+        created_at=inv.created_at,
+        invited_by_name=current_user.full_name,
+        email_status=inv.email_status,
+        email_sent_at=inv.email_sent_at,
+        email_error=inv.email_error,
+        email_message=email_msg
+    )
+
 
 @router.get("/invitations/validate/{token}", response_model=InvitationPublicInfoResponse)
 def validate_invitation_token(
@@ -448,7 +636,36 @@ def validate_invitation_token(
             company_name="",
             company_currency="",
             is_valid=False,
-            message="Invitation link not found or invalid."
+            message="Invitation link not found or invalid.",
+            user_exists=False
+        )
+
+    # Check if a user account already exists with this email
+    existing_user = db.query(User).filter(User.email == inv.email.lower().strip()).first()
+    user_exists = bool(existing_user)
+
+    if inv.status == InvitationStatus.REVOKED:
+        return InvitationPublicInfoResponse(
+            token=token,
+            email=inv.email,
+            role=inv.role,
+            company_name=inv.company.name if inv.company else "",
+            company_currency=inv.company.base_currency if inv.company else "INR",
+            is_valid=False,
+            message="This invitation has been revoked by your administrator.",
+            user_exists=user_exists
+        )
+
+    if inv.status == InvitationStatus.ACCEPTED:
+        return InvitationPublicInfoResponse(
+            token=token,
+            email=inv.email,
+            role=inv.role,
+            company_name=inv.company.name if inv.company else "",
+            company_currency=inv.company.base_currency if inv.company else "INR",
+            is_valid=False,
+            message="This invitation has already been accepted.",
+            user_exists=user_exists
         )
 
     if inv.status != InvitationStatus.PENDING:
@@ -459,7 +676,8 @@ def validate_invitation_token(
             company_name=inv.company.name if inv.company else "",
             company_currency=inv.company.base_currency if inv.company else "INR",
             is_valid=False,
-            message=f"This invitation has already been {inv.status.value.lower()}."
+            message=f"This invitation is no longer active ({inv.status.value.lower()}).",
+            user_exists=user_exists
         )
 
     if inv.expires_at < datetime.utcnow():
@@ -472,18 +690,21 @@ def validate_invitation_token(
             company_name=inv.company.name if inv.company else "",
             company_currency=inv.company.base_currency if inv.company else "INR",
             is_valid=False,
-            message="This invitation link has expired. Please ask your administrator to send a new invitation."
+            message="This invitation link has expired. Please ask your administrator to send a new invitation.",
+            user_exists=user_exists
         )
 
     return InvitationPublicInfoResponse(
         token=inv.token,
         email=inv.email,
         role=inv.role,
-        company_name=inv.company.name,
-        company_currency=inv.company.base_currency,
+        company_name=inv.company.name if inv.company else "Company Workspace",
+        company_currency=inv.company.base_currency if inv.company else "INR",
         inviter_name=inv.invited_by.full_name if inv.invited_by else "Your Administrator",
-        is_valid=True
+        is_valid=True,
+        user_exists=user_exists
     )
+
 
 @router.post("/invitations/accept", response_model=Token)
 def accept_invitation(
@@ -494,10 +715,26 @@ def accept_invitation(
     """
     Accept an invitation to join an existing organization tenant.
     Sets up credentials and logs the user into their authorized workspace.
+    Safe against concurrent double-acceptance using database row-level locking.
     """
-    inv = db.query(OrganizationInvitation).filter(OrganizationInvitation.token == accept_in.token.strip()).first()
+    inv = db.query(OrganizationInvitation).filter(
+        OrganizationInvitation.token == accept_in.token.strip()
+    ).with_for_update().first()
+
     if not inv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invitation token.")
+
+    if inv.status == InvitationStatus.REVOKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation has been revoked and cannot be accepted."
+        )
+
+    if inv.status == InvitationStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation has already been accepted."
+        )
 
     if inv.status != InvitationStatus.PENDING:
         raise HTTPException(
@@ -520,11 +757,13 @@ def accept_invitation(
     # Find or create user
     user = db.query(User).filter(User.email == inv.email.lower().strip()).first()
     if not user:
+        if not accept_in.first_name or not accept_in.first_name.strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="First name is required.")
         user = User(
             email=inv.email.lower().strip(),
             hashed_password=get_password_hash(accept_in.password),
             first_name=accept_in.first_name.strip(),
-            last_name=accept_in.last_name.strip(),
+            last_name=accept_in.last_name.strip() if accept_in.last_name else "",
             job_title=f"{inv.role.replace('_', ' ').title()} - Finance",
             is_active=True,
             is_superuser=False,
@@ -533,10 +772,20 @@ def accept_invitation(
         db.add(user)
         db.flush()
     else:
-        # Update user details if not already set
-        user.first_name = accept_in.first_name.strip()
-        user.last_name = accept_in.last_name.strip()
-        user.hashed_password = get_password_hash(accept_in.password)
+        # Existing user: verify credentials
+        if user.hashed_password:
+            if not verify_password(accept_in.password, user.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Incorrect password for your existing account. Please enter your existing password to accept this invitation."
+                )
+        else:
+            user.hashed_password = get_password_hash(accept_in.password)
+
+        if accept_in.first_name and accept_in.first_name.strip():
+            user.first_name = accept_in.first_name.strip()
+        if accept_in.last_name and accept_in.last_name.strip():
+            user.last_name = accept_in.last_name.strip()
         user.is_active = True
         if not user.default_company_id:
             user.default_company_id = company.id

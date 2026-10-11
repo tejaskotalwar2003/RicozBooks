@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -34,6 +34,22 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = [
         "*"
     ]
+
+    # Frontend URL for absolute links (invitations, public invoices)
+    FRONTEND_URL: str = os.getenv(
+        "FRONTEND_URL",
+        "https://ricozbooks-web.onrender.com"
+    )
+
+    # Transactional Email / SMTP Configuration
+    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST", None)
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER", None)
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD", None)
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "notifications@ricozbooks.com")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "RicozBooks")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+    SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
 
     class Config:
         case_sensitive = True

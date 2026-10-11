@@ -31,7 +31,8 @@ import {
   Globe,
   Terminal,
   Send,
-  CreditCard
+  CreditCard,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -46,6 +47,7 @@ import {
   getTenantMembers,
   getTenantInvitations,
   createTenantInvitation,
+  resendTenantInvitation,
   revokeTenantInvitation,
   getTenantCompany
 } from '../services/accountingApi';
@@ -129,6 +131,12 @@ export const SettingsPage: React.FC = () => {
   const [inviting, setInviting] = useState(false);
   const [copiedInviteId, setCopiedInviteId] = useState<number | null>(null);
   const [newlyCreatedInviteUrl, setNewlyCreatedInviteUrl] = useState<string | null>(null);
+  const [createdInvite, setCreatedInvite] = useState<TenantInvitation | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<number | null>(null);
+  const [inviteToRevoke, setInviteToRevoke] = useState<TenantInvitation | null>(null);
+  const [revoking, setRevoking] = useState(false);
+  const [inviteModalError, setInviteModalError] = useState<string | null>(null);
+  const [revokeModalError, setRevokeModalError] = useState<string | null>(null);
 
   // Tab 6: Payment Gateway & Inbound UPI Collection State
   const [gatewayUpiId, setGatewayUpiId] = useState(activeEntity?.upi_id || '');
@@ -193,42 +201,126 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const getAbsoluteInviteUrl = (inviteUrl: string): string => {
+    if (!inviteUrl) return '';
+    if (inviteUrl.startsWith('http://') || inviteUrl.startsWith('https://')) {
+      return inviteUrl;
+    }
+    const cleanPath = inviteUrl.startsWith('/') ? inviteUrl : `/${inviteUrl}`;
+    return `${window.location.origin}${cleanPath}`;
+  };
+
+  const openInviteModal = () => {
+    setInviteModalError(null);
+    setNewlyCreatedInviteUrl(null);
+    setCreatedInvite(null);
+    setShowInviteModal(true);
+  };
+
+  const closeInviteModal = () => {
+    setShowInviteModal(false);
+    setInviteModalError(null);
+    setNewlyCreatedInviteUrl(null);
+    setCreatedInvite(null);
+    setInviteEmail('');
+  };
+
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+    const cleanEmail = inviteEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setInviteModalError('Please enter a valid email address.');
       return;
     }
+
+    // Proactively check if email already belongs to an active member
+    const alreadyMember = members.some(m => m.email.toLowerCase() === cleanEmail);
+    if (alreadyMember) {
+      setInviteModalError('This user is already an active member of this organization.');
+      return;
+    }
+
     setInviting(true);
-    setErrorMessage(null);
+    setInviteModalError(null);
     try {
-      const newInvite = await createTenantInvitation(inviteEmail.trim().toLowerCase(), inviteRole);
-      setSuccessMessage(`Invitation generated for ${inviteEmail}.`);
-      setNewlyCreatedInviteUrl(newInvite.invite_url);
-      setInviteEmail('');
+      const newInvite = await createTenantInvitation(cleanEmail, inviteRole);
+      setCreatedInvite(newInvite);
+      const absUrl = getAbsoluteInviteUrl(newInvite.invite_url);
+      setNewlyCreatedInviteUrl(absUrl);
+
+      if (newInvite.email_status === 'SENT') {
+        setSuccessMessage(`Invitation email delivered successfully to ${cleanEmail}.`);
+      } else if (newInvite.email_status === 'NOT_CONFIGURED') {
+        setSuccessMessage(`Invitation link created! Direct email is not configured; copy and share the link manually.`);
+      } else if (newInvite.email_status === 'FAILED') {
+        setSuccessMessage(`Invitation link created. Email delivery failed, but you can copy and share the link.`);
+      } else {
+        setSuccessMessage(`Invitation generated for ${cleanEmail}.`);
+      }
+
       fetchTeamData();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to create team invitation.');
+      let msg = err.message || 'Failed to create team invitation.';
+      if (msg.toLowerCase().includes('already an active member')) {
+        msg = 'This user is already an active member of this organization.';
+      } else if (msg.includes('403') || msg.toLowerCase().includes('not authorized') || msg.toLowerCase().includes('forbidden')) {
+        msg = 'You do not have administrative permissions to invite members.';
+      } else if (msg.includes('429') || msg.toLowerCase().includes('too many requests') || msg.toLowerCase().includes('wait')) {
+        msg = msg.replace(/HTTP \d+:?\s*/i, '');
+      }
+      setInviteModalError(msg);
+      // Keep page-level errorMessage clean to prevent bleeding behind modal
     } finally {
       setInviting(false);
     }
   };
 
-  const handleRevokeInvite = async (id: number) => {
-    if (!confirm('Are you sure you want to revoke this pending invitation?')) return;
+  const handleResendInvite = async (inv: TenantInvitation) => {
+    setResendingInviteId(inv.id);
+    setErrorMessage(null);
     try {
-      await revokeTenantInvitation(id);
-      setSuccessMessage('Invitation revoked successfully.');
+      const updated = await resendTenantInvitation(inv.id);
+      if (updated.email_status === 'SENT') {
+        setSuccessMessage(`Invitation email resent successfully to ${inv.email}.`);
+      } else if (updated.email_status === 'NOT_CONFIGURED') {
+        setSuccessMessage(`Invitation link refreshed! Email is not configured on this server; please share the link directly.`);
+      } else {
+        setSuccessMessage(`Invitation refreshed for ${inv.email}.`);
+      }
       fetchTeamData();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to revoke invitation.');
+      setErrorMessage(err.message || 'Failed to resend invitation.');
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
-  const handleCopyInviteLink = (invite: TenantInvitation) => {
-    navigator.clipboard.writeText(invite.invite_url);
-    setCopiedInviteId(invite.id);
-    setTimeout(() => setCopiedInviteId(null), 3000);
+  const handleConfirmRevoke = async () => {
+    if (!inviteToRevoke) return;
+    setRevoking(true);
+    setRevokeModalError(null);
+    try {
+      await revokeTenantInvitation(inviteToRevoke.id);
+      setSuccessMessage(`Invitation for ${inviteToRevoke.email} revoked successfully.`);
+      setInviteToRevoke(null);
+      fetchTeamData();
+    } catch (err: any) {
+      setRevokeModalError(err.message || 'Failed to revoke invitation.');
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const handleCopyInviteLink = async (invite: TenantInvitation) => {
+    const fullUrl = getAbsoluteInviteUrl(invite.invite_url);
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedInviteId(invite.id);
+      setSuccessMessage('Complete invitation URL copied to clipboard! You can share this via WhatsApp, Slack, or email.');
+      setTimeout(() => setCopiedInviteId(null), 3000);
+    } catch (err) {
+      setErrorMessage('Could not automatically copy to clipboard. Please select and copy the URL manually.');
+    }
   };
 
   // Auto clear toasts
@@ -1373,10 +1465,7 @@ export const SettingsPage: React.FC = () => {
 
               {isAdmin && (
                 <button
-                  onClick={() => {
-                    setShowInviteModal(true);
-                    setNewlyCreatedInviteUrl(null);
-                  }}
+                  onClick={openInviteModal}
                   className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C58B3E] to-[#E6B676] text-slate-900 font-bold text-xs hover:brightness-110 shadow-sm transition-all shrink-0"
                 >
                   <UserPlus className="w-4 h-4" />
@@ -1528,61 +1617,171 @@ export const SettingsPage: React.FC = () => {
                       <th className="py-3 px-4">Assigned Role</th>
                       <th className="py-3 px-4">Invited By</th>
                       <th className="py-3 px-4">Expires In</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Email Delivery</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {invitations.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-slate-800 font-mono">
-                          {inv.email}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
-                            {inv.role}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600">
-                          {inv.invited_by_name || 'Administrator'}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                          {new Date(inv.expires_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="py-3.5 px-4 text-right space-x-2">
-                          <button
-                            onClick={() => handleCopyInviteLink(inv)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors"
-                          >
-                            {copiedInviteId === inv.id ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span className="text-emerald-700">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Copy Link</span>
-                              </>
-                            )}
-                          </button>
+                    {invitations.map((inv) => {
+                      const isPending = inv.status === 'PENDING';
+                      const isAccepted = inv.status === 'ACCEPTED';
+                      const isExpired = inv.status === 'EXPIRED';
+                      const isRevoked = inv.status === 'REVOKED';
 
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleRevokeInvite(inv.id)}
-                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Revoke</span>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                      return (
+                        <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3.5 px-4 font-semibold text-slate-800 font-mono">
+                            {inv.email}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {inv.role === 'ORG_ADMIN' || inv.role === 'ADMIN' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                                Organization Admin
+                              </span>
+                            ) : inv.role === 'MANAGER' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                Finance Manager
+                              </span>
+                            ) : inv.role === 'ACCOUNTANT' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                Accountant
+                              </span>
+                            ) : inv.role === 'REVIEWER' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-800 border border-purple-200">
+                                Reviewer (Checker)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                {inv.role}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600">
+                            {inv.invited_by_name || 'Administrator'}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                            {new Date(inv.expires_at).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {isPending && (
+                              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>Pending</span>
+                              </span>
+                            )}
+                            {isAccepted && (
+                              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                <span>Accepted</span>
+                              </span>
+                            )}
+                            {isExpired && (
+                              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                <span>Expired</span>
+                              </span>
+                            )}
+                            {isRevoked && (
+                              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                <span>Revoked</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {inv.email_status === 'SENT' ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Mail className="w-3 h-3 text-emerald-600" />
+                                <span>Sent</span>
+                              </span>
+                            ) : inv.email_status === 'FAILED' ? (
+                              <span
+                                className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 cursor-help"
+                                title={inv.email_error || 'Email dispatch failed'}
+                              >
+                                <AlertCircle className="w-3 h-3 text-rose-600" />
+                                <span>Failed</span>
+                              </span>
+                            ) : inv.email_status === 'NOT_CONFIGURED' ? (
+                              <span
+                                className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 cursor-help"
+                                title="SMTP not configured. Share invitation link manually."
+                              >
+                                <Share2 className="w-3 h-3 text-slate-400" />
+                                <span>Share Link</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Pending</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right space-x-1.5">
+                            {(isPending || isExpired) && (
+                              <button
+                                onClick={() => handleCopyInviteLink(inv)}
+                                title="Copy complete shareable invitation URL"
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors shadow-2xs"
+                              >
+                                {copiedInviteId === inv.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-emerald-700 font-bold">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+
+                            {isAdmin && (isPending || isExpired) && (
+                              <button
+                                onClick={() => handleResendInvite(inv)}
+                                disabled={resendingInviteId === inv.id}
+                                title="Resend invitation email and refresh 7-day validity"
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-amber-200 text-amber-800 hover:bg-amber-50 font-medium text-xs transition-colors disabled:opacity-50"
+                              >
+                                <RefreshCw className={`w-3.5 h-3.5 ${resendingInviteId === inv.id ? 'animate-spin' : ''}`} />
+                                <span>{resendingInviteId === inv.id ? 'Sending...' : 'Resend'}</span>
+                              </button>
+                            )}
+
+                            {isAdmin && isPending && (
+                              <button
+                                onClick={() => setInviteToRevoke(inv)}
+                                title="Revoke this invitation and immediately invalidate the link"
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium text-xs transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Revoke</span>
+                              </button>
+                            )}
+
+                            {isAccepted && (
+                              <span className="text-[11px] text-emerald-700 font-semibold px-2">
+                                Member Active
+                              </span>
+                            )}
+
+                            {isRevoked && (
+                              <span className="text-[11px] text-slate-400 italic px-2">
+                                Access Revoked
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2029,20 +2228,313 @@ export const SettingsPage: React.FC = () => {
       )}
 
       {/* Invite Member Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      {showInviteModal && (() => {
+        const cleanEnteredEmail = inviteEmail.trim().toLowerCase();
+        const isEmailActiveMember = cleanEnteredEmail ? members.some(m => m.email.toLowerCase() === cleanEnteredEmail) : false;
+        const existingInviteForEmail = cleanEnteredEmail ? invitations.find(i => i.email.toLowerCase() === cleanEnteredEmail) : null;
+
+        return (
+          <div 
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in"
+            onClick={closeInviteModal}
+          >
+            <div 
+              className="relative z-10 bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center space-x-2">
+                  <UserPlus className="w-4 h-4 text-[#781019]" />
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {newlyCreatedInviteUrl ? 'Invitation Ready' : 'Invite Team Member'}
+                  </h3>
+                </div>
+                <button
+                  onClick={closeInviteModal}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {newlyCreatedInviteUrl ? (
+                <div className="p-5 space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  
+                  <div className="text-center space-y-1">
+                    <h4 className="text-sm font-bold text-slate-900">
+                      {createdInvite?.email_status === 'SENT' 
+                        ? 'Invitation Email Delivered'
+                        : createdInvite?.email_status === 'FAILED'
+                        ? 'Invite Link Ready (Email Failed)'
+                        : 'Shareable Invitation Link Ready'}
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      {createdInvite?.email_status === 'SENT'
+                        ? `An invitation email was sent to ${createdInvite.email}. You can also share the link directly below.`
+                        : createdInvite?.email_status === 'FAILED'
+                        ? `Invitation link was created, but email delivery failed (${createdInvite.email_error || 'SMTP issue'}). Please share the link manually.`
+                        : 'Direct email is not configured on this server. Copy the link below to share manually via WhatsApp, Slack, or email.'}
+                    </p>
+                  </div>
+
+                  {/* Email Delivery Status Banner */}
+                  {createdInvite?.email_status === 'SENT' && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center space-x-2">
+                      <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Email sent directly to <strong>{createdInvite.email}</strong>.</span>
+                    </div>
+                  )}
+                  {createdInvite?.email_status === 'NOT_CONFIGURED' && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center space-x-2">
+                      <Share2 className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>Copy the link below to share with your colleague via WhatsApp or chat.</span>
+                    </div>
+                  )}
+                  {createdInvite?.email_status === 'FAILED' && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Delivery failed: {createdInvite.email_error || 'SMTP error'}. Share manually below.</span>
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <span className="text-[11px] font-semibold text-slate-500 block">Complete Invitation URL:</span>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={newlyCreatedInviteUrl}
+                        className="w-full text-xs font-mono bg-white px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(newlyCreatedInviteUrl);
+                            setSuccessMessage('Complete invitation URL copied to clipboard!');
+                          } catch {
+                            setErrorMessage('Failed to copy. Please select the URL and copy manually.');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-[#781019] text-white rounded text-xs font-semibold hover:bg-[#8F131E] flex items-center space-x-1 shrink-0 transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Share Options */}
+                  <div className="flex items-center space-x-2 pt-1">
+                    <a
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                        `Hi! Here is your invitation to join ${tenantCompany?.name || 'our company'} on RicozBooks: ${newlyCreatedInviteUrl}`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-2 px-3 border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Share via WhatsApp</span>
+                    </a>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={closeInviteModal}
+                      className="w-full py-2.5 px-4 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateInvite} className="p-5 space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Colleague's Work Email <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="email"
+                        required
+                        value={inviteEmail}
+                        onChange={(e) => {
+                          setInviteEmail(e.target.value);
+                          if (inviteModalError) setInviteModalError(null);
+                        }}
+                        placeholder="accountant@yourcompany.com"
+                        className={`w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-[#781019] transition-colors ${
+                          isEmailActiveMember || inviteModalError
+                            ? 'border-rose-300 bg-rose-50/20'
+                            : 'border-slate-200'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Scenario A: User is already an active member */}
+                  {(isEmailActiveMember || (inviteModalError && inviteModalError.toLowerCase().includes('already an active member'))) && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start space-x-2.5 animate-in fade-in">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-[12px]">This user is already an active member of this organization.</p>
+                        <p className="text-[11px] text-rose-600 mt-0.5">
+                          This person already has an authorized account and role in this workspace.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generic error banner inside modal */}
+                  {inviteModalError && !inviteModalError.toLowerCase().includes('already an active member') && !isEmailActiveMember && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start space-x-2.5 animate-in fade-in">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-[12px]">{inviteModalError}</p>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setInviteModalError(null)}
+                        className="text-rose-400 hover:text-rose-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Scenario B: Email has an existing invitation on record */}
+                  {existingInviteForEmail && !isEmailActiveMember && !inviteModalError && (
+                    <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5 font-semibold text-[11px] text-amber-800">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>
+                            {existingInviteForEmail.status === 'PENDING'
+                              ? 'Pending Invitation Already Exists'
+                              : existingInviteForEmail.status === 'EXPIRED'
+                              ? 'Previous Invitation Expired'
+                              : 'Previous Invitation on Record'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
+                          {existingInviteForEmail.role}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 leading-relaxed">
+                        {existingInviteForEmail.status === 'PENDING'
+                          ? 'An active invitation is already pending for this email. You can copy the link, resend the notification, or submit to update the role and refresh the 7-day expiration.'
+                          : `A previous invitation (${existingInviteForEmail.status.toLowerCase()}) was found. Submitting will issue a new active 7-day invitation.`}
+                      </p>
+                      {existingInviteForEmail.status === 'PENDING' && (
+                        <div className="flex items-center space-x-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyInviteLink(existingInviteForEmail)}
+                            className="px-2.5 py-1 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-colors shadow-2xs"
+                          >
+                            <Copy className="w-3 h-3 text-amber-600" />
+                            <span>Copy Link</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={resendingInviteId === existingInviteForEmail.id}
+                            onClick={() => handleResendInvite(existingInviteForEmail)}
+                            className="px-2.5 py-1 bg-[#781019] text-white hover:bg-[#8F131E] rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-colors shadow-2xs disabled:opacity-50"
+                          >
+                            {resendingInviteId === existingInviteForEmail.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Send className="w-3 h-3" />
+                            )}
+                            <span>Resend Email</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Assign Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#781019]"
+                    >
+                      <option value="ACCOUNTANT">Accountant (Bookkeeping, draft & post journals)</option>
+                      <option value="REVIEWER">Reviewer (Supervisory review, sign-offs)</option>
+                      <option value="MANAGER">Finance Manager (Approvals, close, reports)</option>
+                      <option value="ORG_ADMIN">Organization Admin (Full ownership & invitations)</option>
+                    </select>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                    {inviteRole === 'ORG_ADMIN' && 'Full administrator control over all entities, team invitations, and accounting settings.'}
+                    {inviteRole === 'MANAGER' && 'Approve vouchers, run statutory close periods, and export P&L and Balance Sheets.'}
+                    {inviteRole === 'ACCOUNTANT' && 'Record day-to-day transactions, reconcile bank ledgers, and manage the Chart of Accounts.'}
+                    {inviteRole === 'REVIEWER' && 'Supervisory four-eyes review and approval of submitted vouchers.'}
+                  </div>
+
+                  <div className="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={closeInviteModal}
+                      disabled={inviting}
+                      className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={inviting || isEmailActiveMember}
+                      className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#8F131E] rounded-lg shadow-xs flex items-center space-x-1.5 disabled:opacity-50 transition-all"
+                    >
+                      {inviting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                      <span>
+                        {inviting 
+                          ? 'Generating...' 
+                          : existingInviteForEmail?.status === 'PENDING'
+                          ? 'Update & Resend Invitation'
+                          : 'Send Invitation'}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Revoke Invitation Confirmation Modal */}
+      {inviteToRevoke && (
+        <div 
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in"
+          onClick={() => {
+            setInviteToRevoke(null);
+            setRevokeModalError(null);
+          }}
+        >
+          <div 
+            className="relative z-10 bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-rose-50/50">
               <div className="flex items-center space-x-2">
-                <UserPlus className="w-4 h-4 text-[#781019]" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  {newlyCreatedInviteUrl ? 'Invitation Ready' : 'Invite Team Member'}
-                </h3>
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <h3 className="text-sm font-bold text-slate-900">Revoke Workspace Invitation</h3>
               </div>
               <button
                 onClick={() => {
-                  setShowInviteModal(false);
-                  setNewlyCreatedInviteUrl(null);
+                  setInviteToRevoke(null);
+                  setRevokeModalError(null);
                 }}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -2050,117 +2542,44 @@ export const SettingsPage: React.FC = () => {
               </button>
             </div>
 
-            {newlyCreatedInviteUrl ? (
-              <div className="p-5 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
-                  <CheckCircle2 className="w-6 h-6" />
+            <div className="p-5 space-y-4">
+              {revokeModalError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start space-x-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <p className="font-semibold text-[12px]">{revokeModalError}</p>
                 </div>
-                
-                <div className="text-center space-y-1">
-                  <h4 className="text-sm font-bold text-slate-900">Cryptographic Invite Generated</h4>
-                  <p className="text-xs text-slate-500">
-                    Share this unique onboarding link with your colleague. It is valid for 7 days.
-                  </p>
-                </div>
+              )}
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <span className="text-[11px] font-semibold text-slate-500 block">Invitation URL:</span>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={newlyCreatedInviteUrl}
-                      className="w-full text-xs font-mono bg-white px-2.5 py-1.5 rounded border border-slate-200 text-slate-700 select-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(newlyCreatedInviteUrl);
-                        setSuccessMessage('Invitation URL copied to clipboard!');
-                      }}
-                      className="px-3 py-1.5 bg-[#781019] text-white rounded text-xs font-semibold hover:bg-[#8F131E] flex items-center space-x-1 shrink-0"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowInviteModal(false);
-                      setNewlyCreatedInviteUrl(null);
-                    }}
-                    className="w-full py-2.5 px-4 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
-                  >
-                    Done
-                  </button>
-                </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to revoke the pending invitation for <strong className="font-mono text-slate-900">{inviteToRevoke.email}</strong>?
+              </p>
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                The invitation token will be immediately invalidated and cannot be used to join this workspace, even if the recipient still has the URL.
               </div>
-            ) : (
-              <form onSubmit={handleCreateInvite} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Colleague's Work Email <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                    <input
-                      type="email"
-                      required
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="accountant@yourcompany.com"
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#781019]"
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Assign Role <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#781019]"
-                  >
-                    <option value="ACCOUNTANT">Accountant (Bookkeeping, draft & post journals)</option>
-                    <option value="REVIEWER">Reviewer (Supervisory review, sign-offs)</option>
-                    <option value="MANAGER">Finance Manager (Approvals, close, reports)</option>
-                    <option value="ORG_ADMIN">Organization Admin (Full ownership & invitations)</option>
-                  </select>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-                  {inviteRole === 'ORG_ADMIN' && 'Full administrator control over all entities, team invitations, and accounting settings.'}
-                  {inviteRole === 'MANAGER' && 'Approve vouchers, run statutory close periods, and export P&L and Balance Sheets.'}
-                  {inviteRole === 'ACCOUNTANT' && 'Record day-to-day transactions, reconcile bank ledgers, and manage the Chart of Accounts.'}
-                  {inviteRole === 'REVIEWER' && 'Supervisory four-eyes review and approval of submitted vouchers.'}
-                </div>
-
-                <div className="pt-3 flex justify-end space-x-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowInviteModal(false)}
-                    disabled={inviting}
-                    className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={inviting}
-                    className="px-4 py-2 text-xs font-semibold bg-[#781019] text-white hover:bg-[#8F131E] rounded-lg shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
-                  >
-                    {inviting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                    <span>{inviting ? 'Generating...' : 'Send Invitation'}</span>
-                  </button>
-                </div>
-              </form>
-            )}
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInviteToRevoke(null);
+                    setRevokeModalError(null);
+                  }}
+                  disabled={revoking}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRevoke}
+                  disabled={revoking}
+                  className="px-4 py-2 text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 rounded-lg shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
+                >
+                  {revoking && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{revoking ? 'Revoking...' : 'Revoke Access'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

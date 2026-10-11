@@ -901,6 +901,11 @@ export interface TenantInvitation {
   expires_at: string;
   created_at: string;
   invited_by_name?: string;
+  email_status?: 'PENDING' | 'SENT' | 'FAILED' | 'NOT_CONFIGURED';
+  email_sent_at?: string;
+  email_error?: string;
+  email_message?: string;
+  is_existing?: boolean;
 }
 
 export interface TenantMember {
@@ -924,12 +929,13 @@ export interface InvitationPublicInfo {
   inviter_name?: string;
   is_valid: boolean;
   message?: string;
+  user_exists?: boolean;
 }
 
 export interface InvitationAcceptData {
   token: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
   password: string;
 }
 
@@ -966,8 +972,14 @@ export const createTenantInvitation = async (email: string, role: string): Promi
   });
 };
 
-export const revokeTenantInvitation = async (invitationId: number): Promise<{ message: string }> => {
-  return apiRequest<{ message: string }>(`/tenants/invitations/${invitationId}`, {
+export const resendTenantInvitation = async (invitationId: number): Promise<TenantInvitation> => {
+  return apiRequest<TenantInvitation>(`/tenants/invitations/${invitationId}/resend`, {
+    method: 'POST',
+  });
+};
+
+export const revokeTenantInvitation = async (invitationId: number): Promise<{ message: string; status?: string }> => {
+  return apiRequest<{ message: string; status?: string }>(`/tenants/invitations/${invitationId}`, {
     method: 'DELETE',
   });
 };

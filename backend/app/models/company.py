@@ -109,6 +109,9 @@ class OrganizationInvitation(Base):
     status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     accepted_at = Column(DateTime, nullable=True)
+    email_status = Column(String(30), default="PENDING", nullable=False)
+    email_sent_at = Column(DateTime, nullable=True)
+    email_error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     company = relationship("Company", back_populates="invitations")
