@@ -214,7 +214,7 @@ export const InvoicesPage: React.FC = () => {
         updated[index].hsn_sac = prod.hsn_sac_code || '';
         updated[index].unit = prod.unit || 'PCS';
         updated[index].unit_price = Number(prod.selling_price) || 0;
-        updated[index].tax_rate = Number(prod.tax_rate) || 18;
+        updated[index].tax_rate = (prod.tax_rate !== undefined && prod.tax_rate !== null) ? Number(prod.tax_rate) : 18;
       }
     }
     setLines(updated);
@@ -1075,8 +1075,10 @@ export const InvoicesPage: React.FC = () => {
                                   className="w-full text-xs border border-slate-300 rounded p-1 mb-1"
                                 >
                                   <option value="">Select from catalog or enter below...</option>
-                                  {products.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name} ({currencySymbol}{p.selling_price})</option>
+                                  {products.filter(p => p.is_active !== false).map(p => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name} {p.sku ? `(${p.sku})` : ''} — {currencySymbol}{p.selling_price} {p.track_inventory ? `[Stock: ${p.current_stock ?? 0} ${p.unit || 'PCS'}]` : ''}
+                                    </option>
                                   ))}
                                 </select>
                               )}
@@ -1108,6 +1110,19 @@ export const InvoicesPage: React.FC = () => {
                                 required
                                 className="w-full text-xs border border-slate-300 rounded p-1 text-right"
                               />
+                              {line.product_id && (() => {
+                                const prod = products.find(p => p.id === Number(line.product_id));
+                                if (prod && prod.track_inventory) {
+                                  const avail = Number(prod.current_stock ?? 0);
+                                  const isOver = Number(line.quantity) > avail;
+                                  return (
+                                    <span className={`text-[10px] block mt-0.5 ${isOver ? 'text-rose-600 font-semibold' : 'text-slate-400'}`}>
+                                      Avail: {avail} {prod.unit || 'PCS'}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </td>
                             <td className="p-2 text-right">
                               <input

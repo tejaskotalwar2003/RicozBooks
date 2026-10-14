@@ -899,8 +899,30 @@ def create_invoice(
     lines = []
 
     for line_in in inv_in.lines:
+        if line_in.product_id:
+            product = db.query(Product).filter(
+                Product.id == line_in.product_id,
+                Product.entity_id == inv_in.entity_id
+            ).first()
+            if not product:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Selected item #{line_in.product_id} does not exist for this company/entity."
+                )
+            if not product.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Item '{product.name}' is inactive and cannot be added to a sales invoice."
+                )
+            if not line_in.description or not line_in.description.strip():
+                line_in.description = product.name
+            if not line_in.hsn_sac and product.hsn_sac_code:
+                line_in.hsn_sac = product.hsn_sac_code
+
         qty = quantize_amount(line_in.quantity)
         price = quantize_amount(line_in.unit_price)
+        if line_in.product_id and price == Decimal("0.00") and product.selling_price:
+            price = quantize_amount(product.selling_price)
         disc_pct = quantize_amount(line_in.discount_pct)
         tax_rate = quantize_amount(line_in.tax_rate)
 
