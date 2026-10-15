@@ -16,7 +16,7 @@ def health_check(db: Session = Depends(get_db)):
     return {
         "status": "online",
         "app": "RicozBooks API",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "database": db_status
     }
 

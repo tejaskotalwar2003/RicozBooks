@@ -151,7 +151,34 @@ def migrate_entities():
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_status VARCHAR(50) DEFAULT 'PENDING';",
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_error TEXT;",
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP WITHOUT TIME ZONE;",
-        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_attempts INTEGER DEFAULT 0;"
+        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_attempts INTEGER DEFAULT 0;",
+
+        # -------------------------------------------------------------
+        # 6. Sales Invoices & Customers Master Schema Extensions
+        # -------------------------------------------------------------
+        "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_token VARCHAR(64);",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_invoices_payment_token ON invoices (payment_token);",
+        "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS notes TEXT;",
+        "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS terms TEXT;",
+        "ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES users(id);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS company_name VARCHAR(150);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS email VARCHAR(255);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone VARCHAR(50);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS gstin VARCHAR(50);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS pan VARCHAR(20);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS billing_address TEXT;",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS shipping_address TEXT;",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS city VARCHAR(100);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS state VARCHAR(100);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'India';",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS payment_terms_days INTEGER DEFAULT 30;",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS current_balance NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS reference_number VARCHAR(100);",
+        "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS notes TEXT;"
     ]
 
     # Execute each statement in its OWN isolated transaction
@@ -163,9 +190,10 @@ def migrate_entities():
             # Notice/ignore already exists or missing optional column
             print(f"Migration statement notice: {e}")
 
-    print("Entity, Demo, and Product schema migration completed.")
+    print("Entity, Demo, Product, and Invoice schema migration completed.")
     seed_demo_admin_users()
     seed_default_products()
+    seed_default_customers()
 
 
 def seed_default_products():
@@ -221,6 +249,44 @@ def seed_default_products():
             db.close()
     except Exception as e:
         print(f"Notice during default products seed: {e}")
+
+
+def seed_default_customers():
+    """Seed default enterprise customer if table is empty"""
+    try:
+        from app.models.sales import Customer
+        from app.models.company import Entity
+        db = SessionLocal()
+        try:
+            if db.query(Customer).count() == 0:
+                entities = db.query(Entity).filter(Entity.is_active == True).all()
+                for ent in entities:
+                    c1 = Customer(
+                        entity_id=ent.id,
+                        name="Acme Global Solutions Pvt Ltd",
+                        company_name="Acme Global Solutions Pvt Ltd",
+                        email="accounts@acmeglobal.com",
+                        phone="+91 98200 98200",
+                        gstin="27AAACA9999F1Z1",
+                        pan="AAACA9999F",
+                        billing_address="Tower B, Tech Park, Andheri East",
+                        city="Mumbai",
+                        state="Maharashtra",
+                        postal_code="400069",
+                        country="India",
+                        payment_terms_days=30,
+                        opening_balance=0.00,
+                        current_balance=0.00,
+                        currency="INR",
+                        is_active=True
+                    )
+                    db.add(c1)
+                db.commit()
+                print("[OK] Default customer seeded.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Notice during default customers seed: {e}")
 
 
 
