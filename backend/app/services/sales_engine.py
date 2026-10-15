@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Tuple, List, Optional
@@ -367,9 +368,13 @@ def post_invoice_to_general_ledger(
         )
 
     # 7. Create Journal Entry
+    je_entry_num = f"JE-{invoice.invoice_number}"
+    if db.query(JournalEntry).filter(JournalEntry.entry_number == je_entry_num).first():
+        je_entry_num = f"JE-{invoice.invoice_number}-{uuid.uuid4().hex[:6].upper()}"
+
     je = JournalEntry(
         entity_id=invoice.entity_id,
-        entry_number=f"JE-{invoice.invoice_number}",
+        entry_number=je_entry_num,
         entry_date=invoice.invoice_date,
         description=f"Sales Invoice #{invoice.invoice_number} - {invoice.customer.name}",
         reference=invoice.invoice_number,
@@ -463,9 +468,13 @@ def record_customer_payment_transaction(
             creator_id = admin_u.id
 
     # Balanced Double-Entry lines
+    pay_entry_num = f"JE-{payment_in.payment_number}"
+    if db.query(JournalEntry).filter(JournalEntry.entry_number == pay_entry_num).first():
+        pay_entry_num = f"JE-{payment_in.payment_number}-{uuid.uuid4().hex[:6].upper()}"
+
     je = JournalEntry(
         entity_id=payment_in.entity_id,
-        entry_number=f"JE-{payment_in.payment_number}",
+        entry_number=pay_entry_num,
         entry_date=payment_in.payment_date,
         description=f"Customer Payment #{payment_in.payment_number} from {payment_in.customer.name}",
         reference=payment_in.reference_number or payment_in.payment_number,
