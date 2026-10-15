@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -107,6 +108,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    err_tb = traceback.format_exc()
+    print(f"UNHANDLED ERROR: {err_tb}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": err_tb}
+    )
 
 # Include API Routers
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["Health"])

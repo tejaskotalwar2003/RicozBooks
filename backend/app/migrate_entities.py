@@ -123,7 +123,35 @@ def migrate_entities():
         );
         """,
         "CREATE INDEX IF NOT EXISTS ix_demo_schedule_history_id ON demo_schedule_history (id);",
-        "CREATE INDEX IF NOT EXISTS ix_demo_schedule_history_demo_request_id ON demo_schedule_history (demo_request_id);"
+        "CREATE INDEX IF NOT EXISTS ix_demo_schedule_history_demo_request_id ON demo_schedule_history (demo_request_id);",
+        # -------------------------------------------------------------
+        # 4. Product Catalog Extensions & Inventory Tracking
+        # -------------------------------------------------------------
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100);",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS income_account_id INTEGER REFERENCES accounts(id);",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS expense_account_id INTEGER REFERENCES accounts(id);",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_account_id INTEGER REFERENCES accounts(id);",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS track_inventory BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS opening_stock NUMERIC(12, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS opening_stock_rate NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS reorder_level NUMERIC(12, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS warehouse_location VARCHAR(100) DEFAULT 'Main Warehouse';",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS current_stock NUMERIC(12, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock_alert NUMERIC(12, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS selling_price NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS purchase_price NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 18.00;",
+        "CREATE INDEX IF NOT EXISTS ix_products_category ON products (category);",
+
+        # -------------------------------------------------------------
+        # 5. Team Invitations Delivery Tracking
+        # -------------------------------------------------------------
+        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_status VARCHAR(50) DEFAULT 'PENDING';",
+        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_error TEXT;",
+        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP WITHOUT TIME ZONE;",
+        "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_attempts INTEGER DEFAULT 0;"
     ]
 
     # Execute each statement in its OWN isolated transaction
@@ -135,8 +163,65 @@ def migrate_entities():
             # Notice/ignore already exists or missing optional column
             print(f"Migration statement notice: {e}")
 
-    print("Entity and Demo schema migration completed.")
+    print("Entity, Demo, and Product schema migration completed.")
     seed_demo_admin_users()
+    seed_default_products()
+
+
+def seed_default_products():
+    """Seed default catalog products if table is empty"""
+    try:
+        from app.models.sales import Product
+        from app.models.company import Entity
+        db = SessionLocal()
+        try:
+            if db.query(Product).count() == 0:
+                entities = db.query(Entity).filter(Entity.is_active == True).all()
+                for ent in entities:
+                    p1 = Product(
+                        entity_id=ent.id,
+                        name="Stainless Steel Water Bottle 1L",
+                        sku=f"BOT-SS-1L-{ent.id}",
+                        product_type="PRODUCT",
+                        category="Merchandise",
+                        unit="PCS",
+                        selling_price=500.00,
+                        purchase_price=200.00,
+                        hsn_sac_code="7323",
+                        tax_rate=18.00,
+                        track_inventory=True,
+                        opening_stock=100.00,
+                        current_stock=100.00,
+                        opening_stock_rate=200.00,
+                        reorder_level=20.00,
+                        min_stock_alert=10.00,
+                        warehouse_location="Main Warehouse",
+                        is_active=True
+                    )
+                    p2 = Product(
+                        entity_id=ent.id,
+                        name="Financial Advisory & Compliance Retainer",
+                        sku=f"SRV-FIN-ADV-{ent.id}",
+                        product_type="SERVICE",
+                        category="Consulting",
+                        unit="HOURS",
+                        selling_price=5000.00,
+                        purchase_price=0.00,
+                        hsn_sac_code="998311",
+                        tax_rate=18.00,
+                        track_inventory=False,
+                        opening_stock=0.00,
+                        current_stock=0.00,
+                        is_active=True
+                    )
+                    db.add_all([p1, p2])
+                db.commit()
+                print("[OK] Default catalog products seeded.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Notice during default products seed: {e}")
+
 
 
 def seed_demo_admin_users():
