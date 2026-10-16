@@ -148,6 +148,10 @@ def migrate_entities():
         # -------------------------------------------------------------
         # 5. Team Invitations Delivery Tracking
         # -------------------------------------------------------------
+        "ALTER TABLE organization_invitations ADD COLUMN IF NOT EXISTS email_status VARCHAR(30) DEFAULT 'PENDING';",
+        "ALTER TABLE organization_invitations ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP WITHOUT TIME ZONE;",
+        "ALTER TABLE organization_invitations ADD COLUMN IF NOT EXISTS email_error TEXT;",
+        "UPDATE organization_invitations SET email_status = 'PENDING' WHERE email_status IS NULL;",
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_status VARCHAR(50) DEFAULT 'PENDING';",
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_delivery_error TEXT;",
         "ALTER TABLE invitations ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP WITHOUT TIME ZONE;",

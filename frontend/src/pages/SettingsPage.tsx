@@ -267,6 +267,8 @@ export const SettingsPage: React.FC = () => {
         msg = 'You do not have administrative permissions to invite members.';
       } else if (msg.includes('429') || msg.toLowerCase().includes('too many requests') || msg.toLowerCase().includes('wait')) {
         msg = msg.replace(/HTTP \d+:?\s*/i, '');
+      } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network request failed')) {
+        msg = 'Network connection error: Unable to reach the server. Please check your internet connection or try again in a moment.';
       }
       setInviteModalError(msg);
       // Keep page-level errorMessage clean to prevent bleeding behind modal

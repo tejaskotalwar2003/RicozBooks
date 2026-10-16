@@ -11,6 +11,9 @@ const getApiBase = (): string => {
   // If not configured, default to relative '/api/v1' for local dev proxy
   if (!raw) return '/api/v1';
 
+  // Strip trailing /api/v1 or /api/v1/ if user or env set it
+  raw = raw.replace(/\/api\/v1\/?$/, '');
+
   // If raw is an internal service name without domain, append onrender.com
   if (!raw.includes('.') && !raw.includes('localhost')) {
     raw = `${raw}.onrender.com`;
@@ -141,10 +144,21 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (netErr: any) {
+    // Distinguish offline vs server reachability errors
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('You appear to be offline. Please verify your internet connection and try again.');
+    }
+    throw new Error(
+      `Unable to connect to the accounting service. Please verify your connection or try again shortly. (${netErr.message || 'Network request failed'})`
+    );
+  }
 
   if (response.status === 401) {
     // Session expired or invalid
@@ -158,12 +172,12 @@ export async function apiRequest<T>(
     ) {
       window.location.href = '/login';
     }
-    throw new Error('Unauthorized');
+    throw new Error('Your session has expired or is unauthorized. Please sign in again.');
   }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(errorBody.detail || 'An unexpected error occurred');
+    throw new Error(errorBody.detail || `Server error (${response.status})`);
   }
 
   return response.json();

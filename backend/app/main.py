@@ -104,6 +104,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.onrender\.com|http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -114,9 +115,20 @@ async def global_exception_handler(request: Request, exc: Exception):
     import traceback
     err_tb = traceback.format_exc()
     print(f"UNHANDLED ERROR: {err_tb}")
+    
+    # Preserve CORS headers on error response so browser doesn't obscure with 'Failed to fetch'
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin, X-Requested-With"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc), "traceback": err_tb}
+        content={"detail": str(exc), "traceback": err_tb},
+        headers=headers
     )
 
 # Include API Routers

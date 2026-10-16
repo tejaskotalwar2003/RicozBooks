@@ -309,10 +309,16 @@ def build_invitation_url(token: str, request: Optional[Request] = None) -> str:
     base = settings.FRONTEND_URL.strip().rstrip('/')
     if request:
         origin = request.headers.get("origin")
-        if origin and origin.strip():
-            origin_clean = origin.strip().rstrip('/')
-            if "localhost" in origin_clean or "127.0.0.1" in origin_clean or origin_clean.endswith(".onrender.com"):
-                base = origin_clean
+        referer = request.headers.get("referer")
+        source_url = origin or referer
+        if source_url and source_url.strip():
+            cleaned = source_url.strip().rstrip('/')
+            if "://" in cleaned:
+                from urllib.parse import urlparse
+                parsed = urlparse(cleaned)
+                cleaned = f"{parsed.scheme}://{parsed.netloc}"
+            if "localhost" in cleaned or "127.0.0.1" in cleaned or cleaned.endswith(".onrender.com"):
+                base = cleaned
     return f"{base}/invite/{token.strip()}"
 
 
