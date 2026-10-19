@@ -19,3 +19,4 @@ describe('Health & Root API Endpoints', () => {
     expect(res.body.database).toBeDefined();
   });
 });
+

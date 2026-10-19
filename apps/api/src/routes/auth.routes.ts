@@ -19,3 +19,4 @@ router.delete('/sessions/:id', requireAuth, AuthController.revokeSession);
 router.post('/sessions/sign-out-others', requireAuth, AuthController.revokeOtherSessions);
 
 export default router;
+

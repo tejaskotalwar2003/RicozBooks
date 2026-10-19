@@ -36,3 +36,4 @@ export function sanitizeAuditDetails(details: any): any {
 
   return details;
 }
+

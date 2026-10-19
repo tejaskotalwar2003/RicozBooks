@@ -61,3 +61,4 @@ const ProductSchema = new Schema<IProduct>(
 ProductSchema.index({ entity_id: 1, sku: 1 }, { unique: true });
 
 export const Product = mongoose.model<IProduct>('Product', ProductSchema);
+

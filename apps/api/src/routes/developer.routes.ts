@@ -38,3 +38,4 @@ router.get('/audit-logs', requirePermission('audit:read'), DeveloperController.g
 router.get('/audit-logs/:id', requirePermission('audit:read'), DeveloperController.getAuditLogDetail);
 
 export default router;
+

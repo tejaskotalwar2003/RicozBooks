@@ -74,3 +74,4 @@ const UserSessionSchema = new Schema<IUserSession>(
 );
 
 export const UserSession = mongoose.model<IUserSession>('UserSession', UserSessionSchema);
+

@@ -59,3 +59,4 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   }
   return next();
 }
+

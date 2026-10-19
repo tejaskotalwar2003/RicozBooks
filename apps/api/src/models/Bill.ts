@@ -98,3 +98,4 @@ const VendorPaymentSchema = new Schema<IVendorPayment>(
 );
 
 export const VendorPayment = mongoose.model<IVendorPayment>('VendorPayment', VendorPaymentSchema);
+

@@ -32,3 +32,4 @@ export function fromDecimal(value: any): number {
 export function isBalanced(debits: number, credits: number, epsilon: number = 0.001): boolean {
   return Math.abs(debits - credits) <= epsilon;
 }
+

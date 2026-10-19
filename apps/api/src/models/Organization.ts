@@ -87,3 +87,4 @@ const EntitySchema = new Schema<IEntity>(
 EntitySchema.index({ company_id: 1, name: 1 }, { unique: true });
 
 export const Entity = mongoose.model<IEntity>('Entity', EntitySchema);
+

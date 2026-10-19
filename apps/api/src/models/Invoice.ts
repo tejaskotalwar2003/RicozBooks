@@ -128,3 +128,4 @@ const CustomerPaymentSchema = new Schema<ICustomerPayment>(
 );
 
 export const CustomerPayment = mongoose.model<ICustomerPayment>('CustomerPayment', CustomerPaymentSchema);
+

@@ -68,3 +68,4 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
 JournalEntrySchema.index({ entity_id: 1, entry_number: 1 }, { unique: true });
 
 export const JournalEntry = mongoose.model<IJournalEntry>('JournalEntry', JournalEntrySchema);
+

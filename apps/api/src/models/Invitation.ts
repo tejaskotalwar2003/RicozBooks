@@ -40,3 +40,4 @@ InvitationSchema.index({ organization_id: 1, email: 1, status: 1 });
 InvitationSchema.index({ department_id: 1, email: 1, status: 1 });
 
 export const Invitation = mongoose.model<IInvitation>('Invitation', InvitationSchema);
+

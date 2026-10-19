@@ -72,3 +72,4 @@ const DemoRequestSchema = new Schema<IDemoRequest>(
 );
 
 export const DemoRequest = mongoose.model<IDemoRequest>('DemoRequest', DemoRequestSchema);
+

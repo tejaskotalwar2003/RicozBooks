@@ -37,3 +37,4 @@ const AccountSchema = new Schema<IAccount>(
 AccountSchema.index({ entity_id: 1, code: 1 }, { unique: true });
 
 export const Account = mongoose.model<IAccount>('Account', AccountSchema);
+

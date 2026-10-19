@@ -157,3 +157,4 @@
 ## Summary Contract Preservation Note
 
 Every Express.js endpoint precisely replicates the field names, route parameters, HTTP status codes, and error responses of the existing FastAPI backend. This allows client components and API wrappers in `frontend/src/services/` to transition directly to Next.js without experiencing contract breakage or runtime schema regressions.
+
