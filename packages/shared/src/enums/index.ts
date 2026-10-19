@@ -1,0 +1,116 @@
+export enum DepartmentCode {
+  FINANCE_ACCOUNTING = 'FINANCE_ACCOUNTING',
+  OPERATIONS = 'OPERATIONS',
+  TECHNICAL_ENGINEERING = 'TECHNICAL_ENGINEERING',
+  SALES_DEMO = 'SALES_DEMO',
+  CUSTOMER_SUPPORT = 'CUSTOMER_SUPPORT',
+}
+
+export enum RoleName {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  ORG_ADMIN = 'ORG_ADMIN',
+  FINANCE_HEAD = 'FINANCE_HEAD',
+  OPERATIONS_HEAD = 'OPERATIONS_HEAD',
+  TECH_HEAD = 'TECH_HEAD',
+  SALES_HEAD = 'SALES_HEAD',
+  SUPPORT_HEAD = 'SUPPORT_HEAD',
+  MANAGER = 'MANAGER',
+  ACCOUNTANT = 'ACCOUNTANT',
+  REVIEWER = 'REVIEWER',
+  AUDITOR = 'AUDITOR',
+  MEMBER = 'MEMBER',
+}
+
+export enum AccountType {
+  ASSET = 'ASSET',
+  LIABILITY = 'LIABILITY',
+  EQUITY = 'EQUITY',
+  REVENUE = 'REVENUE',
+  EXPENSE = 'EXPENSE',
+}
+
+export enum NormalBalance {
+  DEBIT = 'DEBIT',
+  CREDIT = 'CREDIT',
+}
+
+export enum JournalStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  POSTED = 'POSTED',
+  REJECTED = 'REJECTED',
+  REVERSED = 'REVERSED',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  SENT = 'SENT',
+  POSTED = 'POSTED',
+  PAID = 'PAID',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  OVERDUE = 'OVERDUE',
+  VOID = 'VOID',
+}
+
+export enum BillStatus {
+  DRAFT = 'DRAFT',
+  RECEIVED = 'RECEIVED',
+  APPROVED = 'APPROVED',
+  POSTED = 'POSTED',
+  PAID = 'PAID',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  VOID = 'VOID',
+}
+
+export enum PaymentMode {
+  CASH = 'CASH',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  UPI = 'UPI',
+  CREDIT_CARD = 'CREDIT_CARD',
+  DEBIT_CARD = 'DEBIT_CARD',
+  CHEQUE = 'CHEQUE',
+  ONLINE = 'ONLINE',
+}
+
+export enum ProductType {
+  PRODUCT = 'PRODUCT',
+  SERVICE = 'SERVICE',
+}
+
+export enum InventoryMovementType {
+  PURCHASE = 'PURCHASE',
+  SALE = 'SALE',
+  ADJUSTMENT_IN = 'ADJUSTMENT_IN',
+  ADJUSTMENT_OUT = 'ADJUSTMENT_OUT',
+  TRANSFER = 'TRANSFER',
+}
+
+export enum GSTReturnType {
+  GSTR_1 = 'GSTR_1',
+  GSTR_3B = 'GSTR_3B',
+}
+
+export enum SubscriptionTier {
+  STARTER = 'STARTER',
+  GROWTH = 'GROWTH',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+export enum InvitationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  EXPIRED = 'EXPIRED',
+  REVOKED = 'REVOKED',
+}
+
+export enum DemoStatus {
+  NEW = 'NEW',
+  CONTACTED = 'CONTACTED',
+  SCHEDULED = 'SCHEDULED',
+  COMPLETED = 'COMPLETED',
+  CONVERTED = 'CONVERTED',
+  CANCELLED = 'CANCELLED',
+}
+

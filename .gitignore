@@ -26,10 +26,17 @@ venv/
 ENV/
 .pytest_cache/
 
-# Node / React
+# Node / React / Next.js
 node_modules/
 frontend/dist/
 frontend/dist-ssr/
+apps/web/.next/
+apps/web/out/
+apps/api/dist/
+packages/*/dist/
+.next/
+out/
+coverage/
 *.local
 
 # Logs
