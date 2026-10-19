@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config';
 import healthRouter from './routes/health.routes';
+import authRouter from './routes/auth.routes';
+import developerRouter from './routes/developer.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): Application {
@@ -41,6 +43,8 @@ export function createApp(): Application {
 
   // Base API routes
   app.use(`${config.apiPrefix}`, healthRouter);
+  app.use(`${config.apiPrefix}/auth`, authRouter);
+  app.use(`${config.apiPrefix}/developer`, developerRouter);
 
   // Centralized Error Handling Middleware
   app.use(errorHandler);
