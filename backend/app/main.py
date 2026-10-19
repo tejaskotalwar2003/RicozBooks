@@ -29,7 +29,8 @@ from app.api.v1 import (
     projects,
     notifications,
     subscriptions,
-    internal_demos
+    internal_demos,
+    developer
 )
 
 from contextlib import asynccontextmanager
@@ -154,6 +155,7 @@ app.include_router(gst.router, prefix=f"{settings.API_V1_STR}/gst", tags=["GST &
 app.include_router(projects.router, prefix=f"{settings.API_V1_STR}/projects", tags=["Projects & Timesheets"])
 app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["Automation & Notifications"])
 app.include_router(subscriptions.router, prefix=f"{settings.API_V1_STR}/subscriptions", tags=["SaaS Subscriptions & Billing"])
+app.include_router(developer.router, prefix=f"{settings.API_V1_STR}/developer", tags=["Developer Console"])
 app.include_router(internal_demos.router, tags=["Internal Demo Management & Leads"])
 app.include_router(internal_demos.router, prefix=settings.API_V1_STR, tags=["Internal Demo Management & Leads (v1)"])
 

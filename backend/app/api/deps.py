@@ -1,5 +1,5 @@
 from typing import Generator, Optional, List, Set
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -71,6 +71,107 @@ def require_roles(allowed_roles: List[str]):
             )
         return current_user
     return role_checker
+
+def require_permission(required_permission: str):
+    """
+    Enforces that the current user holds the required granular permission,
+    either directly via assigned roles or via superuser status.
+    """
+    def permission_checker(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        if current_user.is_superuser:
+            return current_user
+
+        user_permission_codes = set()
+        for role in current_user.roles:
+            for perm in role.permissions:
+                user_permission_codes.add(perm.code)
+
+        if required_permission not in user_permission_codes:
+            from app.core.session_utils import get_client_ip
+            client_ip = get_client_ip(request)
+            ua_str = request.headers.get("user-agent", "")
+            log_audit(
+                db=db,
+                action="UNAUTHORIZED_PERMISSION_ACCESS_ATTEMPT",
+                record_type="Permission",
+                record_id=required_permission,
+                user=current_user,
+                details=f"User {current_user.email} attempted action requiring permission '{required_permission}' without authorization",
+                ip_address=client_ip,
+                user_agent=ua_str[:255] if ua_str else None
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied: Missing required permission '{required_permission}'."
+            )
+        return current_user
+    return permission_checker
+
+def require_developer_admin(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> User:
+    is_dev = bool(current_user.is_superuser) or any(r.name in ["SUPER_ADMIN", "DEVELOPER"] for r in current_user.roles)
+    if not is_dev:
+        from app.core.session_utils import get_client_ip
+        client_ip = get_client_ip(request)
+        ua_str = request.headers.get("user-agent", "")
+        log_audit(
+            db=db,
+            action="UNAUTHORIZED_DEVELOPER_ACCESS_ATTEMPT",
+            record_type="User",
+            record_id=str(current_user.id),
+            user=current_user,
+            details=f"User {current_user.email} attempted to access Developer Console API without superuser privileges",
+            ip_address=client_ip,
+            user_agent=ua_str[:255] if ua_str else None
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Platform Developer / Super Admin privileges required."
+        )
+    return current_user
+
+def require_developer_or_dept_head(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> User:
+    is_dev = bool(current_user.is_superuser) or any(r.name in ["SUPER_ADMIN", "DEVELOPER"] for r in current_user.roles)
+    if is_dev:
+        return current_user
+    
+    from app.models.department import Department
+    is_head = db.query(Department).filter(
+        Department.head_user_id == current_user.id,
+        Department.is_active == True
+    ).first() is not None
+    if is_head:
+        return current_user
+
+    from app.core.session_utils import get_client_ip
+    client_ip = get_client_ip(request)
+    ua_str = request.headers.get("user-agent", "")
+    log_audit(
+        db=db,
+        action="UNAUTHORIZED_DEPARTMENT_MANAGEMENT_ATTEMPT",
+        record_type="User",
+        record_id=str(current_user.id),
+        user=current_user,
+        details=f"User {current_user.email} attempted to manage departmental access without Super Admin or Department Head privileges",
+        ip_address=client_ip,
+        user_agent=ua_str[:255] if ua_str else None
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access denied: Platform Developer or Department Head privileges required."
+    )
+
 
 def get_current_tenant_id(current_user: User = Depends(get_current_user)) -> Optional[int]:
     if current_user.default_company_id:

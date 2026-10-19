@@ -66,6 +66,7 @@ class User(Base):
     
     default_company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL", use_alter=True, name="fk_users_default_company_id"), nullable=True)
     default_entity_id = Column(Integer, ForeignKey("entities.id", ondelete="SET NULL", use_alter=True, name="fk_users_default_entity_id"), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL", use_alter=True, name="fk_users_department_id"), nullable=True, index=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -73,6 +74,7 @@ class User(Base):
     roles = relationship("Role", secondary=user_roles, backref="users", lazy="joined")
     entities = relationship("Entity", secondary=user_entities, backref="authorized_users")
     companies = relationship("Company", secondary=user_companies, backref="members")
+    department = relationship("Department", foreign_keys=[department_id], back_populates="members")
 
     @property
     def full_name(self) -> str:

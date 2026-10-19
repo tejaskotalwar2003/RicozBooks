@@ -116,7 +116,8 @@ def login(
         default_company_id=user.default_company_id,
         default_entity_id=user.default_entity_id,
         active_entity_id=active_entity_id,
-        profile_photo_url=getattr(user, 'profile_photo_url', None)
+        profile_photo_url=getattr(user, 'profile_photo_url', None),
+        is_superuser=bool(getattr(user, 'is_superuser', False))
     )
 
     return Token(
@@ -151,7 +152,8 @@ def get_current_user_profile(
         default_company_id=current_user.default_company_id,
         default_entity_id=current_user.default_entity_id,
         active_entity_id=active_entity,
-        profile_photo_url=getattr(current_user, 'profile_photo_url', None)
+        profile_photo_url=getattr(current_user, 'profile_photo_url', None),
+        is_superuser=bool(getattr(current_user, 'is_superuser', False))
     )
 
 @router.put("/me", response_model=UserAuthSummary)
@@ -193,7 +195,120 @@ def update_current_user_profile(
         default_company_id=current_user.default_company_id,
         default_entity_id=current_user.default_entity_id,
         active_entity_id=active_entity,
-        profile_photo_url=getattr(current_user, 'profile_photo_url', None)
+        profile_photo_url=getattr(current_user, 'profile_photo_url', None),
+        is_superuser=bool(getattr(current_user, 'is_superuser', False))
+    )
+
+@router.post("/developer/login", response_model=Token)
+def developer_login(
+    login_data: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Dedicated Developer / Super Admin authentication endpoint.
+    Strictly verifies credentials and enforces platform superuser authorization.
+    Rejects ordinary users with 403 Forbidden and records audit logging.
+    """
+    user = db.query(User).filter(User.email == login_data.email.lower().strip()).first()
+    
+    ua_str = request.headers.get("user-agent", "")
+    ua_info = parse_user_agent(ua_str)
+    client_ip = get_client_ip(request)
+    loc = get_approx_location(request)
+
+    if not user or not verify_password(login_data.password, user.hashed_password):
+        log_audit(
+            db=db,
+            action="DEVELOPER_LOGIN_FAILED",
+            record_type="User",
+            record_id=login_data.email,
+            details=f"Failed developer login attempt for {login_data.email}",
+            ip_address=client_ip,
+            user_agent=ua_str[:255] if ua_str else None
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive. Please contact the platform owner."
+        )
+
+    # Enforce Super Admin / Developer privilege
+    is_developer_admin = bool(user.is_superuser) or any(r.name in ["SUPER_ADMIN", "DEVELOPER"] for r in user.roles)
+    if not is_developer_admin:
+        log_audit(
+            db=db,
+            action="UNAUTHORIZED_DEVELOPER_ACCESS_ATTEMPT",
+            record_type="User",
+            record_id=str(user.id),
+            user=user,
+            details=f"User {user.email} attempted to log in to Developer Console without superuser privileges",
+            ip_address=client_ip,
+            user_agent=ua_str[:255] if ua_str else None
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Developer Console is restricted to authorized platform administrators."
+        )
+
+    role_names = [r.name for r in user.roles]
+    all_perms = set()
+    for r in user.roles:
+        for p in r.permissions:
+            all_perms.add(p.code)
+
+    access_token = create_access_token(subject=user.id)
+    
+    log_audit(
+        db=db,
+        action="DEVELOPER_LOGIN_SUCCESS",
+        record_type="User",
+        record_id=str(user.id),
+        user=user,
+        details=f"Super Admin {user.email} logged into Developer Console successfully",
+        ip_address=client_ip,
+        user_agent=ua_str[:255] if ua_str else None
+    )
+
+    new_session = UserSession(
+        user_id=user.id,
+        session_token=access_token[-24:],
+        device=ua_info["device"],
+        browser=ua_info["browser"],
+        os=ua_info["os"],
+        ip_address=client_ip,
+        location=loc,
+        is_active=True,
+        last_active_at=datetime.utcnow()
+    )
+    db.add(new_session)
+    db.commit()
+
+    user_summary = UserAuthSummary(
+        id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        job_title=user.job_title,
+        roles=role_names,
+        permissions=list(all_perms),
+        default_company_id=user.default_company_id,
+        default_entity_id=user.default_entity_id,
+        active_entity_id=user.default_entity_id,
+        profile_photo_url=getattr(user, 'profile_photo_url', None),
+        is_superuser=True
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=user_summary
     )
 
 @router.post("/change-password")

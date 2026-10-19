@@ -11,6 +11,7 @@ from app.database.session import get_db
 from app.core.security import get_password_hash, create_access_token, verify_password
 from app.core.config import settings
 from app.models.user import User, Role, user_roles, user_entities, user_companies
+from app.models.department import Department
 from app.models.company import Company, Entity, FiscalPeriod, OrganizationInvitation, InvitationStatus
 from app.models.account import Account, AccountType, NormalBalance
 from app.services.email_service import send_invitation_email, is_smtp_configured
@@ -700,12 +701,23 @@ def validate_invitation_token(
             user_exists=user_exists
         )
 
+    if inv.company and inv.department:
+        company_name = f"{inv.company.name} — {inv.department.name}"
+    elif inv.department:
+        company_name = f"RicozBooks — {inv.department.name}"
+    elif inv.company:
+        company_name = f"{inv.company.name}"
+    else:
+        company_name = "RicozBooks Enterprise"
+
+    company_currency = inv.company.base_currency if inv.company else "INR"
+
     return InvitationPublicInfoResponse(
         token=inv.token,
         email=inv.email,
         role=inv.role,
-        company_name=inv.company.name if inv.company else "Company Workspace",
-        company_currency=inv.company.base_currency if inv.company else "INR",
+        company_name=company_name,
+        company_currency=company_currency,
         inviter_name=inv.invited_by.full_name if inv.invited_by else "Your Administrator",
         is_valid=True,
         user_exists=user_exists
@@ -719,7 +731,7 @@ def accept_invitation(
     db: Session = Depends(get_db)
 ):
     """
-    Accept an invitation to join an existing organization tenant.
+    Accept an invitation to join an existing organization tenant or department.
     Sets up credentials and logs the user into their authorized workspace.
     Safe against concurrent double-acceptance using database row-level locking.
     """
@@ -756,9 +768,7 @@ def accept_invitation(
             detail="This invitation link has expired."
         )
 
-    company = inv.company
-    if not company:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated company not found.")
+    company = inv.company or db.query(Company).first()
 
     # Find or create user
     user = db.query(User).filter(User.email == inv.email.lower().strip()).first()
@@ -770,10 +780,10 @@ def accept_invitation(
             hashed_password=get_password_hash(accept_in.password),
             first_name=accept_in.first_name.strip(),
             last_name=accept_in.last_name.strip() if accept_in.last_name else "",
-            job_title=f"{inv.role.replace('_', ' ').title()} - Finance",
+            job_title=f"{inv.role.replace('_', ' ').title()}",
             is_active=True,
             is_superuser=False,
-            default_company_id=company.id
+            default_company_id=company.id if company else None
         )
         db.add(user)
         db.flush()
@@ -793,20 +803,28 @@ def accept_invitation(
         if accept_in.last_name and accept_in.last_name.strip():
             user.last_name = accept_in.last_name.strip()
         user.is_active = True
-        if not user.default_company_id:
+        if not user.default_company_id and company:
             user.default_company_id = company.id
 
-    # Assign primary entity
-    primary_entity = company.entities[0] if company.entities else None
-    if primary_entity:
-        if not user.default_entity_id:
-            user.default_entity_id = primary_entity.id
-        if primary_entity not in user.entities:
-            user.entities.append(primary_entity)
+    # Department assignment if this is a departmental invitation
+    if inv.department_id:
+        user.department_id = inv.department_id
+        if inv.is_department_head:
+            dept = db.query(Department).filter(Department.id == inv.department_id).first()
+            if dept:
+                dept.head_user_id = user.id
 
-    # Link user to company membership
-    if company not in user.companies:
-        user.companies.append(company)
+    # Assign primary entity and company membership if company exists
+    if company:
+        primary_entity = company.entities[0] if company.entities else None
+        if primary_entity:
+            if not user.default_entity_id:
+                user.default_entity_id = primary_entity.id
+            if primary_entity not in user.entities:
+                user.entities.append(primary_entity)
+
+        if company not in user.companies:
+            user.companies.append(company)
 
     # Assign invited role
     role_obj = db.query(Role).filter(Role.name == inv.role).first()

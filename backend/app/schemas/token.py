@@ -19,6 +19,7 @@ class UserAuthSummary(BaseModel):
     default_entity_id: Optional[int] = None
     active_entity_id: Optional[int] = None
     profile_photo_url: Optional[str] = None
+    is_superuser: bool = False
 
     class Config:
         from_attributes = True

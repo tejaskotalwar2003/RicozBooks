@@ -182,7 +182,33 @@ def migrate_entities():
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';",
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
         "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS reference_number VARCHAR(100);",
-        "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS notes TEXT;"
+        "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS notes TEXT;",
+
+        # -------------------------------------------------------------
+        # 7. Departments Architecture & User Department Mapping
+        # -------------------------------------------------------------
+        """
+        CREATE TABLE IF NOT EXISTS departments (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(50) UNIQUE NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            description TEXT,
+            head_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            is_active BOOLEAN DEFAULT TRUE NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+        );
+        """,
+        "CREATE INDEX IF NOT EXISTS ix_departments_id ON departments (id);",
+        "CREATE INDEX IF NOT EXISTS ix_departments_code ON departments (code);",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;",
+        "CREATE INDEX IF NOT EXISTS ix_users_department_id ON users (department_id);",
+        
+        # Organization Invitation Department Extensions
+        "ALTER TABLE organization_invitations ALTER COLUMN company_id DROP NOT NULL;",
+        "ALTER TABLE organization_invitations ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL;",
+        "ALTER TABLE organization_invitations ADD COLUMN IF NOT EXISTS is_department_head BOOLEAN DEFAULT FALSE;",
+        "CREATE INDEX IF NOT EXISTS ix_organization_invitations_department_id ON organization_invitations (department_id);"
     ]
 
     # Execute each statement in its OWN isolated transaction
@@ -198,6 +224,270 @@ def migrate_entities():
     seed_demo_admin_users()
     seed_default_products()
     seed_default_customers()
+    seed_default_departments()
+    seed_default_roles()
+    seed_granular_permissions_and_matrix()
+
+
+def seed_default_roles():
+    """Ensure standard platform roles exist in the database."""
+    try:
+        from app.models.user import Role
+        db = SessionLocal()
+        try:
+            roles_to_seed = [
+                ("SUPER_ADMIN", "Platform Super Administrator with complete system authority"),
+                ("DEVELOPER", "Platform Developer / System Administrator"),
+                ("DEPARTMENT_HEAD", "Departmental Head with authority to manage departmental team members and operations"),
+                ("TEAM_MEMBER", "Departmental team member with module access authorized by department head"),
+                ("ORG_ADMIN", "Organization Admin / Owner: full control over company workspace"),
+                ("MANAGER", "Finance / Operational Manager"),
+                ("ACCOUNTANT", "Operational accounting and transaction access"),
+                ("REVIEWER", "Supervisory review and approval access"),
+                ("ADMIN", "System administrator access across entities and modules"),
+            ]
+            for r_name, r_desc in roles_to_seed:
+                r_obj = db.query(Role).filter(Role.name == r_name).first()
+                if not r_obj:
+                    r_obj = Role(name=r_name, description=r_desc)
+                    db.add(r_obj)
+            db.commit()
+            print("[OK] Standard roles verified.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Notice during default roles seed: {e}")
+
+
+def seed_granular_permissions_and_matrix():
+    """Idempotently seed the comprehensive permission catalog and establish baseline role-permission matrix."""
+    try:
+        from app.models.user import Role, Permission
+        db = SessionLocal()
+        try:
+            # 1. Define complete permission catalog across platform, operations, and accounting domains
+            catalog = [
+                # Platform & Console Administration
+                ("developer:administer", "Platform Administration", "developer", "Full platform administration, security management, and console access"),
+                ("roles:read", "View Roles & Permissions", "roles", "View platform roles and role-permission matrix"),
+                ("roles:manage", "Manage Role Permissions", "roles", "Assign and update configurable permissions for platform and tenant roles"),
+                ("departments:read", "View Departments", "departments", "View active departments, leadership, and member rosters"),
+                ("departments:manage", "Manage Departments", "departments", "Create and edit departments, assign and replace department heads"),
+                ("users:read", "View Platform Users", "users", "View platform user directory, department assignments, and activity status"),
+                ("users:manage", "Manage Platform Users", "users", "Update user departments, primary roles, and account suspension status"),
+                ("invitations:create", "Create User Invitations", "invitations", "Create and issue invitations for platform departments and tenant workspaces"),
+                ("invitations:manage", "Manage User Invitations", "invitations", "Resend, revoke, and track delivery status of pending invitations"),
+                ("audit:read", "View Administrative Audit Logs", "audit", "Search, filter, and inspect central platform audit trail entries"),
+                ("audit:export", "Export Audit Records", "audit", "Export administrative audit trail logs for compliance and reporting"),
+
+                # Journal & Financial Ledger Core Permissions
+                ("journals:create", "Create Journal Entries", "journals", "Create new draft journal entries"),
+                ("journals:edit_draft", "Edit Draft Journal Entries", "journals", "Edit existing unposted draft journals"),
+                ("journals:submit", "Submit Journals for Review", "journals", "Submit draft journals for supervisor approval"),
+                ("journals:review", "Review Submitted Journals", "journals", "Review submitted journals prior to posting"),
+                ("journals:approve", "Approve Journal Entries", "journals", "Approve reviewed journals for ledger posting"),
+                ("journals:reject", "Reject Journal Entries", "journals", "Reject submitted journals with review notes"),
+                ("journals:post", "Post Approved Journals to Ledger", "journals", "Post approved journals to financial ledgers"),
+                ("journals:reverse", "Reverse Posted Journals", "journals", "Create reversing entries for posted journals"),
+                ("ledger:view", "View General Ledger", "ledger", "Inspect general ledger accounts and posted entries"),
+                ("reports:view", "View Financial Reports", "reports", "Generate and view financial statements and reports"),
+                ("close:manage", "Manage Period-End Close", "close", "Execute period-end accounting close procedures"),
+                ("entities:manage", "Manage Legal Entities", "entities", "Create and configure legal entities, GSTIN, and settings"),
+                ("entities:read", "View Legal Entities", "entities", "View organization legal entities and profile details"),
+                ("audit:view", "View Audit Logs", "audit", "View tenant-level audit activity logs"),
+                ("tenants:manage", "Manage Organization, Members & Invitations", "tenants", "Configure company settings and manage members"),
+                ("tenants:read", "View Organization Profile", "tenants", "View company information and subscription details"),
+
+                # 5 Canonical Departmental Domains
+                # Finance & Accounting
+                ("finance:read", "View Financial Accounts & Statements", "finance", "View financial balances, accounts, and tax summaries"),
+                ("finance:create", "Create Financial Transactions", "finance", "Record financial vouchers, bills, and credit notes"),
+                ("finance:update", "Update Financial Records", "finance", "Modify editable finance drafts and vouchers"),
+                ("finance:approve", "Approve Financial Operations", "finance", "Authorize high-value transactions and period reconciliations"),
+                ("finance:manage", "Manage Financial Governance", "finance", "Configure chart of accounts, currencies, and fiscal years"),
+
+                # Operations
+                ("operations:read", "View Operations Workflows", "operations", "View customer onboarding tasks and operational queues"),
+                ("operations:create", "Create Operational Tasks", "operations", "Log operational workflows and customer onboarding items"),
+                ("operations:update", "Update Operational Tasks", "operations", "Update status and notes on active operational workflows"),
+                ("operations:manage", "Coordinate Operations", "operations", "Assign operational tasks and oversee fulfillment queues"),
+
+                # Technical & Engineering
+                ("technical:read", "View Technical Health & Telemetry", "technical", "Inspect system health, API response times, and error traces"),
+                ("technical:update", "Update Incident Status", "technical", "Manage incident notes and technical triage status"),
+                ("technical:manage", "Perform Engineering Diagnostics", "technical", "Execute technical diagnostic tools and integration tests"),
+
+                # Sales & Demo Management
+                ("sales:read", "View Sales Demos & Prospects", "sales", "View inbound demo requests and prospect pipelines"),
+                ("sales:create", "Schedule Demo Sessions", "sales", "Create demo appointments and prospect engagement records"),
+                ("sales:update", "Update Demo Pipeline Status", "sales", "Update prospect notes, reschedule demos, and log outcomes"),
+                ("sales:manage", "Manage Sales Coordination", "sales", "Assign demo coordinators, allocate leads, and set schedules"),
+
+                # Customer Support
+                ("support:read", "View Support Inquiries", "support", "View customer support tickets, inquiries, and client cases"),
+                ("support:create", "Create Support Cases", "support", "Log new support tickets and customer communications"),
+                ("support:update", "Update Support Cases", "support", "Update ticket progress, triage priority, and resolutions"),
+                ("support:manage", "Manage Support Operations", "support", "Assign tickets, oversee escalation SLAs, and manage resolution queues"),
+            ]
+
+            perms_by_code = {}
+            for code, name, module, desc in catalog:
+                p = db.query(Permission).filter(Permission.code == code).first()
+                if not p:
+                    p = Permission(code=code, name=name, module=module, description=desc)
+                    db.add(p)
+                    db.flush()
+                else:
+                    if not p.description and desc:
+                        p.description = desc
+                perms_by_code[code] = p
+
+            db.commit()
+
+            # 2. Establish Default Role-Permission Matrix
+            roles = {r.name: r for r in db.query(Role).all()}
+
+            def assign_perms_if_needed(role_name: str, codes: list):
+                r = roles.get(role_name)
+                if not r:
+                    return
+                existing_codes = set(p.code for p in r.permissions)
+                to_add = [perms_by_code[c] for c in codes if c in perms_by_code and c not in existing_codes]
+                if to_add:
+                    r.permissions.extend(to_add)
+
+            # SUPER_ADMIN: Gets all permissions
+            super_admin = roles.get("SUPER_ADMIN")
+            if super_admin:
+                all_perms = list(perms_by_code.values())
+                existing_ids = set(p.id for p in super_admin.permissions)
+                for p in all_perms:
+                    if p.id not in existing_ids:
+                        super_admin.permissions.append(p)
+
+            # DEVELOPER: Technical + Platform management
+            dev_codes = [
+                "developer:administer", "roles:read", "departments:read", "departments:manage",
+                "users:read", "users:manage", "invitations:create", "invitations:manage",
+                "audit:read", "audit:export", "technical:read", "technical:update", "technical:manage",
+                "operations:read", "finance:read"
+            ]
+            assign_perms_if_needed("DEVELOPER", dev_codes)
+
+            # DEPARTMENT_HEAD: Base management permissions + departmental reads
+            dept_head_codes = [
+                "departments:read", "users:read", "invitations:create", "invitations:manage",
+                "finance:read", "operations:read", "technical:read", "sales:read", "support:read",
+                "operations:manage", "sales:manage", "support:manage"
+            ]
+            assign_perms_if_needed("DEPARTMENT_HEAD", dept_head_codes)
+
+            # TEAM_MEMBER: Member read permissions
+            team_member_codes = [
+                "departments:read", "users:read", "operations:read", "support:read"
+            ]
+            assign_perms_if_needed("TEAM_MEMBER", team_member_codes)
+
+            # ORG_ADMIN & ADMIN: Tenant admin permissions
+            tenant_admin_codes = [
+                "entities:manage", "entities:read", "tenants:manage", "tenants:read",
+                "users:manage", "users:read", "audit:view",
+                "journals:create", "journals:edit_draft", "journals:submit", "journals:review",
+                "journals:approve", "journals:reject", "journals:post", "journals:reverse",
+                "ledger:view", "reports:view", "close:manage",
+                "finance:read", "finance:create", "finance:update", "finance:approve", "finance:manage"
+            ]
+            assign_perms_if_needed("ORG_ADMIN", tenant_admin_codes)
+            assign_perms_if_needed("ADMIN", tenant_admin_codes)
+
+            # MANAGER
+            manager_codes = [
+                "entities:read", "entities:manage", "audit:view",
+                "journals:create", "journals:edit_draft", "journals:submit", "journals:review",
+                "journals:approve", "journals:reject", "journals:post", "journals:reverse",
+                "ledger:view", "reports:view", "close:manage",
+                "finance:read", "finance:create", "finance:update", "finance:approve"
+            ]
+            assign_perms_if_needed("MANAGER", manager_codes)
+
+            # ACCOUNTANT
+            accountant_codes = [
+                "entities:read",
+                "journals:create", "journals:edit_draft", "journals:submit", "journals:review", "journals:reverse",
+                "ledger:view", "reports:view", "close:manage",
+                "finance:read", "finance:create", "finance:update"
+            ]
+            assign_perms_if_needed("ACCOUNTANT", accountant_codes)
+
+            # REVIEWER
+            reviewer_codes = [
+                "entities:read", "audit:view",
+                "journals:review", "journals:approve", "journals:reject", "journals:post",
+                "ledger:view", "reports:view",
+                "finance:read", "finance:approve"
+            ]
+            assign_perms_if_needed("REVIEWER", reviewer_codes)
+
+            db.commit()
+            print("[OK] Granular permissions and baseline matrix seeded.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Notice during granular permissions seeding: {e}")
+
+
+def seed_default_departments():
+    """Seed the 5 default platform departments idempotently."""
+    try:
+        from app.models.department import Department
+        db = SessionLocal()
+        try:
+            default_depts = [
+                (
+                    "FINANCE_ACCOUNTING",
+                    "Finance & Accounting",
+                    "Accounting workflows, financial ledgers, journals, tax compliance, and reconciliation review."
+                ),
+                (
+                    "OPERATIONS",
+                    "Operations",
+                    "Customer onboarding, operational task coordination, workflow monitoring, and period-end coordination."
+                ),
+                (
+                    "TECHNICAL_ENGINEERING",
+                    "Technical & Engineering",
+                    "Software stability, API monitoring, infrastructure incidents, and engineering task coordination."
+                ),
+                (
+                    "SALES_DEMO",
+                    "Sales & Demo Management",
+                    "Demo requests, prospect scheduling, lead follow-ups, and sales coordination."
+                ),
+                (
+                    "CUSTOMER_SUPPORT",
+                    "Customer Support",
+                    "Customer support tickets, inquiry triage, issue resolution tracking, and client communication."
+                )
+            ]
+            added_any = False
+            for code, name, desc in default_depts:
+                existing = db.query(Department).filter(Department.code == code).first()
+                if not existing:
+                    dept = Department(
+                        code=code,
+                        name=name,
+                        description=desc,
+                        is_active=True
+                    )
+                    db.add(dept)
+                    added_any = True
+            if added_any:
+                db.commit()
+                print("[OK] Default departments seeded successfully.")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Notice during default department seeding: {e}")
 
 
 def seed_default_products():

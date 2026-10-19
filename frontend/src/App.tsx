@@ -43,6 +43,16 @@ import { InternalCalendar } from './pages/internal/InternalCalendar';
 import { InternalTeam } from './pages/internal/InternalTeam';
 import { InternalSettings } from './pages/internal/InternalSettings';
 
+// Developer Console (Super Admin RBAC)
+import { DeveloperProtectedRoute } from './components/developer/DeveloperProtectedRoute';
+import { DeveloperLayout } from './components/developer/DeveloperLayout';
+import { DeveloperLogin } from './pages/developer/DeveloperLogin';
+import { DeveloperDashboard } from './pages/developer/DeveloperDashboard';
+import { DepartmentManagement } from './pages/developer/DepartmentManagement';
+import { UserManagement } from './pages/developer/UserManagement';
+import { RolesPermissionsManagement } from './pages/developer/RolesPermissionsManagement';
+import { AuditTrailViewer } from './pages/developer/AuditTrailViewer';
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -69,6 +79,20 @@ export const App: React.FC = () => {
                 <Route path="/internal/team" element={<InternalTeam />} />
                 <Route path="/internal/settings" element={<InternalSettings />} />
                 <Route path="/internal" element={<Navigate to="/internal/dashboard" replace />} />
+              </Route>
+            </Route>
+
+            {/* Developer Console (Platform Super Admin RBAC) */}
+            <Route path="/developer/login" element={<DeveloperLogin />} />
+            <Route element={<DeveloperProtectedRoute />}>
+              <Route element={<DeveloperLayout />}>
+                <Route path="/developer/dashboard" element={<DeveloperDashboard />} />
+                <Route path="/developer/departments" element={<DepartmentManagement />} />
+                <Route path="/developer/users" element={<UserManagement />} />
+                <Route path="/developer/roles" element={<RolesPermissionsManagement />} />
+                <Route path="/developer/invitations" element={<UserManagement defaultTab="invitations" />} />
+                <Route path="/developer/audit-logs" element={<AuditTrailViewer />} />
+                <Route path="/developer" element={<Navigate to="/developer/dashboard" replace />} />
               </Route>
             </Route>
 

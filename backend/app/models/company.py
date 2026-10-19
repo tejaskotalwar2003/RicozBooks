@@ -101,9 +101,11 @@ class OrganizationInvitation(Base):
     __tablename__ = "organization_invitations"
     
     id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_department_head = Column(Boolean, default=False, nullable=False)
     email = Column(String(255), nullable=False, index=True)
-    role = Column(String(50), nullable=False)  # ORG_ADMIN, MANAGER, ACCOUNTANT, REVIEWER
+    role = Column(String(50), nullable=False)  # ORG_ADMIN, MANAGER, ACCOUNTANT, REVIEWER, DEPARTMENT_HEAD, TEAM_MEMBER
     token = Column(String(128), unique=True, nullable=False, index=True)
     invited_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False, index=True)
@@ -115,5 +117,6 @@ class OrganizationInvitation(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     company = relationship("Company", back_populates="invitations")
+    department = relationship("Department", foreign_keys=[department_id], backref="invitations")
     invited_by = relationship("User", foreign_keys=[invited_by_id])
 
