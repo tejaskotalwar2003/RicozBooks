@@ -5,6 +5,11 @@ import { config } from './config';
 import healthRouter from './routes/health.routes';
 import authRouter from './routes/auth.routes';
 import developerRouter from './routes/developer.routes';
+import journalRouter from './routes/journal.routes';
+import accountRouter from './routes/account.routes';
+import salesRouter from './routes/sales.routes';
+import purchaseRouter from './routes/purchase.routes';
+import bankingRouter from './routes/banking.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): Application {
@@ -45,6 +50,11 @@ export function createApp(): Application {
   app.use(`${config.apiPrefix}`, healthRouter);
   app.use(`${config.apiPrefix}/auth`, authRouter);
   app.use(`${config.apiPrefix}/developer`, developerRouter);
+  app.use(`${config.apiPrefix}/journals`, journalRouter);
+  app.use(`${config.apiPrefix}/accounts`, accountRouter);
+  app.use(`${config.apiPrefix}/sales`, salesRouter);
+  app.use(`${config.apiPrefix}/purchases`, purchaseRouter);
+  app.use(`${config.apiPrefix}/banking`, bankingRouter);
 
   // Centralized Error Handling Middleware
   app.use(errorHandler);

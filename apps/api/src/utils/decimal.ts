@@ -27,9 +27,18 @@ export function fromDecimal(value: any): number {
 }
 
 /**
+ * Round number to exactly 2 decimal places using half-up rounding
+ */
+export function quantizeAmount(value: number | string | mongoose.Types.Decimal128 | null | undefined): number {
+  const num = fromDecimal(value);
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
+/**
  * Check if sum of debits matches sum of credits within standard monetary epsilon (0.001)
  */
 export function isBalanced(debits: number, credits: number, epsilon: number = 0.001): boolean {
   return Math.abs(debits - credits) <= epsilon;
 }
+
 

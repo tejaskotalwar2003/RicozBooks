@@ -40,5 +40,31 @@ export class AuditService {
       console.error('[AUDIT LOG ERROR] Failed to record audit event:', err);
     }
   }
+
+  static async log(params: {
+    action: string;
+    resource_type?: string;
+    record_type?: string;
+    resource_id?: string;
+    record_id?: string;
+    entity_id?: any;
+    company_id?: any;
+    user_id?: any;
+    user_email?: string;
+    details?: any;
+    req?: Request;
+  }): Promise<void> {
+    return this.logEvent({
+      action: params.action,
+      recordType: params.resource_type || params.record_type || 'System',
+      recordId: params.resource_id || params.record_id,
+      entityId: params.entity_id,
+      companyId: params.company_id,
+      userId: params.user_id,
+      userEmail: params.user_email,
+      details: params.details,
+      req: params.req,
+    });
+  }
 }
 

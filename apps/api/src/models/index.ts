@@ -11,4 +11,8 @@ export * from './Invoice';
 export * from './Bill';
 export * from './AuditLog';
 export * from './DemoAdminUser';
+export * from './Vendor';
+export * from './InventoryMovement';
+export * from './FiscalPeriod';
+export * from './Banking';
 
