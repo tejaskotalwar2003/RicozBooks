@@ -24,3 +24,4 @@ router.get('/items', requirePermission('inventory:products:read'), SalesControll
 router.post('/items', requirePermission('inventory:products:manage'), SalesController.createItem);
 
 export default router;
+

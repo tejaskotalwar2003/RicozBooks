@@ -103,3 +103,4 @@ The `BankingEngine` coordinates bank accounts, cash transactions, and statement 
 - **Transaction Tracking**: Deposits (inflow/credit) increment account balance; withdrawals (outflow/debit) decrement account balance.
 - **Automated Matching**: Statement lines are automatically reconciled against unreconciled book transactions by matching exact amount and direction.
 - **Zero-Difference Lock**: Reconciliation cannot be marked `COMPLETED` unless the difference between the statement ending balance and the reconciled book balance is exactly $0.00$.
+

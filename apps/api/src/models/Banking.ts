@@ -152,3 +152,4 @@ const BankStatementLineSchema = new Schema<IBankStatementLine>(
 );
 
 export const BankStatementLine = mongoose.model<IBankStatementLine>('BankStatementLine', BankStatementLineSchema);
+

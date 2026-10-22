@@ -17,3 +17,4 @@ router.post('/reconciliations/:id/match', requirePermission('banking:reconcile')
 router.post('/reconciliations/:id/complete', requirePermission('banking:reconcile'), BankingController.completeReconciliation);
 
 export default router;
+

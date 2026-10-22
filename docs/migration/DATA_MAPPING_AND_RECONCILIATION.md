@@ -67,3 +67,4 @@ When live data extraction and migration scripts run:
 3. **Inventory Quantity Reconciliation**:
    For every SKU, verify:
    $$\text{Initial Stock} + \sum \text{Purchases} - \sum \text{Sales} + \sum \text{Adjustments} = \text{Current Stock}$$
+

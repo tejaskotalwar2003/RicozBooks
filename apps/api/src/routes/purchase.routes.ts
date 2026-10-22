@@ -17,3 +17,4 @@ router.get('/vendors', requirePermission('purchases:vendors:read'), PurchaseCont
 router.post('/vendors', requirePermission('purchases:vendors:manage'), PurchaseController.createVendor);
 
 export default router;
+

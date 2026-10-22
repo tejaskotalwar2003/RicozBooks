@@ -84,3 +84,4 @@ const StockAdjustmentSchema = new Schema<IStockAdjustment>(
 StockAdjustmentSchema.index({ entity_id: 1, adjustment_number: 1 }, { unique: true });
 
 export const StockAdjustment = mongoose.model<IStockAdjustment>('StockAdjustment', StockAdjustmentSchema);
+

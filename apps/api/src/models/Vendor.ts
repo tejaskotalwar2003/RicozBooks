@@ -57,3 +57,4 @@ VendorSchema.index({ entity_id: 1, name: 1 });
 VendorSchema.index({ entity_id: 1, email: 1 });
 
 export const Vendor = mongoose.model<IVendor>('Vendor', VendorSchema);
+

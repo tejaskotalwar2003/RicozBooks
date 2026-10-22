@@ -18,3 +18,4 @@ router.post('/:id/post', requirePermission('journals:post'), JournalController.p
 router.post('/:id/reverse', requirePermission('journals:reverse'), JournalController.reverseJournal);
 
 export default router;
+

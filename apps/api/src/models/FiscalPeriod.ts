@@ -68,3 +68,4 @@ const ClosePeriodSchema = new Schema<IClosePeriod>(
 ClosePeriodSchema.index({ entity_id: 1, fiscal_year: 1, month: 1 }, { unique: true });
 
 export const ClosePeriod = mongoose.model<IClosePeriod>('ClosePeriod', ClosePeriodSchema);
+

@@ -69,3 +69,4 @@ The test suite for the migrated Node.js + Express + MongoDB backend (`apps/api`)
 | :--- | :--- | :--- | :--- |
 | `Application root` | `GET /` | Returns API name, version 1.3.0, docs path | PASS |
 | `Health status` | `GET /api/v1/health` | Returns online status, version 1.3.0 | PASS |
+

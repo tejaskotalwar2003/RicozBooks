@@ -12,3 +12,4 @@ router.post('/', requirePermission('accounts:manage'), AccountController.createA
 router.get('/:id', AccountController.getAccount);
 
 export default router;
+
