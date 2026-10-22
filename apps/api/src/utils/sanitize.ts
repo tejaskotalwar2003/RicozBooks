@@ -19,7 +19,9 @@ export function sanitizeAuditDetails(details: any): any {
       const scrub = (obj: any) => {
         if (!obj || typeof obj !== 'object') return;
         for (const k of Object.keys(obj)) {
-          if (redactKeys.includes(k.toLowerCase())) {
+          if (k.startsWith('$') || k.includes('.')) {
+            delete obj[k];
+          } else if (redactKeys.includes(k.toLowerCase())) {
             obj[k] = '[REDACTED]';
           } else if (typeof obj[k] === 'object') {
             scrub(obj[k]);
