@@ -60,3 +60,4 @@ services:
         value: https://ricozbooks-api-staging.onrender.com
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
+

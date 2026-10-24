@@ -88,3 +88,4 @@ The user may now:
 1. Review the staging configuration and documentation.
 2. Provide a MongoDB Atlas M0 connection string (or configure locally/in Render).
 3. Authorize deployment of `ricozbooks-api-staging` and `ricozbooks-web-staging` via Render Blueprint.
+
