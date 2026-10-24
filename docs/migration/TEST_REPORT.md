@@ -1,8 +1,8 @@
-# RicozBooks — Comprehensive Test & Regression Report (Phases 1–5)
+# RicozBooks — Comprehensive Test & Regression Report (Phases 1–6)
 
 ## 1. Executive Summary
 
-This report delivers the comprehensive testing audit for **Phase 4 & Phase 5 (Staging Readiness, Financial Validation & E2E Verification)** of the RicozBooks zero-loss migration to Next.js 14 + Node.js/Express.js + MongoDB.
+This report delivers the comprehensive testing audit for **Phase 6 (Local End-to-End Testing & Pre-Staging Validation)** of the RicozBooks zero-loss migration to Next.js 14 + Node.js/Express.js + MongoDB.
 
 All tests have been performed strictly on the isolated branch `migration/next-express-mongodb`. The production branch `main` and the original `backend/` (FastAPI) and `frontend/` (React/Vite) directories remain 100% intact, untouched, and fully operational.
 
@@ -12,11 +12,13 @@ All tests have been performed strictly on the isolated branch `migration/next-ex
 
 | Target Component | Test Framework / Tool | Commands Executed | Result | Details |
 | :--- | :--- | :--- | :--- | :--- |
-| **Original Backend** | `pytest` | `$env:PYTHONPATH="backend"; python -m pytest backend/tests/ -q` | **148 / 148 PASSED** | Zero regressions on existing Python/FastAPI codebase. |
+| **Original Backend** | `pytest` | `$env:PYTHONPATH="backend"; python -m pytest backend/tests/ -q` | **148 / 148 PASSED** | Zero regressions on existing Python/FastAPI codebase (123.01s). |
 | **Target Backend (`apps/api`)** | `Jest` + `ts-jest` | `npm test --workspace=apps/api` | **52 / 52 PASSED** | 100% pass across GL, Sales, Purchases, Banking, Health, Concurrency, Security, Reports, Entities & Tenants. |
 | **Target API Build** | `tsc` | `npm run build --workspace=apps/api` | **0 ERRORS** | TypeScript strict compilation passed (`dist/` generated). |
 | **Shared Package** | `tsc` | `npm run build --workspace=packages/shared` | **0 ERRORS** | Common types, enums, and schemas compile cleanly. |
 | **Target Frontend (`apps/web`)**| `Next.js 14` | `npm run build --workspace=apps/web` | **0 ERRORS** | Production static and dynamic pages generated cleanly (32 screens integrated). |
+| **Tailwind CSS Bundle** | PostCSS / Tailwind | Rebuild with extended content paths | **90,971 bytes** | CSS purged bundle (39 KB) restored to full styling (91 KB), matching original Vite 93 KB bundle. |
+| **Local Service Runners** | Node.js child processes | `scripts/start-all.js`, `scripts/dev-all.js` | **OPERATIONAL** | Ports 5000 and 3000 running, reverse proxy `/api/v1` functional. |
 
 ---
 
