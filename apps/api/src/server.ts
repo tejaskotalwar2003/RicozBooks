@@ -11,7 +11,7 @@ async function startServer() {
     });
     console.log('[OK] Connected to MongoDB.');
 
-    // Automatically verify & bootstrap initial departments, roles, and super admin
+    // Automatically verify & bootstrap initial departments, roles, workspace, and super admin
     try {
       await SeedService.seedAll();
     } catch (seedErr) {
@@ -40,4 +40,3 @@ async function startServer() {
 if (process.env.NODE_ENV !== 'test') {
   startServer();
 }
-
