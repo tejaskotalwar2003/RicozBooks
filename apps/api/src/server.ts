@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { app } from './app';
 import { config } from './config';
+import { SeedService } from './services/seed.service';
 
 async function startServer() {
   try {
@@ -9,6 +10,13 @@ async function startServer() {
       serverSelectionTimeoutMS: 5000,
     });
     console.log('[OK] Connected to MongoDB.');
+
+    // Automatically verify & bootstrap initial departments, roles, and super admin
+    try {
+      await SeedService.seedAll();
+    } catch (seedErr) {
+      console.warn('[WARN] Automatic seed notice:', seedErr);
+    }
   } catch (err) {
     console.warn(`[WARN] MongoDB connection notice: ${err}. Starting server in offline DB mode...`);
   }
