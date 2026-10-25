@@ -74,11 +74,18 @@ async function main() {
     recordTest('Auth', 'Super Admin Login', false, 'SUPERADMIN_PASSWORD required. Inspect Render Environment variables.');
   } else {
     await runStep('Auth', 'Super Admin Login', async () => {
-      const res = await fetch(`${API_BASE}/developer/login`, {
+      let res = await fetch(`${API_BASE}/developer/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
       });
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE}/auth/developer/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+        });
+      }
       if (res.status !== 200) {
         const body = await res.text();
         throw new Error(`Login failed with HTTP ${res.status}: ${body}`);
@@ -221,3 +228,4 @@ main().catch((err) => {
   console.error('\nFatal smoke test execution error:', err);
   process.exit(1);
 });
+

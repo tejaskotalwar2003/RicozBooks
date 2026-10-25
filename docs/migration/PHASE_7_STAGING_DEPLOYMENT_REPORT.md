@@ -1,111 +1,188 @@
-# RicozBooks — Phase 7: Render Staging Deployment & Blueprint Report
+# RicozBooks — Phase 7: Free Staging Deployment on Render & MongoDB Atlas M0
 
-**Document Version:** 1.0.0  
-**Phase:** Phase 7 — Render Staging Deployment  
+**Document Version:** 1.1.0  
+**Phase:** Phase 7 — Free Staging Deployment on Render  
 **Dedicated Branch:** `migration/next-express-mongodb`  
 **GitHub Repository:** `https://github.com/tejaskotalwar2003/RicozBooks.git`  
-**Latest Verified & Pushed Commit SHA:** `d0bbbd1`  
+**Latest Pushed Commit SHA:** `705cbd4`  
 **Target Services:** `ricozbooks-api-staging` & `ricozbooks-web-staging`  
-**Target Cloud Database:** MongoDB Atlas M0 Replica Set (AWS us-west-2, Oregon)  
+**Target Cloud Database:** MongoDB Atlas M0 Free Tier (AWS us-west-2, Oregon)  
 
 ---
 
-## 1. Executive Summary & Readiness Status
+## 1. Executive Summary & Pre-Deployment Audit
 
-Phase 7 prepares, secures, and publishes the staging deployment configuration for **RicozBooks** on Render. All code, configuration files, and dependencies on dedicated branch `migration/next-express-mongodb` have been pushed to GitHub origin and audited against strict production-safety invariants.
+Phase 7 executes staging preparation for **RicozBooks** on Render and MongoDB Atlas utilizing **100% free-tier resources** with zero paid service upgrades.
 
-### Key Milestones Completed:
-1. **Pushed to GitHub Origin:** Branch `migration/next-express-mongodb` is successfully synced with GitHub at commit `d0bbbd1`.
-2. **Reproducible Test Baseline:**
-   - Original FastAPI regression suite: **148 / 148 passed (100%)**.
-   - Migrated Express.js API test suite: **52 / 52 passed across 9 suites (100%)**.
-   - Shared package TypeScript build: **0 errors**.
-   - Express API production build: **0 errors**.
-   - Next.js 14 App Router production build: **0 errors**.
-   - CSS styling fidelity: **90,971 bytes (~91 KB)** stylesheet verified with Plus Jakarta Sans and Burgundy/Gold palette.
-3. **Render Blueprint Specification (`render.staging.yaml`):**
-   - Declares isolated staging services: `ricozbooks-api-staging` and `ricozbooks-web-staging`.
-   - Production services (`ricozbooks-api` and `ricozbooks-web`) on branch `main` remain completely untouched.
-4. **Security & Seed Hardening:**
-   - Removed hardcoded password fallbacks for staging and production in `SeedService.seedSuperAdmin()`.
-   - Render's `generateValue: true` dynamically creates unique high-entropy secrets for `SUPERADMIN_PASSWORD` and `JWT_SECRET`.
-   - Disabled demo accounts with default passwords (`admin123`) from seeding into staging.
-5. **Staging Network & Port Configuration:**
-   - Updated `apps/web/package.json` to `"start": "next start"` to respect Render's dynamic `$PORT`.
-   - Hardened `apps/web/src/services/api.ts` with staging-aware host routing to prevent staging traffic from ever reaching production API endpoints.
-   - Enhanced `apps/web/next.config.js` rewrites to forward `/api/v1/*` to `https://ricozbooks-api-staging.onrender.com/api/v1/*`.
-
----
-
-## 2. Infrastructure Configuration & Blueprint Audit
-
-### Staging Services Defined in [`render.staging.yaml`](file:///c:/Users/hp/Documents/RicozBooks/render.staging.yaml):
-
-| Property | Express Backend (`ricozbooks-api-staging`) | Next.js Frontend (`ricozbooks-web-staging`) |
-| :--- | :--- | :--- |
-| **Service Type** | Web Service | Web Service |
-| **Runtime Environment** | Node | Node |
-| **Plan / Tier** | Free | Free |
-| **Region** | Oregon (us-west-2) | Oregon (us-west-2) |
-| **Git Branch** | `migration/next-express-mongodb` | `migration/next-express-mongodb` |
-| **Build Command** | `npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api` | `npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web` |
-| **Start Command** | `node apps/api/dist/server.js` | `npm run start --workspace=apps/web` |
-| **Health Check Path** | `/api/v1/health` | `/` |
-| **Target URL** | `https://ricozbooks-api-staging.onrender.com` | `https://ricozbooks-web-staging.onrender.com` |
-| **Secret Management** | `JWT_SECRET` (Render auto-gen), `SUPERADMIN_PASSWORD` (Render auto-gen), `MONGODB_URI` (Atlas connection string) | `API_URL`, `NEXT_PUBLIC_API_URL` |
+### 1.1 Pre-Deployment Verification Checklist:
+- [x] **Git Safety & Isolation:** Working strictly on `migration/next-express-mongodb`. Branch `main` and original directories `backend/` and `frontend/` have **zero diffs** against production.
+- [x] **Reproducible Test Baseline:**
+  - Original FastAPI backend: **148 / 148 passed (100%)**
+  - Migrated Express.js API: **52 / 52 passed across 9 suites (100%)**
+  - Shared package TypeScript build: **0 errors**
+  - Express API production build: **0 errors**
+  - Next.js 14 App Router production build: **0 errors**
+  - Tailwind CSS styling bundle: **90,971 bytes (~91 KB)** verified with Plus Jakarta Sans and Burgundy/Gold palette.
+- [x] **Authentication Flow Audit:**
+  - Verified `apps/web/src` contains **zero** hardcoded references to `localhost:8000` or legacy FastAPI routes.
+  - Standard login routes through `useAuth().login` $\to$ `api.login` $\to$ `POST /api/v1/auth/login`.
+  - Developer console login routes through `DeveloperLogin.tsx` $\to$ `api.developerLogin` $\to$ `POST /api/v1/auth/developer/login` (with aliasing in `apps/api/src/routes/developer.routes.ts` supporting `POST /api/v1/developer/login`).
+- [x] **Render Port Binding Audit:**
+  - API binds to dynamic `$PORT` via `config.port = parseInt(process.env.PORT || '5000', 10)`. Hardcoded `PORT: 8000` removed from Blueprint.
+  - Frontend binds to dynamic `$PORT` via `next start` in `apps/web/package.json`.
+- [x] **Staging Isolation & Routing:**
+  - `apps/web/src/services/api.ts` audited to ensure browser sessions on `ricozbooks-web-staging.onrender.com` dynamically target `ricozbooks-api-staging`, completely preventing traffic leakage to production.
+  - `apps/web/next.config.js` rewrites `/api/v1/:path*` to `${rawApiUrl}/api/v1/:path*`.
+- [x] **Super Admin & Seed Security:**
+  - Removed hardcoded default passwords for staging and production in `SeedService.seedSuperAdmin()`.
+  - Render Blueprint uses `generateValue: true` for `SUPERADMIN_PASSWORD` and `JWT_SECRET`.
+  - Demo accounts (`admin@ricozbooks.com` with `admin123`) are explicitly disabled in staging and production environments.
 
 ---
 
-## 3. Mandatory User Action Required to Complete Cloud Deployment
+## 2. MongoDB Atlas M0 Free Tier Compatibility & Architecture
 
-Because deployment on Render requires authentication to the user's personal Render and MongoDB Atlas accounts (which are not accessible from the local CLI sandbox), the following 2 user steps are required to initiate the cloud build:
+The application is prepared for a dedicated staging database: `ricozbooks_staging`.
 
-### Step 1: Provision MongoDB Atlas M0 Staging Database
-1. Go to [MongoDB Atlas](https://cloud.mongodb.com) and create an **M0 Free Tier** cluster in AWS region **us-west-2 (Oregon)** named `ricozbooks-staging-cluster`.
-2. Under **Database Access**, create a user `ricoz_staging_admin` with password authentication and `readWriteAnyDatabase` role.
-3. Under **Network Access**, add IP `0.0.0.0/0` (required for Render dynamic egress).
-4. Copy the connection string:
+### 2.1 M0 Technical Compatibility Matrix:
+
+| Feature / Requirement | Application Need | Atlas M0 Capability | Verification Finding |
+| :--- | :--- | :--- | :--- |
+| **High Availability** | Resilience | 3-node replica set | Native on Atlas M0 |
+| **ACID Transactions** | Multi-document transactions (`session.withTransaction`) | WiredTiger storage engine | Supported natively on M0 |
+| **Storage Allocation** | Staging data | 512 MB storage | Ample for accounting records & audit logs |
+| **Connection Pooling** | Concurrency management | 500 maximum connections | Application pool capped at `maxPoolSize: 10` |
+| **Cost** | Zero paid upgrades | $0.00 / month forever | 100% free tier compliant |
+| **Inactivity Pause** | Standby behavior | Pauses after 60 days of inactivity | Auto-resumes in ~1–2 mins upon connection request |
+| **Data Backup / Export**| Snapshot capability | `mongodump` archive utility | Handled via standard CLI: `mongodump --archive --gzip` |
+
+### 2.2 Security & Least-Privilege Access:
+- **User:** `ricoz_staging_admin`
+- **Role:** Scoped strictly to `readWrite` on database `ricozbooks_staging`.
+- **Network Access:** `0.0.0.0/0` (required for Render dynamic container egress). Transport encrypted via TLS; authentication via SCRAM-SHA-256.
+
+---
+
+## 3. Render Staging Blueprint Audit (`render.staging.yaml`)
+
+The Blueprint creates **only two staging services**, leaving production untouched:
+
+```yaml
+services:
+  # 1. Express Backend API Service
+  - type: web
+    name: ricozbooks-api-staging
+    runtime: node
+    plan: free
+    region: oregon
+    autoDeploy: false
+    branch: migration/next-express-mongodb
+    buildCommand: "npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api"
+    startCommand: "node apps/api/dist/server.js"
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: API_PREFIX
+        value: /api/v1
+      - key: APP_VERSION
+        value: 1.3.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: MONGODB_URI
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://ricozbooks-web-staging.onrender.com,http://localhost:3000
+      - key: SUPERADMIN_EMAIL
+        value: admin@ricoz.in
+      - key: SUPERADMIN_PASSWORD
+        generateValue: true
+
+  # 2. Next.js 14 Frontend Web Service
+  - type: web
+    name: ricozbooks-web-staging
+    runtime: node
+    plan: free
+    region: oregon
+    autoDeploy: false
+    branch: migration/next-express-mongodb
+    buildCommand: "npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web"
+    startCommand: "npm run start --workspace=apps/web"
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        value: https://ricozbooks-api-staging.onrender.com
+      - key: NEXT_PUBLIC_API_URL
+        value: https://ricozbooks-api-staging.onrender.com
+      - key: NEXT_PUBLIC_APP_ENV
+        value: staging
+```
+
+---
+
+## 4. AWS Cloud Portability Design
+
+The staging stack has been engineered to maintain strict cloud portability for future migration to AWS:
+
+1. **Standard 12-Factor Configuration:** All application parameters (`MONGODB_URI`, `PORT`, `JWT_SECRET`, `CORS_ORIGIN`, `API_URL`) are loaded from standard environment variables. Zero proprietary Render SDKs or hooks are used.
+2. **Container Portability:** The backend and frontend run standard Node.js runtime commands (`node apps/api/dist/server.js`, `next start`), making them instantly packagable into container images for AWS App Runner, AWS ECS (Fargate), or AWS EKS.
+3. **Database Portability:** The Mongoose ORM layer connects via standard MongoDB wire protocol. In AWS, this can point directly to Amazon DocumentDB (MongoDB-compatible) or an AWS VPC-peered MongoDB Atlas dedicated cluster with zero code modifications.
+
+---
+
+## 5. Mandatory User Action Required to Deploy
+
+Because Render and MongoDB Atlas require personal account authentication, deployment requires these two manual actions:
+
+### Action 1: Provision MongoDB Atlas M0 Free Tier Database
+1. Log in to [MongoDB Atlas Console](https://cloud.mongodb.com).
+2. Click **Build a Database** $\to$ select **M0 Free Tier**.
+3. Choose Cloud Provider **AWS** and Region **us-west-2 (Oregon)** (co-located with Render).
+4. Set Cluster Name: `ricozbooks-staging-cluster`.
+5. Under **Database Access**:
+   - Add database user: `ricoz_staging_admin`
+   - Set password authentication (generate a strong password).
+   - Assign built-in role: `readWrite` on database `ricozbooks_staging`.
+6. Under **Network Access**:
+   - Add IP Access: `0.0.0.0/0`
+7. Copy the SRV connection string:
    ```text
    mongodb+srv://ricoz_staging_admin:<PASSWORD>@ricozbooks-staging-cluster.xxxx.mongodb.net/ricozbooks_staging?retryWrites=true&w=majority
    ```
 
-### Step 2: Apply the Blueprint in Render Dashboard
-1. Go to the [Render Dashboard](https://dashboard.render.com).
-2. Click **New +** $\to$ **Blueprint**.
-3. Connect the repository: `tejaskotalwar2003/RicozBooks`.
-4. Configure blueprint settings:
+### Action 2: Apply Blueprint in Render Dashboard
+1. Log in to [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** $\to$ select **Blueprint**.
+3. Connect repository: `tejaskotalwar2003/RicozBooks`.
+4. Configure parameters:
    - **Branch:** `migration/next-express-mongodb`
    - **Blueprint File Path:** `render.staging.yaml`
-5. Render will detect the 2 staging services (`ricozbooks-api-staging` and `ricozbooks-web-staging`).
-6. Paste your `MONGODB_URI` into the environment variable field for `ricozbooks-api-staging`.
+5. Render will detect `ricozbooks-api-staging` and `ricozbooks-web-staging`.
+6. In the environment inputs for `ricozbooks-api-staging`, paste your `MONGODB_URI` from Action 1.
 7. Click **Apply**.
 
 ---
 
-## 4. Post-Deployment Verification & Smoke Testing
+## 6. Staging Validation & Smoke Test Execution
 
-Once Render finishes deploying both services:
+Once Render completes deploying:
 
 1. Retrieve the auto-generated `SUPERADMIN_PASSWORD` from Render Dashboard $\to$ `ricozbooks-api-staging` $\to$ **Environment**.
-2. Run the automated smoke test suite locally:
-   ```bash
+2. Run the automated smoke test suite:
+   ```powershell
    $env:SUPERADMIN_PASSWORD="<RENDER_GENERATED_PASSWORD>"
    node scripts/staging-smoke-test.js
    ```
-3. The runner validates:
-   - API health probe: `GET https://ricozbooks-api-staging.onrender.com/api/v1/health`
-   - Web frontend SSR probe: `GET https://ricozbooks-web-staging.onrender.com`
-   - Super Admin authentication with JWT issuance
-   - Canonical 5 departments and 47 granular permissions
-   - General Ledger double-entry balance constraints (rejection of imbalanced entries)
-   - Trial Balance mathematical equality ($\sum Dr = \sum Cr$)
-   - Balance Sheet equation check ($\text{Assets} = \text{Liabilities} + \text{Equity}$)
-   - Negative security check: rejection of tampered tokens (HTTP 401)
+3. The runner executes 10 end-to-end verification steps covering API health, frontend delivery, Super Admin login, canonical departments, chart of accounts, double-entry balance constraints, Trial Balance equality, Balance Sheet accounting equation, and negative security checks.
 
 ---
 
-## 5. Rollback Safety & Production Cutover Gate
+## 7. Status & Production Cutover Safeguard
 
-- **Zero Risk to Production:** Production services (`ricozbooks-api` and `ricozbooks-web`) run from branch `main` with independent database connections. Staging changes have 0% impact on production availability.
-- **Rollback Procedure:** If staging exhibits unexpected behavior, simply suspend the staging services in the Render Dashboard. Details documented in [`docs/migration/DEPLOYMENT_AND_ROLLBACK.md`](file:///c:/Users/hp/Documents/RicozBooks/docs/migration/DEPLOYMENT_AND_ROLLBACK.md).
-- **Cutover Policy:** **No production cutover will be attempted without explicit review and approval.**
+- **Staging Code Status:** Committed and pushed to GitHub on branch `migration/next-express-mongodb` at commit `705cbd4`.
+- **Production Status:** Production `main` remains untouched at commit `b56ab44` with active services `ricozbooks-api` and `ricozbooks-web`.
+- **Production Cutover Guard:** **No cutover will occur without explicit review of the staging smoke test results and separate user authorization.**

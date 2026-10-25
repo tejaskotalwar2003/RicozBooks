@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import { DeveloperController } from '../controllers/developer.controller';
+import { AuthController } from '../controllers/auth.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireSuperAdmin, requirePermission } from '../middleware/rbac.middleware';
 
 const router = Router();
+
+// Public Developer Login alias
+router.post('/login', AuthController.developerLogin);
 
 // Apply auth to all developer console routes
 router.use(requireAuth);

@@ -16,16 +16,19 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   
   // CORS
-  corsOrigins: [
-    'https://ricozbooks-web.onrender.com',
-    'https://ricozbooks.onrender.com',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ],
+  corsOrigins: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
+    : [
+        'https://ricozbooks-web-staging.onrender.com',
+        'https://ricozbooks-web.onrender.com',
+        'https://ricozbooks.onrender.com',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+      ],
   
   // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL || 'https://ricozbooks-web.onrender.com',
+  frontendUrl: process.env.FRONTEND_URL || 'https://ricozbooks-web-staging.onrender.com',
 };
 

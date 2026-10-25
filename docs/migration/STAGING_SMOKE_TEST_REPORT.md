@@ -80,3 +80,4 @@ Once the Blueprint is applied in the Render Dashboard:
    node scripts/staging-smoke-test.js
    ```
 3. Inspect output for 100% passing status before declaring staging verified.
+
