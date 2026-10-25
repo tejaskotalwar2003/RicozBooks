@@ -2310,7 +2310,6 @@ export const uploadStatementCsv = async (id: number, file: File): Promise<{ mess
   const formData = new FormData();
   formData.append('file', file);
 
-  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1';
   const res = await fetch(`${API_BASE}/banking/reconciliations/${id}/upload-csv`, {
     method: 'POST',
     headers: {

@@ -465,3 +465,4 @@ main().catch((err) => {
   console.error('\nFatal test execution error:', err);
   process.exit(1);
 });
+

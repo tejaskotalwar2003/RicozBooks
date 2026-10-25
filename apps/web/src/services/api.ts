@@ -1,9 +1,13 @@
 const getApiBase = (): string => {
   let raw = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : '').trim();
 
-  // If running in browser on Render cloud domain, ensure pointing to live backend
+  // If running in browser on Render cloud domain, ensure pointing to appropriate backend
   if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    if (!raw || raw === 'ricozbooks-api' || !raw.includes('.')) {
+    if (window.location.hostname.includes('staging')) {
+      if (!raw || !raw.includes('.')) {
+        return 'https://ricozbooks-api-staging.onrender.com/api/v1';
+      }
+    } else if (!raw || raw === 'ricozbooks-api' || !raw.includes('.')) {
       return 'https://ricozbooks-api.onrender.com/api/v1';
     }
   }

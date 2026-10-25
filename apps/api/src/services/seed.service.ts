@@ -14,7 +14,10 @@ export class SeedService {
     await this.seedPermissionsAndRoles();
     await this.seedDefaultWorkspace();
     await this.seedSuperAdmin();
-    await this.seedDemoUsers();
+    // Only seed demo users in development environment
+    if (process.env.NODE_ENV !== 'staging' && process.env.NODE_ENV !== 'production') {
+      await this.seedDemoUsers();
+    }
   }
 
   static async seedDepartments(): Promise<void> {
@@ -249,8 +252,20 @@ export class SeedService {
   }
 
   static async seedSuperAdmin(email?: string, password?: string, fullName?: string): Promise<any> {
+    const isProductionOrStaging = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
     const superAdminEmail = (email || process.env.SUPERADMIN_EMAIL || 'admin@ricoz.in').toLowerCase().trim();
-    const superAdminPassword = password || process.env.SUPERADMIN_PASSWORD || 'RicozAdmin2026!';
+    
+    // In staging or production, require explicit password or generate a cryptographically strong secret
+    let superAdminPassword = password || process.env.SUPERADMIN_PASSWORD;
+    if (!superAdminPassword) {
+      if (isProductionOrStaging) {
+        const crypto = await import('crypto');
+        superAdminPassword = crypto.randomBytes(24).toString('base64url');
+        console.log(`[SECURITY] Notice: Generated initial one-time Super Admin bootstrap credential for ${superAdminEmail}. Ensure SUPERADMIN_PASSWORD is set in Render environment settings.`);
+      } else {
+        superAdminPassword = 'RicozAdmin2026!';
+      }
+    }
     const name = fullName || 'Platform Super Admin';
 
     let user = await User.findOne({ email: superAdminEmail });

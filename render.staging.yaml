@@ -56,6 +56,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: API_URL
+        value: https://ricozbooks-api-staging.onrender.com
       - key: NEXT_PUBLIC_API_URL
         value: https://ricozbooks-api-staging.onrender.com
       - key: NEXT_PUBLIC_APP_ENV
