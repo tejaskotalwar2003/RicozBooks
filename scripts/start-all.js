@@ -40,7 +40,7 @@ async function main() {
   // 3. Start Next.js Web
   const webProc = spawn('node', [`"${nextBin}"`, 'start', 'apps/web', '-p', '3000'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: '3000', API_URL: 'http://localhost:5000/api/v1' },
+    env: { ...process.env, PORT: '3000', API_URL: 'http://localhost:5000/api/v1', NEXT_PUBLIC_API_URL: '/api/v1' },
     shell: true,
     stdio: ['inherit', 'pipe', 'pipe'],
   });

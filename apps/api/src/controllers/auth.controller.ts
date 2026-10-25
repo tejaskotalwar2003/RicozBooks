@@ -65,6 +65,10 @@ export class AuthController {
       details: { role: user.role, remember_me: !!remember_me },
     });
 
+    const nameParts = (user.full_name || '').split(' ');
+    const firstName = nameParts[0] || user.email.split('@')[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     return res.json({
       access_token: token,
       token_type: 'bearer',
@@ -73,7 +77,12 @@ export class AuthController {
         id: user._id,
         email: user.email,
         full_name: user.full_name,
+        first_name: firstName,
+        last_name: lastName,
         role: user.role,
+        roles: [user.role],
+        job_title: user.job_title || 'Finance Team',
+        profile_photo_url: user.profile_photo_url || null,
         is_superuser: user.is_superuser,
         default_company_id: user.default_company_id,
         default_entity_id: user.default_entity_id,
@@ -123,6 +132,10 @@ export class AuthController {
       details: { console: 'DEVELOPER_CONSOLE' },
     });
 
+    const nameParts = (user.full_name || '').split(' ');
+    const firstName = nameParts[0] || user.email.split('@')[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     return res.json({
       access_token: token,
       token_type: 'bearer',
@@ -130,7 +143,12 @@ export class AuthController {
         id: user._id,
         email: user.email,
         full_name: user.full_name,
+        first_name: firstName,
+        last_name: lastName,
         role: 'SUPER_ADMIN',
+        roles: ['SUPER_ADMIN'],
+        job_title: user.job_title || 'Platform Super Admin',
+        profile_photo_url: user.profile_photo_url || null,
         is_superuser: true,
       },
     });
@@ -200,6 +218,10 @@ export class AuthController {
       details: { company_name: organization.name, primary_entity: entity.name },
     });
 
+    const nameParts = (user.full_name || '').split(' ');
+    const firstName = nameParts[0] || user.email.split('@')[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     return res.status(201).json({
       access_token: token,
       token_type: 'bearer',
@@ -209,7 +231,15 @@ export class AuthController {
         id: user._id,
         email: user.email,
         full_name: user.full_name,
+        first_name: firstName,
+        last_name: lastName,
         role: user.role,
+        roles: [user.role],
+        job_title: user.job_title || 'Finance Team',
+        profile_photo_url: user.profile_photo_url || null,
+        is_superuser: user.is_superuser,
+        default_company_id: user.default_company_id,
+        default_entity_id: user.default_entity_id,
       },
     });
   }
@@ -226,18 +256,26 @@ export class AuthController {
       permissions = roleDoc ? roleDoc.permissions : [];
     }
 
+    const nameParts = (req.user.full_name || '').split(' ');
+    const firstName = nameParts[0] || req.user.email.split('@')[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     return res.json({
       id: req.user._id,
       email: req.user.email,
       full_name: req.user.full_name,
+      first_name: firstName,
+      last_name: lastName,
       role: req.user.role,
+      roles: [req.user.role],
       is_superuser: req.user.is_superuser,
       is_active: req.user.is_active,
       default_company_id: req.user.default_company_id,
       default_entity_id: req.user.default_entity_id,
-      job_title: req.user.job_title,
+      job_title: req.user.job_title || 'Finance Team',
       phone_number: req.user.phone_number,
       permissions,
+      profile_photo_url: req.user.profile_photo_url || null,
     });
   }
 

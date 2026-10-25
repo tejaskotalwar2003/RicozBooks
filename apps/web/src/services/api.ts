@@ -1,21 +1,31 @@
 const getApiBase = (): string => {
   let raw = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : '').trim();
 
-  // If running in browser on Render cloud domain, ensure pointing to appropriate backend
-  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    if (window.location.hostname.includes('staging')) {
-      if (!raw || !raw.includes('.')) {
-        return 'https://ricozbooks-api-staging.onrender.com/api/v1';
+  // 1. In browser locally (localhost / 127.0.0.1), always use same-origin relative '/api/v1' Next.js reverse proxy
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') {
+      return '/api/v1';
+    }
+
+    // 2. On Render cloud domain, ensure pointing to appropriate backend
+    if (hostname.includes('onrender.com')) {
+      if (hostname.includes('staging')) {
+        if (!raw || !raw.includes('.')) {
+          return 'https://ricozbooks-api-staging.onrender.com/api/v1';
+        }
+      } else if (!raw || raw === 'ricozbooks-api' || !raw.includes('.')) {
+        return 'https://ricozbooks-api.onrender.com/api/v1';
       }
-    } else if (!raw || raw === 'ricozbooks-api' || !raw.includes('.')) {
-      return 'https://ricozbooks-api.onrender.com/api/v1';
     }
   }
 
-  // If not configured, default to relative '/api/v1' for local dev proxy
-  if (!raw) return '/api/v1';
+  // 3. Fallback: if empty, relative, or legacy port 8000, use same-origin '/api/v1' proxy
+  if (!raw || raw === '/api/v1' || raw.includes(':8000')) {
+    return '/api/v1';
+  }
 
-  // Strip trailing /api/v1 or /api/v1/ if user or env set it
+  // Strip trailing /api/v1 or /api/v1/ if present
   raw = raw.replace(/\/api\/v1\/?$/, '');
 
   // If raw is an internal service name without domain, append onrender.com

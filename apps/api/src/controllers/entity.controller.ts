@@ -142,5 +142,34 @@ export class EntityController {
       return res.status(err.statusCode || 500).json({ detail: err.message });
     }
   }
+
+  public static async listCompanies(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      let query: any = { is_active: true };
+      if (user?.default_company_id && !user?.is_superuser) {
+        query._id = user.default_company_id;
+      }
+      const orgs = await Organization.find(query);
+      const results = await Promise.all(
+        orgs.map(async (org) => {
+          const entities = await Entity.find({ company_id: org._id, is_active: true });
+          return {
+            id: org._id,
+            _id: org._id,
+            name: org.name,
+            code: org.name.substring(0, 4).toUpperCase(),
+            legal_name: org.legal_name,
+            tax_identifier: (org as any).tax_identifier || null,
+            base_currency: org.currency || 'INR',
+            entities,
+          };
+        })
+      );
+      return res.json(results);
+    } catch (err: any) {
+      return res.status(err.statusCode || 500).json({ detail: err.message });
+    }
+  }
 }
 

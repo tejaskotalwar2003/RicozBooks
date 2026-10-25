@@ -308,6 +308,63 @@ export class SeedService {
   }
 
   static async seedDemoUsers(): Promise<void> {
+    const org = await Organization.findOne({ is_active: true });
+    const entity = await Entity.findOne({ is_active: true });
+    const financeDept = await Department.findOne({ code: 'FINANCE_ACCOUNTING' });
+
+    // Canonical workspace demo users matching login page 1-click selectors
+    const workspaceUsers = [
+      {
+        email: 'admin@ricozbooks.com',
+        pwd: 'admin123',
+        first_name: 'Vikram',
+        last_name: 'Sharma',
+        job_title: 'Chief Financial Officer',
+        role: 'ADMIN',
+        is_superuser: true,
+      },
+      {
+        email: 'accountant@ricozbooks.com',
+        pwd: 'accountant123',
+        first_name: 'Priya',
+        last_name: 'Nair',
+        job_title: 'Senior Accountant',
+        role: 'ACCOUNTANT',
+        is_superuser: false,
+      },
+      {
+        email: 'reviewer@ricozbooks.com',
+        pwd: 'reviewer123',
+        first_name: 'Arjun',
+        last_name: 'Mehta',
+        job_title: 'Financial Controller & Reviewer',
+        role: 'REVIEWER',
+        is_superuser: false,
+      },
+    ];
+
+    for (const u of workspaceUsers) {
+      const exists = await User.findOne({ email: u.email });
+      if (!exists) {
+        const password_hash = await hashPassword(u.pwd);
+        await User.create({
+          email: u.email,
+          password_hash,
+          full_name: `${u.first_name} ${u.last_name}`,
+          role: u.role,
+          job_title: u.job_title,
+          is_active: true,
+          is_superuser: u.is_superuser,
+          department_id: financeDept?._id || null,
+          default_company_id: org?._id || null,
+          default_entity_id: entity?._id || null,
+          companies: org ? [org._id] : [],
+          entities: entity ? [entity._id] : [],
+        });
+      }
+    }
+    console.log('[OK] 3 canonical demo workspace users (Admin, Accountant, Reviewer) seeded in MongoDB.');
+
     const demoUsers = [
       { name: 'Ricoz Admin', email: 'admin@ricozbooks.com', pwd: 'admin123', role: 'DEMO_ADMIN' },
       { name: 'Vikram Malhotra', email: 'sales@ricozbooks.com', pwd: 'sales123', role: 'SALES_TEAM' },

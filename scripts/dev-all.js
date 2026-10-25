@@ -37,7 +37,7 @@ async function main() {
   });
 
   const webProc = spawn(npxCmd, ['next', 'dev', 'apps/web', '-p', '3000'], {
-    env: { ...process.env, PORT: '3000', API_URL: 'http://localhost:5000/api/v1' },
+    env: { ...process.env, PORT: '3000', API_URL: 'http://localhost:5000/api/v1', NEXT_PUBLIC_API_URL: '/api/v1' },
     shell: true,
     stdio: ['inherit', 'pipe', 'pipe'],
   });

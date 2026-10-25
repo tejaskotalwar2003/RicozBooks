@@ -11,6 +11,7 @@ import salesRouter from './routes/sales.routes';
 import purchaseRouter from './routes/purchase.routes';
 import bankingRouter from './routes/banking.routes';
 import entityRouter from './routes/entity.routes';
+import companyRouter from './routes/company.routes';
 import tenantRouter from './routes/tenant.routes';
 import reportRouter from './routes/report.routes';
 import ledgerRouter from './routes/ledger.routes';
@@ -61,6 +62,7 @@ export function createApp(): Application {
   app.use(`${config.apiPrefix}/purchases`, purchaseRouter);
   app.use(`${config.apiPrefix}/banking`, bankingRouter);
   app.use(`${config.apiPrefix}/entities`, entityRouter);
+  app.use(`${config.apiPrefix}/companies`, companyRouter);
   app.use(`${config.apiPrefix}/tenants`, tenantRouter);
   app.use(`${config.apiPrefix}/reports`, reportRouter);
   app.use(`${config.apiPrefix}/ledger`, ledgerRouter);

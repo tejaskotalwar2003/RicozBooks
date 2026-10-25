@@ -9,7 +9,7 @@ export const config = {
   appVersion: '1.3.0',
   
   // Database
-  mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/ricozbooks_db',
+  mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ricozbooks_db',
   
   // Security & JWT
   jwtSecret: process.env.JWT_SECRET || 'ricozbooks_super_secure_jwt_secret_key_2026_enterprise_finance',
