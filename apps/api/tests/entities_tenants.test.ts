@@ -9,6 +9,7 @@ import { Invitation } from '../src/models/Invitation';
 import { AuditService } from '../src/services/audit.service';
 import { generateToken } from '../src/utils/security';
 import { InvitationStatus } from '@ricozbooks/shared';
+import { FiscalPeriod } from '../src/models/FiscalPeriod';
 
 describe('Entities & Tenant API Endpoints', () => {
   const app = createApp();
@@ -161,6 +162,196 @@ describe('Entities & Tenant API Endpoints', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.detail).toMatch(/expired/i);
+    });
+  });
+  describe('POST /api/v1/tenants/register-company (Organization Onboarding)', () => {
+    it('should successfully register an organization, primary entity, 13 accounts, 12 fiscal periods, and admin user', async () => {
+      jest.spyOn(User, 'findOne').mockResolvedValue(null);
+      jest.spyOn(Organization, 'findOne').mockResolvedValue(null);
+
+      const fakeOrgId = new mongoose.Types.ObjectId();
+      const fakeEntityId = new mongoose.Types.ObjectId();
+      const fakeUserId = new mongoose.Types.ObjectId();
+
+      jest.spyOn(Organization, 'create').mockResolvedValue([
+        {
+          _id: fakeOrgId,
+          name: 'Acme Global Corp',
+          code: 'ACME_GLOBAL_CORP',
+          legal_name: 'Acme Global Private Limited',
+          currency: 'INR',
+          country: 'India',
+        },
+      ] as any);
+
+      jest.spyOn(Entity, 'create').mockResolvedValue([
+        {
+          _id: fakeEntityId,
+          company_id: fakeOrgId,
+          name: 'Acme Global Corp - Head Office',
+          code: 'ACME_GLOBAL_CORP_HQ',
+          currency: 'INR',
+        },
+      ] as any);
+
+      const insertAccountsSpy = jest.spyOn(Account, 'insertMany').mockResolvedValue([] as any);
+      const insertFiscalSpy = jest.spyOn(FiscalPeriod, 'insertMany').mockResolvedValue([] as any);
+
+      jest.spyOn(User, 'create').mockResolvedValue([
+        {
+          _id: fakeUserId,
+          email: 'rohan@acmeglobal.com',
+          full_name: 'Rohan Deshmukh',
+          role: 'ORG_ADMIN',
+          job_title: 'Organization Admin / Finance Head',
+          default_company_id: fakeOrgId,
+          default_entity_id: fakeEntityId,
+        },
+      ] as any);
+
+      const payload = {
+        company_name: 'Acme Global Corp',
+        legal_name: 'Acme Global Private Limited',
+        business_email: 'finance@acmeglobal.com',
+        country: 'India',
+        base_currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        tax_identifier: '27AABCA1234F1Z5',
+        admin_name: 'Rohan Deshmukh',
+        admin_email: 'rohan@acmeglobal.com',
+        password: 'SecurePassword123!',
+      };
+
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send(payload);
+
+      expect(res.status).toBe(201);
+      expect(res.body.access_token).toBeDefined();
+      expect(res.body.company_name).toBe('Acme Global Corp');
+      expect(res.body.company_code).toBe('ACME_GLOBAL_CORP');
+      expect(res.body.entity_name).toBe('Acme Global Corp - Head Office');
+      expect(res.body.user.email).toBe('rohan@acmeglobal.com');
+      expect(res.body.user.first_name).toBe('Rohan');
+      expect(res.body.user.last_name).toBe('Deshmukh');
+      expect(res.body.user.roles).toContain('ORG_ADMIN');
+
+      // Verify Chart of Accounts & Fiscal schedule provisioning calls
+      expect(insertAccountsSpy).toHaveBeenCalled();
+      const accountsArg = insertAccountsSpy.mock.calls[0][0] as any[];
+      expect(accountsArg.length).toBe(13);
+      expect(accountsArg.map((a: any) => a.code)).toEqual(
+        expect.arrayContaining(['1000', '1100', '1200', '1300', '2000', '2100', '4000', '5700'])
+      );
+
+      expect(insertFiscalSpy).toHaveBeenCalled();
+      const fiscalArg = insertFiscalSpy.mock.calls[0][0] as any[];
+      expect(fiscalArg.length).toBe(12);
+    });
+
+    it('should reject registration when required fields are missing', async () => {
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send({
+          company_name: '',
+          admin_name: 'Test Admin',
+          admin_email: 'test@example.com',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/company name is required/i);
+    });
+
+    it('should reject registration when administrator email is invalid or missing', async () => {
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send({
+          company_name: 'Valid Corp',
+          admin_name: 'Test Admin',
+          admin_email: 'invalid-email',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/valid administrator email/i);
+    });
+
+    it('should reject registration when password is less than 6 characters', async () => {
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send({
+          company_name: 'Valid Corp',
+          admin_name: 'Test Admin',
+          admin_email: 'test@validcorp.com',
+          password: '123',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/at least 6 characters/i);
+    });
+
+    it('should reject duplicate registration when administrator email already exists', async () => {
+      jest.spyOn(User, 'findOne').mockResolvedValue({
+        _id: new mongoose.Types.ObjectId(),
+        email: 'existing@corp.com',
+      } as any);
+
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send({
+          company_name: 'New Corp',
+          admin_name: 'Admin Name',
+          admin_email: 'existing@corp.com',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/already exists/i);
+    });
+
+    it('should reject duplicate registration when organization name already exists', async () => {
+      jest.spyOn(User, 'findOne').mockResolvedValue(null);
+      jest.spyOn(Organization, 'findOne').mockResolvedValue({
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Existing Corp',
+      } as any);
+
+      const res = await request(app)
+        .post('/api/v1/tenants/register-company')
+        .send({
+          company_name: 'Existing Corp',
+          admin_name: 'Admin Name',
+          admin_email: 'fresh@corp.com',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/already registered/i);
+    });
+  });
+
+  describe('GET /api/v1/tenants/company', () => {
+    it('should return the authenticated user\'s organization details', async () => {
+      jest.spyOn(Organization, 'findById').mockResolvedValue({
+        _id: mockOrgId,
+        name: 'Acme Corp',
+        code: 'ACME',
+        legal_name: 'Acme Corporation Ltd',
+        country: 'India',
+        currency: 'INR',
+        business_email: 'finance@acme.com',
+      } as any);
+
+      const res = await request(app)
+        .get('/api/v1/tenants/company')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Acme Corp');
+      expect(res.body.code).toBe('ACME');
+      expect(res.body.base_currency).toBe('INR');
+      expect(res.body.country).toBe('India');
     });
   });
 });

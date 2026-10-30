@@ -878,16 +878,20 @@ export interface CompanyRegistrationData {
   admin_name: string;
   admin_email: string;
   password: string;
+  full_name?: string;
+  email?: string;
+  currency?: string;
+  gstin?: string;
 }
 
 export interface CompanyRegistrationResponse {
   access_token: string;
   token_type: string;
   user: any;
-  company_id: number;
+  company_id: string | number;
   company_name: string;
   company_code: string;
-  entity_id: number;
+  entity_id: string | number;
   entity_name: string;
 }
 
@@ -940,16 +944,29 @@ export interface InvitationAcceptData {
 }
 
 export const registerCompany = async (data: CompanyRegistrationData): Promise<CompanyRegistrationResponse> => {
+  const payload = {
+    ...data,
+    full_name: data.full_name || data.admin_name,
+    email: data.email || data.admin_email,
+    currency: data.currency || data.base_currency,
+    gstin: data.gstin || data.tax_identifier,
+  };
+
   try {
     return await apiRequest<CompanyRegistrationResponse>('/tenants/register-company', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   } catch (err: any) {
-    return await apiRequest<CompanyRegistrationResponse>('/auth/register-company', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    // Only fall back to /auth/register-company if the tenants endpoint does not exist (404)
+    if (err && (err.status === 404 || err.message?.includes('404'))) {
+      return await apiRequest<CompanyRegistrationResponse>('/auth/register-company', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
+    // For validation or duplicate errors (400, 409, etc.), rethrow directly
+    throw err;
   }
 };
 

@@ -2,7 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IOrganization extends Document {
   name: string;
+  code?: string;
   legal_name?: string;
+  tax_identifier?: string;
   business_email?: string;
   phone_number?: string;
   country: string;
@@ -20,7 +22,9 @@ export interface IOrganization extends Document {
 const OrganizationSchema = new Schema<IOrganization>(
   {
     name: { type: String, required: true, trim: true },
+    code: { type: String, trim: true, default: null },
     legal_name: { type: String, default: null },
+    tax_identifier: { type: String, default: null },
     business_email: { type: String, default: null },
     phone_number: { type: String, default: null },
     country: { type: String, default: 'India' },
@@ -42,11 +46,13 @@ export const Organization = mongoose.model<IOrganization>('Organization', Organi
 export interface IEntity extends Document {
   company_id: mongoose.Types.ObjectId;
   name: string;
+  code?: string;
   legal_name?: string;
   tax_identifier: string; // GSTIN or Tax ID
   gstin?: string;
   pan?: string;
   currency: string;
+  base_currency?: string;
   financial_year: string;
   address?: string;
   city?: string;
@@ -64,11 +70,13 @@ const EntitySchema = new Schema<IEntity>(
   {
     company_id: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     name: { type: String, required: true, trim: true },
+    code: { type: String, default: null },
     legal_name: { type: String, default: null },
     tax_identifier: { type: String, required: true },
     gstin: { type: String, default: null },
     pan: { type: String, default: null },
     currency: { type: String, default: 'INR' },
+    base_currency: { type: String, default: 'INR' },
     financial_year: { type: String, default: '2025-26' },
     address: { type: String, default: null },
     city: { type: String, default: null },

@@ -193,14 +193,18 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(errorBody.detail || `Server error (${response.status})`);
+    const errorMessage = errorBody.detail || errorBody.error || errorBody.message || `Server error (${response.status})`;
+    const error = new Error(errorMessage);
+    (error as any).status = response.status;
+    (error as any).data = errorBody;
+    throw error;
   }
 
   return response.json();
 }
 
 export const api = {
-  login: (data: { email: string; password: string; entity_id?: number }) => 
+  login: (data: { email: string; password: string; entity_id?: number | string }) => 
     apiRequest<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),

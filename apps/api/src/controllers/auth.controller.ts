@@ -6,6 +6,7 @@ import { Role } from '../models/Role';
 import { DemoRequest } from '../models/DemoAdminUser';
 import { hashPassword, verifyPassword, generateToken } from '../utils/security';
 import { AuditService } from '../services/audit.service';
+import { TenantController } from './tenant.controller';
 
 export class AuthController {
   static async login(req: Request, res: Response) {
@@ -155,93 +156,7 @@ export class AuthController {
   }
 
   static async registerCompany(req: Request, res: Response) {
-    const { company_name, email, password, full_name, country = 'India', gstin } = req.body;
-    if (!company_name || !email || !password || !full_name) {
-      return res.status(400).json({ detail: 'Company name, email, password, and full name are required' });
-    }
-
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existingUser) {
-      return res.status(409).json({ detail: 'A user with this email address already exists' });
-    }
-
-    const organization = await Organization.create({
-      name: company_name.trim(),
-      country,
-      currency: 'INR',
-      timezone: 'Asia/Kolkata',
-      is_active: true,
-    });
-
-    const entity = await Entity.create({
-      company_id: organization._id,
-      name: `${company_name.trim()} (Primary)`,
-      tax_identifier: gstin || 'UNREGISTERED',
-      gstin: gstin || null,
-      currency: 'INR',
-      financial_year: '2025-26',
-      status: 'ACTIVE',
-      is_active: true,
-    });
-
-    const password_hash = await hashPassword(password);
-    const user = await User.create({
-      email: email.toLowerCase().trim(),
-      password_hash,
-      full_name: full_name.trim(),
-      role: 'ORG_ADMIN',
-      default_company_id: organization._id,
-      default_entity_id: entity._id,
-      companies: [organization._id],
-      entities: [entity._id],
-      is_active: true,
-      is_superuser: false,
-    });
-
-    const token = generateToken({
-      sub: String(user._id),
-      email: user.email,
-      role: user.role,
-      company_id: String(organization._id),
-      entity_id: String(entity._id),
-    });
-
-    await AuditService.logEvent({
-      req,
-      userId: user._id,
-      userEmail: user.email,
-      companyId: organization._id,
-      entityId: entity._id,
-      action: 'ORGANIZATION_REGISTERED',
-      recordType: 'ORGANIZATION',
-      recordId: String(organization._id),
-      details: { company_name: organization.name, primary_entity: entity.name },
-    });
-
-    const nameParts = (user.full_name || '').split(' ');
-    const firstName = nameParts[0] || user.email.split('@')[0];
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    return res.status(201).json({
-      access_token: token,
-      token_type: 'bearer',
-      company_id: organization._id,
-      entity_id: entity._id,
-      user: {
-        id: user._id,
-        email: user.email,
-        full_name: user.full_name,
-        first_name: firstName,
-        last_name: lastName,
-        role: user.role,
-        roles: [user.role],
-        job_title: user.job_title || 'Finance Team',
-        profile_photo_url: user.profile_photo_url || null,
-        is_superuser: user.is_superuser,
-        default_company_id: user.default_company_id,
-        default_entity_id: user.default_entity_id,
-      },
-    });
+    return TenantController.registerCompany(req, res);
   }
 
   static async getMe(req: Request, res: Response) {

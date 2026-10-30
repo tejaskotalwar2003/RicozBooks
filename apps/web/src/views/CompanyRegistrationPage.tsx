@@ -116,27 +116,38 @@ export const CompanyRegistrationPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = validateStep3();
-    if (err) { setError(err); return; }
+    if (isSubmitting) return;
+
+    // Validate all 3 steps to catch any omitted required field
+    const err1 = validateStep1();
+    if (err1) { setStep(1); setError(err1); return; }
+    const err2 = validateStep2();
+    if (err2) { setStep(2); setError(err2); return; }
+    const err3 = validateStep3();
+    if (err3) { setError(err3); return; }
 
     setIsSubmitting(true);
     setError(null);
 
     const payload: CompanyRegistrationData = {
       company_name: formData.company_name.trim(),
-      legal_name: formData.legal_name.trim() || undefined,
+      legal_name: formData.legal_name.trim() || formData.company_name.trim(),
       business_email: formData.business_email.trim().toLowerCase(),
       phone_number: formData.phone_number.trim() || undefined,
-      country: formData.country,
+      country: formData.country.trim(),
       address: formData.address.trim() || undefined,
       city: formData.city.trim() || undefined,
       state: formData.state.trim() || undefined,
       postal_code: formData.postal_code.trim() || undefined,
       base_currency: formData.base_currency,
+      currency: formData.base_currency,
       timezone: formData.timezone,
       tax_identifier: formData.tax_identifier.trim() || undefined,
+      gstin: formData.tax_identifier.trim() || undefined,
       admin_name: formData.admin_name.trim(),
+      full_name: formData.admin_name.trim(),
       admin_email: formData.admin_email.trim().toLowerCase(),
+      email: formData.admin_email.trim().toLowerCase(),
       password: formData.password,
     };
 
@@ -147,6 +158,8 @@ export const CompanyRegistrationPage: React.FC = () => {
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to register organization. Please check details and try again.');
+      // Never repopulate passwords on failure
+      setFormData(prev => ({ ...prev, password: '', confirm_password: '' }));
     } finally {
       setIsSubmitting(false);
     }
@@ -273,6 +286,16 @@ export const CompanyRegistrationPage: React.FC = () => {
             <div>
               <p className="font-semibold">Unable to proceed</p>
               <p className="text-xs mt-0.5 text-red-700">{error}</p>
+              {error.toLowerCase().includes("already exists") && (
+                <div className="mt-2 pt-2 border-t border-red-200/60">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center text-xs font-semibold text-[#781019] hover:underline"
+                  >
+                    Go to Sign In &rarr;
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -388,6 +411,36 @@ export const CompanyRegistrationPage: React.FC = () => {
                     value={formData.city}
                     onChange={handleChange}
                     placeholder="e.g. Bengaluru / New York"
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    State / Province <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    placeholder="e.g. Karnataka / California"
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Postal / ZIP Code <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="postal_code"
+                    value={formData.postal_code}
+                    onChange={handleChange}
+                    placeholder="e.g. 560001 / 90210"
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#781019]"
                   />
                 </div>

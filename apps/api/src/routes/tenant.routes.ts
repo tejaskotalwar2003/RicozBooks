@@ -5,12 +5,14 @@ import { requirePermission } from '../middleware/rbac.middleware';
 
 const router = Router();
 
-// Public routes for invitation verification and acceptance
+// Public routes for onboarding and invitation acceptance
+router.post('/register-company', TenantController.registerCompany);
 router.get('/invitations/validate/:token', TenantController.validateInvitationToken);
 router.post('/invitations/accept', TenantController.acceptInvitation);
 
 // Protected routes
 router.get('/current', requireAuth, TenantController.getCurrentTenant);
+router.get('/company', requireAuth, TenantController.getTenantCompany);
 router.get('/members', requireAuth, TenantController.getMembers);
 router.get('/invitations', requireAuth, requirePermission('tenants:manage'), TenantController.getInvitations);
 router.post('/invitations', requireAuth, requirePermission('tenants:manage'), TenantController.createInvitation);

@@ -7,14 +7,36 @@ interface AuthContextType {
   entities: Entity[];
   companies: Company[];
   isLoading: boolean;
-  login: (email: string, password: string, entityId?: number) => Promise<void>;
+  login: (email: string, password: string, entityId?: number | string) => Promise<void>;
   setSession: (token: string, user: UserAuthSummary) => Promise<void>;
   logout: () => void;
-  switchEntity: (entityId: number) => void;
+  switchEntity: (entityId: number | string) => void;
   updateUser: (updated: Partial<UserAuthSummary> | UserAuthSummary) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function findEntityMatch(list: Entity[], targetId?: number | string | null): Entity | null {
+  if (!list || list.length === 0) return null;
+  if (!targetId) return list[0] || null;
+  const targetStr = String(targetId);
+  return (
+    list.find(e => {
+      const idVal = e.id != null ? String(e.id) : (e as any)._id != null ? String((e as any)._id) : '';
+      return idVal === targetStr;
+    }) ||
+    list[0] ||
+    null
+  );
+}
+
+function saveActiveEntityId(entity: Entity | null) {
+  if (!entity) return;
+  const idVal = entity.id != null ? String(entity.id) : (entity as any)._id != null ? String((entity as any)._id) : '';
+  if (idVal) {
+    localStorage.setItem('ricozbooks_active_entity_id', idVal);
+  }
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserAuthSummary | null>(null);
@@ -38,16 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           api.getEntities(),
           api.getCompanies(),
         ]);
-        
+
         setUser(me);
         setEntities(userEntities);
         setCompanies(compList);
 
-        // Set active entity
+        // Set active entity safely
         const savedEntityId = localStorage.getItem('ricozbooks_active_entity_id');
-        const targetId = savedEntityId ? parseInt(savedEntityId, 10) : (me.active_entity_id || me.default_entity_id);
-        const match = userEntities.find(e => e.id === targetId) || userEntities[0] || null;
+        const targetId = savedEntityId || me.active_entity_id || me.default_entity_id;
+        const match = findEntityMatch(userEntities, targetId);
         setActiveEntity(match);
+        saveActiveEntityId(match);
       } catch (err) {
         console.error('Session verification failed:', err);
         localStorage.removeItem('ricozbooks_token');
@@ -60,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string, entityId?: number) => {
+  const login = async (email: string, password: string, entityId?: number | string) => {
     setIsLoading(true);
     try {
       const res = await api.login({ email, password, entity_id: entityId });
@@ -76,11 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCompanies(compList);
 
       const targetId = entityId || res.user.active_entity_id || res.user.default_entity_id;
-      const match = userEntities.find(e => e.id === targetId) || userEntities[0] || null;
+      const match = findEntityMatch(userEntities, targetId);
       setActiveEntity(match);
-      if (match) {
-        localStorage.setItem('ricozbooks_active_entity_id', match.id.toString());
-      }
+      saveActiveEntityId(match);
     } finally {
       setIsLoading(false);
     }
@@ -92,19 +113,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('ricozbooks_token', token);
       setUser(userSummary);
 
-      const [userEntities, compList] = await Promise.all([
-        api.getEntities(),
-        api.getCompanies(),
-      ]);
+      let userEntities: Entity[] = [];
+      let compList: Company[] = [];
+
+      try {
+        const [fetchedEntities, fetchedCompanies] = await Promise.all([
+          api.getEntities(),
+          api.getCompanies(),
+        ]);
+        userEntities = fetchedEntities || [];
+        compList = fetchedCompanies || [];
+      } catch (fetchErr) {
+        console.warn('Could not fetch entities or companies during setSession:', fetchErr);
+      }
+
       setEntities(userEntities);
       setCompanies(compList);
 
       const targetId = userSummary.active_entity_id || userSummary.default_entity_id;
-      const match = userEntities.find(e => e.id === targetId) || userEntities[0] || null;
+      const match = findEntityMatch(userEntities, targetId);
       setActiveEntity(match);
-      if (match) {
-        localStorage.setItem('ricozbooks_active_entity_id', match.id.toString());
-      }
+      saveActiveEntityId(match);
     } finally {
       setIsLoading(false);
     }
@@ -118,11 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEntities([]);
   };
 
-  const switchEntity = (entityId: number) => {
-    const match = entities.find(e => e.id === entityId);
+  const switchEntity = (entityId: number | string) => {
+    const match = findEntityMatch(entities, entityId);
     if (match) {
       setActiveEntity(match);
-      localStorage.setItem('ricozbooks_active_entity_id', match.id.toString());
+      saveActiveEntityId(match);
     }
   };
 
@@ -157,4 +186,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

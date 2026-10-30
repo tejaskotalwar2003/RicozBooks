@@ -8,3 +8,4 @@ router.use(requireAuth);
 router.get('/', EntityController.listCompanies);
 
 export default router;
+

@@ -7,8 +7,16 @@ import { Role } from '../models/Role';
 import { hashPassword, generateToken } from '../utils/security';
 import { AuditService } from '../services/audit.service';
 import { InvitationStatus } from '@ricozbooks/shared';
+import { TenantService } from '../services/tenant.service';
 
 export class TenantController {
+  public static async registerCompany(req: Request, res: Response) {
+    return TenantService.registerCompany(req, res);
+  }
+
+  public static async getTenantCompany(req: Request, res: Response) {
+    return TenantService.getTenantCompany(req, res);
+  }
   public static async getCurrentTenant(req: Request, res: Response) {
     try {
       const user = (req as any).user;

@@ -18,7 +18,16 @@ export class EntityController {
       }
 
       const entities = await Entity.find(query).sort({ created_at: 1 });
-      return res.json(entities);
+      const formatted = entities.map((e) => {
+        const obj = e.toObject ? e.toObject() : e;
+        return {
+          ...obj,
+          id: String(obj._id),
+          _id: String(obj._id),
+          company_id: obj.company_id ? String(obj.company_id) : null,
+        };
+      });
+      return res.json(formatted);
     } catch (err: any) {
       return res.status(err.statusCode || 500).json({ detail: err.message });
     }
@@ -31,7 +40,13 @@ export class EntityController {
       if (!entity) {
         return res.status(404).json({ detail: `Entity with ID ${id} not found` });
       }
-      return res.json(entity);
+      const obj = entity.toObject ? entity.toObject() : entity;
+      return res.json({
+        ...obj,
+        id: String(obj._id),
+        _id: String(obj._id),
+        company_id: obj.company_id ? String(obj.company_id) : null,
+      });
     } catch (err: any) {
       return res.status(err.statusCode || 500).json({ detail: err.message });
     }
@@ -153,12 +168,21 @@ export class EntityController {
       const orgs = await Organization.find(query);
       const results = await Promise.all(
         orgs.map(async (org) => {
-          const entities = await Entity.find({ company_id: org._id, is_active: true });
+          const rawEntities = await Entity.find({ company_id: org._id, is_active: true });
+          const entities = rawEntities.map((e) => {
+            const obj = e.toObject ? e.toObject() : e;
+            return {
+              ...obj,
+              id: String(obj._id),
+              _id: String(obj._id),
+              company_id: String(org._id),
+            };
+          });
           return {
-            id: org._id,
-            _id: org._id,
+            id: String(org._id),
+            _id: String(org._id),
             name: org.name,
-            code: org.name.substring(0, 4).toUpperCase(),
+            code: (org as any).code || org.name.substring(0, 4).toUpperCase(),
             legal_name: org.legal_name,
             tax_identifier: (org as any).tax_identifier || null,
             base_currency: org.currency || 'INR',
