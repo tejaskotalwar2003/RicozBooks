@@ -19,8 +19,8 @@ export function requirePermission(permissionCode: string) {
       return res.status(401).json({ detail: 'Authentication required' });
     }
 
-    // Super Admin possesses all permissions
-    if (req.user.is_superuser) {
+    // Super Admin, Org Admin, and Admin possess full administrative authority
+    if (req.user.is_superuser || req.user.role === 'ORG_ADMIN' || req.user.role === 'ADMIN') {
       return next();
     }
 

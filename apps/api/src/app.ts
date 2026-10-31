@@ -8,6 +8,7 @@ import developerRouter from './routes/developer.routes';
 import journalRouter from './routes/journal.routes';
 import accountRouter from './routes/account.routes';
 import salesRouter from './routes/sales.routes';
+import customerRouter from './routes/customer.routes';
 import purchaseRouter from './routes/purchase.routes';
 import bankingRouter from './routes/banking.routes';
 import entityRouter from './routes/entity.routes';
@@ -57,9 +58,13 @@ export function createApp(): Application {
   app.use(`${config.apiPrefix}/auth`, authRouter);
   app.use(`${config.apiPrefix}/developer`, developerRouter);
   app.use(`${config.apiPrefix}/journals`, journalRouter);
+  app.use(`${config.apiPrefix}/journal-entries`, journalRouter);
   app.use(`${config.apiPrefix}/accounts`, accountRouter);
+  app.use(`${config.apiPrefix}/customers`, customerRouter);
   app.use(`${config.apiPrefix}/sales`, salesRouter);
+  app.use(`${config.apiPrefix}`, salesRouter); // Direct routes for /invoices, /customers, /items, /products
   app.use(`${config.apiPrefix}/purchases`, purchaseRouter);
+  app.use(`${config.apiPrefix}`, purchaseRouter); // Direct routes for /bills, /vendors
   app.use(`${config.apiPrefix}/banking`, bankingRouter);
   app.use(`${config.apiPrefix}/entities`, entityRouter);
   app.use(`${config.apiPrefix}/companies`, companyRouter);
@@ -75,4 +80,3 @@ export function createApp(): Application {
 }
 
 export const app = createApp();
-

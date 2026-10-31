@@ -19,9 +19,15 @@ router.post('/invoices/:id/payments', requirePermission('sales:payments:record')
 
 router.get('/customers', requirePermission('sales:customers:read'), SalesController.listCustomers);
 router.post('/customers', requirePermission('sales:customers:manage'), SalesController.createCustomer);
+router.get('/customers/:id/statement', requirePermission('sales:customers:read'), SalesController.getCustomerStatement);
+router.get('/customers/:id/ledger', requirePermission('sales:customers:read'), SalesController.getCustomerStatement);
+router.get('/customers/:id', requirePermission('sales:customers:read'), SalesController.getCustomer);
+router.put('/customers/:id', requirePermission('sales:customers:manage'), SalesController.updateCustomer);
+router.delete('/customers/:id', requirePermission('sales:customers:manage'), SalesController.deleteCustomer);
 
 router.get('/items', requirePermission('inventory:products:read'), SalesController.listItems);
 router.post('/items', requirePermission('inventory:products:manage'), SalesController.createItem);
+router.get('/products', requirePermission('inventory:products:read'), SalesController.listItems);
+router.post('/products', requirePermission('inventory:products:manage'), SalesController.createItem);
 
 export default router;
-

@@ -53,6 +53,7 @@ export function extractItems<T>(res: PaginatedResponse<T> | T[] | null | undefin
   if (!res) return [];
   if (Array.isArray(res)) return res;
   if (Array.isArray((res as any).items)) return (res as any).items;
+  if (Array.isArray((res as any).data)) return (res as any).data;
   return [];
 }
 

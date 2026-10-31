@@ -1,5 +1,10 @@
+import path from 'path';
 import dotenv from 'dotenv';
+
+// Load environment variables from local root or apps/api directory
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'apps/api/.env') });
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
@@ -9,10 +14,10 @@ export const config = {
   appVersion: '1.3.0',
   
   // Database
-  mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ricozbooks_db',
+  mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ricozbooks_dev',
   
   // Security & JWT
-  jwtSecret: process.env.JWT_SECRET || 'ricozbooks_super_secure_jwt_secret_key_2026_enterprise_finance',
+  jwtSecret: process.env.JWT_SECRET || 'dev_jwt_secret_ricozbooks_change_in_production_2026',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   
   // CORS
@@ -23,12 +28,8 @@ export const config = {
         'https://ricozbooks-web.onrender.com',
         'https://ricozbooks.onrender.com',
         'http://localhost:3000',
+        'http://localhost:5000',
         'http://127.0.0.1:3000',
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5000',
       ],
-  
-  // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL || 'https://ricozbooks-web-staging.onrender.com',
 };
-
