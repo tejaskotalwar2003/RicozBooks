@@ -73,3 +73,31 @@ const DemoRequestSchema = new Schema<IDemoRequest>(
 
 export const DemoRequest = mongoose.model<IDemoRequest>('DemoRequest', DemoRequestSchema);
 
+export interface IDemoScheduleHistory extends Document {
+  demo_request_id: mongoose.Types.ObjectId;
+  old_date?: Date | null;
+  old_time?: string | null;
+  new_date?: Date | null;
+  new_time?: string | null;
+  changed_by_user_id?: mongoose.Types.ObjectId | null;
+  reason?: string | null;
+  created_at: Date;
+}
+
+const DemoScheduleHistorySchema = new Schema<IDemoScheduleHistory>(
+  {
+    demo_request_id: { type: Schema.Types.ObjectId, ref: 'DemoRequest', required: true, index: true },
+    old_date: { type: Date, default: null },
+    old_time: { type: String, default: null },
+    new_date: { type: Date, default: null },
+    new_time: { type: String, default: null },
+    changed_by_user_id: { type: Schema.Types.ObjectId, ref: 'DemoAdminUser', default: null },
+    reason: { type: String, default: null },
+    created_at: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+
+export const DemoScheduleHistory = (mongoose.models.DemoScheduleHistory as mongoose.Model<IDemoScheduleHistory>) || mongoose.model<IDemoScheduleHistory>('DemoScheduleHistory', DemoScheduleHistorySchema);
+
+

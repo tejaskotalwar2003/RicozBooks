@@ -15,4 +15,11 @@ export * from './Vendor';
 export * from './InventoryMovement';
 export * from './FiscalPeriod';
 export * from './Banking';
-
+export * from './Expense';
+export * from './GST';
+export * from './Close';
+export * from './Project';
+export * from './CommercialDocuments';
+export * from './Settings';
+export * from './Subscription';
+export * from './Notification';

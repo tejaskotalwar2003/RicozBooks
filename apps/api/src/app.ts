@@ -17,6 +17,16 @@ import tenantRouter from './routes/tenant.routes';
 import reportRouter from './routes/report.routes';
 import ledgerRouter from './routes/ledger.routes';
 import dashboardRouter from './routes/dashboard.routes';
+import expenseRouter from './routes/expense.routes';
+import inventoryRouter from './routes/inventory.routes';
+import gstRouter from './routes/gst.routes';
+import closeRouter from './routes/close.routes';
+import projectRouter from './routes/project.routes';
+import settingsRouter from './routes/settings.routes';
+import auditRouter from './routes/audit.routes';
+import subscriptionRouter from './routes/subscription.routes';
+import notificationRouter from './routes/notification.routes';
+import internalDemoRouter from './routes/internalDemo.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp(): Application {
@@ -62,9 +72,9 @@ export function createApp(): Application {
   app.use(`${config.apiPrefix}/accounts`, accountRouter);
   app.use(`${config.apiPrefix}/customers`, customerRouter);
   app.use(`${config.apiPrefix}/sales`, salesRouter);
-  app.use(`${config.apiPrefix}`, salesRouter); // Direct routes for /invoices, /customers, /items, /products
+  app.use(`${config.apiPrefix}`, salesRouter); // Direct routes for /invoices, /customers, /items, /products, /estimates, /orders, /credit-notes, /payments
   app.use(`${config.apiPrefix}/purchases`, purchaseRouter);
-  app.use(`${config.apiPrefix}`, purchaseRouter); // Direct routes for /bills, /vendors
+  app.use(`${config.apiPrefix}`, purchaseRouter); // Direct routes for /bills, /vendors, /purchase-orders, /debit-notes, /vendor-payments
   app.use(`${config.apiPrefix}/banking`, bankingRouter);
   app.use(`${config.apiPrefix}/entities`, entityRouter);
   app.use(`${config.apiPrefix}/companies`, companyRouter);
@@ -72,6 +82,17 @@ export function createApp(): Application {
   app.use(`${config.apiPrefix}/reports`, reportRouter);
   app.use(`${config.apiPrefix}/ledger`, ledgerRouter);
   app.use(`${config.apiPrefix}/dashboard`, dashboardRouter);
+  app.use(`${config.apiPrefix}/expenses`, expenseRouter);
+  app.use(`${config.apiPrefix}/inventory`, inventoryRouter);
+  app.use(`${config.apiPrefix}/gst`, gstRouter);
+  app.use(`${config.apiPrefix}/close`, closeRouter);
+  app.use(`${config.apiPrefix}/projects`, projectRouter);
+  app.use(`${config.apiPrefix}/settings`, settingsRouter);
+  app.use(`${config.apiPrefix}/audit-logs`, auditRouter);
+  app.use(`${config.apiPrefix}/audit`, auditRouter);
+  app.use(`${config.apiPrefix}/subscriptions`, subscriptionRouter);
+  app.use(`${config.apiPrefix}/notifications`, notificationRouter);
+  app.use(`${config.apiPrefix}`, internalDemoRouter); // Direct routes for /demos and /internal/*
 
   // Centralized Error Handling Middleware
   app.use(errorHandler);

@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import { Invoice } from '../models/Invoice';
+import { Invoice, CustomerPayment } from '../models/Invoice';
 import { Customer } from '../models/Customer';
 import { Product } from '../models/Product';
+import { Estimate, SalesOrder, CreditNote, RecurringInvoice } from '../models/CommercialDocuments';
 import { SalesEngine } from '../services/sales.engine';
+import { AccountingEngine } from '../services/accounting.engine';
+import { AuditService } from '../services/audit.service';
 import { fromDecimal, toDecimal, quantizeAmount } from '../utils/decimal';
+import { AccountType, NormalBalance } from '@ricozbooks/shared';
 
 function formatCustomer(c: any) {
   const obj = c.toObject ? c.toObject() : c;
@@ -563,6 +567,605 @@ export class SalesController {
       });
 
       res.status(201).json({ success: true, data: product });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async getItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const product = await Product.findById(id);
+      if (!product) {
+        res.status(404).json({ detail: 'Product not found' });
+        return;
+      }
+      res.json({
+        id: product._id,
+        _id: product._id,
+        entity_id: product.entity_id,
+        name: product.name,
+        sku: product.sku,
+        product_type: product.product_type,
+        category: product.category,
+        unit: product.unit,
+        selling_price: fromDecimal(product.selling_price),
+        purchase_price: fromDecimal(product.purchase_price),
+        tax_rate: fromDecimal(product.tax_rate),
+        current_stock: fromDecimal(product.current_stock),
+        min_stock_alert: fromDecimal(product.min_stock_alert || 0),
+        is_active: product.is_active,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async updateItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updateData = { ...req.body };
+      if (updateData.selling_price !== undefined) updateData.selling_price = toDecimal(updateData.selling_price);
+      if (updateData.purchase_price !== undefined) updateData.purchase_price = toDecimal(updateData.purchase_price);
+      if (updateData.tax_rate !== undefined) updateData.tax_rate = toDecimal(updateData.tax_rate);
+
+      const product = await Product.findByIdAndUpdate(id, updateData, { new: true });
+      if (!product) {
+        res.status(404).json({ detail: 'Product not found' });
+        return;
+      }
+      res.json(product);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async patchItemStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { is_active } = req.body;
+      const product = await Product.findByIdAndUpdate(id, { is_active }, { new: true });
+      if (!product) {
+        res.status(404).json({ detail: 'Product not found' });
+        return;
+      }
+      res.json(product);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async getItemsSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const entityId = req.query.entity_id || req.currentEntityId || req.user?.default_entity_id;
+      if (!entityId) {
+        res.status(400).json({ detail: 'entity_id is required' });
+        return;
+      }
+
+      const products = await Product.find({ entity_id: entityId });
+      const totalCount = products.length;
+      const activeCount = products.filter((p) => p.is_active).length;
+      const lowStockCount = products.filter((p) => fromDecimal(p.current_stock) <= fromDecimal(p.min_stock_alert || 0)).length;
+
+      res.json({
+        total_items: totalCount,
+        active_items: activeCount,
+        low_stock_items: lowStockCount,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async getItemsCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const entityId = req.query.entity_id || req.currentEntityId || req.user?.default_entity_id;
+      const filter: any = {};
+      if (entityId) filter.entity_id = entityId;
+
+      const categories = await Product.distinct('category', filter);
+      res.json(categories.filter(Boolean));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Customer Payments
+  // ==========================================
+  public static async listPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id } = req.query;
+      const filter: any = {};
+      if (entity_id) filter.entity_id = entity_id;
+      if (customer_id) filter.customer_id = customer_id;
+
+      const payments = await CustomerPayment.find(filter)
+        .populate('customer_id', 'name email company_name')
+        .populate('invoice_id', 'invoice_number total_amount')
+        .sort({ payment_date: -1 });
+
+      const items = payments.map((p: any) => ({
+        id: p._id,
+        _id: p._id,
+        payment_number: p.payment_number,
+        payment_date: p.payment_date,
+        amount: fromDecimal(p.amount),
+        payment_mode: p.payment_mode,
+        reference_number: p.reference_number,
+        customer_id: p.customer_id?._id || p.customer_id,
+        customer_name: p.customer_id?.name || null,
+        invoice_id: p.invoice_id?._id || p.invoice_id,
+        invoice_number: p.invoice_id?.invoice_number || null,
+        created_at: p.created_at,
+      }));
+
+      res.json(items);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async recordCustomerPaymentDirect(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, invoice_id, amount, payment_mode, reference_number, deposit_to_account_id, payment_date } = req.body;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+      const userId = (req as any).user?.id || (req as any).user?._id;
+
+      const result = await SalesEngine.recordCustomerPayment({
+        entity_id: targetEntityId,
+        invoice_id,
+        amount: Number(amount),
+        payment_mode: payment_mode || 'BANK_TRANSFER',
+        reference_number,
+        deposit_to_account_id,
+        payment_date: payment_date ? new Date(payment_date) : new Date(),
+        user_id: userId,
+      });
+
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Estimates / Quotations
+  // ==========================================
+  public static async listEstimates(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, status } = req.query;
+      const filter: any = {};
+      if (entity_id) filter.entity_id = entity_id;
+      if (customer_id) filter.customer_id = customer_id;
+      if (status && status !== 'ALL') filter.status = status;
+
+      const estimates = await Estimate.find(filter)
+        .populate('customer_id', 'name email company_name')
+        .sort({ estimate_date: -1 });
+
+      res.json(estimates);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async createEstimate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, expiry_date, notes, lines } = req.body;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+
+      const count = await Estimate.countDocuments({ entity_id: targetEntityId });
+      const estimateNumber = `EST-${(count + 1).toString().padStart(5, '0')}`;
+
+      let subtotal = 0;
+      let taxTotal = 0;
+      const processedLines = (lines || []).map((l: any) => {
+        const qty = Number(l.quantity || 1);
+        const price = Number(l.unit_price || 0);
+        const taxRate = Number(l.tax_rate || 0);
+        const lineSub = Math.round(qty * price * 100) / 100;
+        const lineTax = Math.round(lineSub * (taxRate / 100) * 100) / 100;
+        const lineTot = Math.round((lineSub + lineTax) * 100) / 100;
+
+        subtotal += lineSub;
+        taxTotal += lineTax;
+
+        return {
+          product_id: l.product_id || null,
+          description: l.description,
+          quantity: toDecimal(qty),
+          unit_price: toDecimal(price),
+          tax_rate: toDecimal(taxRate),
+          line_subtotal: toDecimal(lineSub),
+          line_total: toDecimal(lineTot),
+        };
+      });
+
+      const totalAmount = Math.round((subtotal + taxTotal) * 100) / 100;
+
+      const estimate = await Estimate.create({
+        entity_id: targetEntityId,
+        customer_id,
+        estimate_number: estimateNumber,
+        estimate_date: new Date(),
+        expiry_date: expiry_date ? new Date(expiry_date) : null,
+        status: 'DRAFT',
+        subtotal: toDecimal(subtotal),
+        tax_total: toDecimal(taxTotal),
+        total_amount: toDecimal(totalAmount),
+        notes,
+        lines: processedLines,
+      });
+
+      res.status(201).json(estimate);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async getEstimate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const estimate = await Estimate.findById(id).populate('customer_id', 'name email company_name');
+      if (!estimate) {
+        res.status(404).json({ detail: 'Estimate not found' });
+        return;
+      }
+      res.json(estimate);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async convertEstimate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const estimateId = req.params.estimateId || req.params.id;
+      const estimate = await Estimate.findById(estimateId);
+      if (!estimate) {
+        res.status(404).json({ detail: 'Estimate not found' });
+        return;
+      }
+
+      const userId = (req as any).user?.id || (req as any).user?._id;
+
+      // Create invoice from estimate lines
+      const invoiceData = {
+        entity_id: estimate.entity_id,
+        customer_id: estimate.customer_id,
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        lines: estimate.lines.map((l: any) => ({
+          product_id: l.product_id,
+          description: l.description,
+          quantity: fromDecimal(l.quantity),
+          unit_price: fromDecimal(l.unit_price),
+          tax_rate: fromDecimal(l.tax_rate),
+        })),
+        created_by_user_id: userId,
+      };
+
+      const invoice = await SalesEngine.createInvoice(invoiceData as any);
+      estimate.status = 'INVOICED';
+      estimate.converted_invoice_id = invoice._id;
+      await estimate.save();
+
+      res.json(invoice);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Sales Orders
+  // ==========================================
+  public static async listOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, status } = req.query;
+      const filter: any = {};
+      if (entity_id) filter.entity_id = entity_id;
+      if (customer_id) filter.customer_id = customer_id;
+      if (status && status !== 'ALL') filter.status = status;
+
+      const orders = await SalesOrder.find(filter)
+        .populate('customer_id', 'name email company_name')
+        .sort({ order_date: -1 });
+
+      res.json(orders);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, expected_delivery_date, notes, lines } = req.body;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+
+      const count = await SalesOrder.countDocuments({ entity_id: targetEntityId });
+      const orderNumber = `SO-${(count + 1).toString().padStart(5, '0')}`;
+
+      let subtotal = 0;
+      let taxTotal = 0;
+      const processedLines = (lines || []).map((l: any) => {
+        const qty = Number(l.quantity || 1);
+        const price = Number(l.unit_price || 0);
+        const taxRate = Number(l.tax_rate || 0);
+        const lineSub = Math.round(qty * price * 100) / 100;
+        const lineTax = Math.round(lineSub * (taxRate / 100) * 100) / 100;
+        const lineTot = Math.round((lineSub + lineTax) * 100) / 100;
+
+        subtotal += lineSub;
+        taxTotal += lineTax;
+
+        return {
+          product_id: l.product_id || null,
+          description: l.description,
+          quantity: toDecimal(qty),
+          unit_price: toDecimal(price),
+          tax_rate: toDecimal(taxRate),
+          line_total: toDecimal(lineTot),
+        };
+      });
+
+      const order = await SalesOrder.create({
+        entity_id: targetEntityId,
+        customer_id,
+        order_number: orderNumber,
+        order_date: new Date(),
+        expected_delivery_date: expected_delivery_date ? new Date(expected_delivery_date) : null,
+        status: 'CONFIRMED',
+        subtotal: toDecimal(subtotal),
+        tax_total: toDecimal(taxTotal),
+        total_amount: toDecimal(subtotal + taxTotal),
+        notes,
+        lines: processedLines,
+      });
+
+      res.status(201).json(order);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Credit Notes
+  // ==========================================
+  public static async listCreditNotes(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id } = req.query;
+      const filter: any = {};
+      if (entity_id) filter.entity_id = entity_id;
+      if (customer_id) filter.customer_id = customer_id;
+
+      const creditNotes = await CreditNote.find(filter)
+        .populate('customer_id', 'name email company_name')
+        .populate('invoice_id', 'invoice_number')
+        .sort({ issue_date: -1 });
+
+      res.json(creditNotes);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async createCreditNote(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, invoice_id, reason, lines } = req.body;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+      const userId = (req as any).user?.id || (req as any).user?._id;
+
+      const count = await CreditNote.countDocuments({ entity_id: targetEntityId });
+      const cnNumber = `CN-${(count + 1).toString().padStart(5, '0')}`;
+
+      let subtotal = 0;
+      let taxTotal = 0;
+      const processedLines = (lines || []).map((l: any) => {
+        const qty = Number(l.quantity || 1);
+        const price = Number(l.unit_price || 0);
+        const taxRate = Number(l.tax_rate || 0);
+        const lineSub = Math.round(qty * price * 100) / 100;
+        const lineTax = Math.round(lineSub * (taxRate / 100) * 100) / 100;
+        const lineTot = Math.round((lineSub + lineTax) * 100) / 100;
+
+        subtotal += lineSub;
+        taxTotal += lineTax;
+
+        return {
+          product_id: l.product_id || null,
+          description: l.description,
+          quantity: toDecimal(qty),
+          unit_price: toDecimal(price),
+          tax_rate: toDecimal(taxRate),
+          line_total: toDecimal(lineTot),
+        };
+      });
+
+      const totalAmount = Math.round((subtotal + taxTotal) * 100) / 100;
+
+      const creditNote = await CreditNote.create({
+        entity_id: targetEntityId,
+        customer_id,
+        invoice_id: invoice_id || null,
+        credit_note_number: cnNumber,
+        issue_date: new Date(),
+        status: 'OPEN',
+        subtotal: toDecimal(subtotal),
+        tax_total: toDecimal(taxTotal),
+        total_amount: toDecimal(totalAmount),
+        reason,
+        lines: processedLines,
+      });
+
+      // Post Credit Note to GL (Dr Sales Returns/Revenue, Cr Accounts Receivable)
+      try {
+        const salesReturnsAccount = await AccountingEngine.getOrCreateAccount(
+          targetEntityId,
+          '4100',
+          'Sales Returns & Allowances',
+          AccountType.REVENUE,
+          NormalBalance.DEBIT,
+          'Contra revenue account for customer credit notes'
+        );
+
+        const arAccount = await AccountingEngine.getOrCreateAccount(
+          targetEntityId,
+          '1100',
+          'Accounts Receivable',
+          AccountType.ASSET,
+          NormalBalance.DEBIT,
+          'Trade customer receivables'
+        );
+
+        const journal = await AccountingEngine.createJournalEntry({
+          entity_id: targetEntityId,
+          entry_date: new Date(),
+          memo: `Credit Note #${cnNumber} issued to customer`,
+          reference: cnNumber,
+          currency: 'INR',
+          created_by_user_id: userId,
+          lines: [
+            {
+              account_id: salesReturnsAccount._id,
+              debit: totalAmount,
+              credit: 0,
+              description: `Sales return on CN #${cnNumber}`,
+            },
+            {
+              account_id: arAccount._id,
+              debit: 0,
+              credit: totalAmount,
+              description: `AR reduction for CN #${cnNumber}`,
+            },
+          ],
+        });
+
+        await AccountingEngine.postJournalToLedger(journal._id, userId, true);
+        creditNote.journal_entry_id = journal._id;
+        await creditNote.save();
+      } catch (glErr) {
+        console.error('Failed to post credit note to GL:', glErr);
+      }
+
+      res.status(201).json(creditNote);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Recurring Invoices
+  // ==========================================
+  public static async listRecurring(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id } = req.query;
+      const filter: any = {};
+      if (entity_id) filter.entity_id = entity_id;
+
+      const recurring = await RecurringInvoice.find(filter)
+        .populate('customer_id', 'name email company_name')
+        .sort({ created_at: -1 });
+
+      res.json(recurring);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public static async createRecurring(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { entity_id, customer_id, profile_name, frequency, start_date, end_date, total_occurrences, lines } = req.body;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+
+      let subtotal = 0;
+      let taxTotal = 0;
+      const processedLines = (lines || []).map((l: any) => {
+        const qty = Number(l.quantity || 1);
+        const price = Number(l.unit_price || 0);
+        const taxRate = Number(l.tax_rate || 0);
+        const lineSub = Math.round(qty * price * 100) / 100;
+        const lineTax = Math.round(lineSub * (taxRate / 100) * 100) / 100;
+        const lineTot = Math.round((lineSub + lineTax) * 100) / 100;
+
+        subtotal += lineSub;
+        taxTotal += lineTax;
+
+        return {
+          product_id: l.product_id || null,
+          description: l.description,
+          quantity: toDecimal(qty),
+          unit_price: toDecimal(price),
+          tax_rate: toDecimal(taxRate),
+          line_total: toDecimal(lineTot),
+        };
+      });
+
+      const recurring = await RecurringInvoice.create({
+        entity_id: targetEntityId,
+        customer_id,
+        profile_name,
+        frequency: frequency || 'MONTHLY',
+        start_date: start_date ? new Date(start_date) : new Date(),
+        next_issue_date: start_date ? new Date(start_date) : new Date(),
+        end_date: end_date ? new Date(end_date) : null,
+        total_occurrences: total_occurrences || null,
+        status: 'ACTIVE',
+        subtotal: toDecimal(subtotal),
+        tax_total: toDecimal(taxTotal),
+        total_amount: toDecimal(subtotal + taxTotal),
+        lines: processedLines,
+      });
+
+      res.status(201).json(recurring);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // ==========================================
+  // Public Invoice Payment
+  // ==========================================
+  public static async payPublicInvoice(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token } = req.params;
+      const { amount, payment_mode, reference_number } = req.body;
+
+      const invoice = await Invoice.findOne({ payment_token: token });
+      if (!invoice) {
+        res.status(404).json({ detail: 'Invoice not found or invalid payment token' });
+        return;
+      }
+
+      const payAmt = amount ? Number(amount) : fromDecimal(invoice.balance_due);
+
+      const cashAccount = await AccountingEngine.getOrCreateAccount(
+        invoice.entity_id,
+        '1010',
+        'Operating Bank / Cash Account',
+        AccountType.ASSET,
+        NormalBalance.DEBIT,
+        'Primary cash/bank account'
+      );
+
+      const paymentResult = await SalesEngine.recordCustomerPayment({
+        entity_id: invoice.entity_id,
+        invoice_id: invoice._id,
+        amount: payAmt,
+        payment_mode: payment_mode || 'ONLINE_GATEWAY',
+        reference_number: reference_number || `ONLINE-${Date.now()}`,
+        deposit_to_account_id: cashAccount._id,
+        payment_date: new Date(),
+        user_id: invoice.created_by_user_id,
+      });
+
+      const updatedInvoice = await Invoice.findById(invoice._id).populate('customer_id');
+
+      res.json({
+        message: 'Payment received successfully',
+        payment_id: paymentResult.payment._id,
+        balance_due: fromDecimal(updatedInvoice?.balance_due || 0),
+        status: updatedInvoice?.status,
+      });
     } catch (err) {
       next(err);
     }

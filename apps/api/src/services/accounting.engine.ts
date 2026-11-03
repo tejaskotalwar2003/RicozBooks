@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 import { AccountType, JournalStatus, NormalBalance } from '@ricozbooks/shared';
 import { Account, IAccount } from '../models/Account';
 import { JournalEntry, IJournalEntry, IJournalLine } from '../models/JournalEntry';
-import { FiscalPeriod, ClosePeriod } from '../models/FiscalPeriod';
+import { FiscalPeriod } from '../models/FiscalPeriod';
+import { ClosePeriod } from '../models/Close';
 import { AuditService } from './audit.service';
 import { toDecimal, fromDecimal, isBalanced, quantizeAmount } from '../utils/decimal';
 
