@@ -189,7 +189,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
   // 1. LOADING STATE: Shimmering skeleton
   if (isLoading) {
     return (
-      <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 animate-pulse">
+      <div className="h-9 flex items-center gap-2 pl-2 border-l border-slate-200 animate-pulse shrink-0">
         <div className="text-right hidden sm:block space-y-1.5">
           <div className="h-3 w-20 bg-slate-200 rounded"></div>
           <div className="h-2 w-12 bg-slate-100 rounded ml-auto"></div>
@@ -202,10 +202,10 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
   // 2. SAFE FALLBACK (No user loaded or unauthenticated)
   if (!user) {
     return (
-      <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+      <div className="h-9 flex items-center gap-2 pl-2 border-l border-slate-200 shrink-0">
         <button
           onClick={() => navigate('/login')}
-          className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[#260002] text-[#E6B676] hover:bg-[#390003] transition-colors cursor-pointer"
+          className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[#260002] text-[#E6B676] hover:bg-[#390003] transition-colors cursor-pointer whitespace-nowrap"
         >
           Sign In
         </button>
@@ -221,19 +221,19 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
   return (
     <>
       {/* TOP-RIGHT USER TRIGGER */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative shrink-0" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200 hover:opacity-90 focus:outline-none transition-all group cursor-pointer"
+          className="h-9 flex items-center gap-2 pl-1.5 sm:pl-2.5 border-l border-slate-200 hover:opacity-90 focus:outline-none transition-all group cursor-pointer shrink-0"
         >
           {/* Text Container: Full Name & Role */}
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px] group-hover:text-[#781019] transition-colors">
+          <div className="text-right hidden sm:flex sm:flex-col justify-center leading-none">
+            <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[90px] md:max-w-[120px] lg:max-w-[150px] group-hover:text-[#781019] transition-colors whitespace-nowrap">
               {fullName}
             </div>
-            <div className="text-[10px] uppercase font-semibold text-[#781019] tracking-wider truncate max-w-[120px]">
+            <div className="text-[10px] uppercase font-semibold text-[#781019] tracking-wider truncate max-w-[90px] md:max-w-[120px] lg:max-w-[150px] whitespace-nowrap mt-0.5">
               {roleDisplay}
             </div>
           </div>
@@ -245,10 +245,10 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
                 src={user.profile_photo_url!}
                 alt={fullName}
                 onError={() => setImgError(true)}
-                className="w-8 h-8 rounded-full object-cover border border-[#C58B3E]/40 shadow-xs"
+                className="w-8 h-8 rounded-full object-cover border border-[#C58B3E]/40 shadow-xs shrink-0"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs select-none">
+              <div className="w-8 h-8 rounded-full bg-[#260002] text-[#E6B676] font-bold text-xs flex items-center justify-center border border-[#C58B3E]/40 shadow-xs select-none shrink-0">
                 {initials}
               </div>
             )}
@@ -256,7 +256,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
           </div>
 
           <ChevronDown
-            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform duration-200 ${
+            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform duration-200 shrink-0 ${
               isOpen ? 'rotate-180 text-[#781019]' : ''
             }`}
           />

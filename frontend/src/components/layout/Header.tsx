@@ -379,19 +379,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-30 select-none">
+    <header className="h-16 bg-white border-b border-slate-200/90 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 lg:gap-3 shrink-0 shadow-xs sticky top-0 z-30 select-none">
       
       {/* ============================================================== */}
       {/* LEFT SECTION: MOBILE HAMBURGER/LOGO + SELECTORS                */}
       {/* ============================================================== */}
-      <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
         
         {/* Mobile Hamburger & Brand Mark (Visible < md) */}
-        <div className="flex items-center space-x-2 md:hidden">
+        <div className="flex items-center space-x-2 md:hidden shrink-0">
           {onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
-              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-[#390003] transition-colors focus:outline-none focus:ring-1 focus:ring-[#781019]"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-[#390003] transition-colors focus:outline-none focus:ring-1 focus:ring-[#781019] shrink-0 cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               <Menu className="w-5 h-5 text-[#390003]" />
@@ -401,7 +401,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           {/* Compact Mobile Logo */}
           <div 
             onClick={() => navigate('/dashboard')}
-            className="flex items-center space-x-1.5 cursor-pointer"
+            className="flex items-center space-x-1.5 cursor-pointer shrink-0"
           >
             <img 
               src="/logo.jpg" 
@@ -415,7 +415,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* 1. ORGANIZATION SELECTOR (Desktop/Tablet) */}
-        <div className="relative hidden sm:block" ref={orgRef}>
+        <div className="relative hidden sm:block shrink-0" ref={orgRef}>
           <button
             type="button"
             onClick={() => {
@@ -425,14 +425,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               setIsNewTxOpen(false);
             }}
             title={`Organization: ${activeCompany.name}`}
-            className={`h-9 px-2.5 sm:px-3 rounded-lg bg-slate-50 hover:bg-slate-100/90 text-slate-800 font-medium text-xs border border-slate-200/90 flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#781019] ${
+            className={`h-9 px-2.5 sm:px-3 rounded-lg bg-slate-50 hover:bg-slate-100/90 text-slate-800 font-medium text-xs border border-slate-200/90 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#781019] whitespace-nowrap ${
               isOrgOpen ? 'bg-slate-100 border-slate-300 ring-1 ring-slate-300' : ''
             }`}
             aria-expanded={isOrgOpen}
             aria-haspopup="true"
           >
             <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span className="truncate max-w-[100px] sm:max-w-[130px] lg:max-w-[160px] font-semibold text-slate-800">
+            <span className="truncate max-w-[110px] md:max-w-[140px] xl:max-w-[180px] font-semibold text-slate-800 text-left">
               {activeCompany.name}
             </span>
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 shrink-0 ${isOrgOpen ? 'rotate-180 text-slate-700' : ''}`} />
@@ -481,7 +481,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* 2. LEGAL ENTITY SELECTOR (Separate & Visually Distinct) */}
-        <div className="relative" ref={entityRef}>
+        <div className="relative shrink-0" ref={entityRef}>
           <button
             type="button"
             onClick={() => {
@@ -491,16 +491,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               setIsNewTxOpen(false);
             }}
             title={activeEntity ? `${activeEntity.name} (${activeEntity.base_currency})` : 'Select Legal Entity'}
-            className={`h-9 px-2 sm:px-2.5 md:px-3 rounded-lg bg-[#FAF5EE] hover:bg-[#F5EBDD] text-[#390003] font-bold text-xs border border-[#E6B676]/70 flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#781019] ${
+            className={`h-9 px-2.5 sm:px-3 rounded-lg bg-[#FAF5EE] hover:bg-[#F5EBDD] text-[#390003] font-bold text-xs border border-[#E6B676]/70 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#781019] whitespace-nowrap ${
               isEntityOpen ? 'bg-[#F2E5D0] border-[#C58B3E] ring-1 ring-[#C58B3E]' : ''
             }`}
             aria-expanded={isEntityOpen}
             aria-haspopup="true"
           >
             <Globe className="w-3.5 h-3.5 text-[#C58B3E] shrink-0" />
-            <span className="truncate max-w-[110px] sm:max-w-[150px] md:max-w-[190px] xl:max-w-[240px]">
-              {activeEntity ? `${activeEntity.name} (${activeEntity.base_currency})` : 'Select Entity'}
+            <span className="truncate max-w-[90px] sm:max-w-[120px] md:max-w-[150px] xl:max-w-[200px] text-left">
+              {activeEntity ? activeEntity.name : 'Select Entity'}
             </span>
+            {activeEntity?.base_currency && (
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#E6B676]/25 text-[#781019] border border-[#E6B676]/50 shrink-0 leading-tight">
+                {activeEntity.base_currency}
+              </span>
+            )}
             <ChevronDown className={`w-3.5 h-3.5 text-[#C58B3E] transition-transform duration-150 shrink-0 ${isEntityOpen ? 'rotate-180 text-[#390003]' : ''}`} />
           </button>
 
@@ -557,7 +562,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* 3. FINANCIAL YEAR SELECTOR (Calendar icon + subtle green accent) */}
-        <div className="relative hidden lg:block" ref={fyRef}>
+        <div className="relative hidden md:block shrink-0" ref={fyRef}>
           <button
             type="button"
             onClick={() => {
@@ -567,18 +572,27 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               setIsNewTxOpen(false);
             }}
             title={`Financial Year: ${selectedFY} (Active)`}
-            className={`h-9 px-2.5 sm:px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 font-semibold text-xs border border-emerald-200/90 flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-emerald-600 ${
+            className={`h-9 px-2.5 sm:px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200/90 flex items-center gap-2 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-emerald-600 whitespace-nowrap ${
               isFYOpen ? 'bg-emerald-100 border-emerald-300 ring-1 ring-emerald-300' : ''
             }`}
             aria-expanded={isFYOpen}
             aria-haspopup="true"
           >
             <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>{selectedFY}</span>
-            <span className="hidden xl:inline-block px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/60 ml-0.5">
-              Active
-            </span>
-            <ChevronDown className={`w-3 h-3 text-emerald-600 transition-transform duration-150 shrink-0 ${isFYOpen ? 'rotate-180 text-emerald-900' : ''}`} />
+            <div className="flex flex-col text-left leading-none justify-center">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">
+                FY
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs font-bold text-emerald-950 whitespace-nowrap leading-none">
+                  {selectedFY.replace(/^FY\s*/i, '')}
+                </span>
+                <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/60 shrink-0 leading-tight">
+                  Active
+                </span>
+              </div>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-emerald-600 transition-transform duration-150 shrink-0 ${isFYOpen ? 'rotate-180 text-emerald-900' : ''}`} />
           </button>
 
           {/* Financial Year Dropdown Popover */}
@@ -624,83 +638,85 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
 
       {/* ============================================================== */}
-      {/* RIGHT SECTION: SEARCH, NEW TX DROPDOWN, NOTIFICATIONS, PROFILE */}
+      {/* CENTER SECTION: 4. GLOBAL OMNI-SEARCH (Flexible width)         */}
       {/* ============================================================== */}
-      <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
+      <div className="flex-1 min-w-[140px] max-w-[320px] lg:max-w-[400px] xl:max-w-[480px] hidden md:block mx-1 lg:mx-2 relative" ref={searchRef}>
+        <form onSubmit={handleSearchSubmit} className="relative w-full flex items-center">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            placeholder="Search invoices, bills, customers, accounts..."
+            className="h-9 w-full pl-8 pr-16 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-slate-50/80 hover:bg-slate-50 focus:bg-white text-slate-800 placeholder-slate-400 transition-all shadow-2xs truncate"
+          />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+          {/* Clear button or Ctrl+K shortcut badge */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  searchInputRef.current?.focus();
+                }}
+                className="p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-white border border-slate-200 rounded shadow-2xs select-none">
+                {isMac ? '⌘K' : 'Ctrl + K'}
+              </kbd>
+            )}
+          </div>
+        </form>
+
+        {/* Quick Search Dropdown / Navigation Menu */}
+        {isSearchFocused && (
+          <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-3 py-1 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <span>{searchQuery ? 'Matching Workspaces' : 'Quick Navigation'}</span>
+              <span>Press Enter ↵</span>
+            </div>
+            <div className="max-h-60 overflow-y-auto py-1 divide-y divide-slate-50">
+              {filteredSearch.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onMouseDown={() => handleSearchSelect(item.route)}
+                    className="w-full text-left px-3 py-2 flex items-center space-x-2.5 hover:bg-[#FAF5EE] transition-colors cursor-pointer group"
+                  >
+                    <div className="p-1 rounded-md bg-slate-100 text-slate-600 group-hover:bg-[#E6B676]/20 group-hover:text-[#390003] transition-colors shrink-0">
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-slate-800 group-hover:text-[#390003] truncate">
+                        {item.title}
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {item.subtitle}
+                      </div>
+                    </div>
+                    <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#781019] group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* RIGHT SECTION: NEW TX, NOTIFICATIONS, PROFILE                  */}
+      {/* ============================================================== */}
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
         
-        {/* 4. GLOBAL OMNI-SEARCH (Desktop: 280-330px width, no clipping) */}
-        <div className="relative hidden md:block" ref={searchRef}>
-          <form onSubmit={handleSearchSubmit} className="relative">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setIsSearchFocused(true)}
-              placeholder="Search invoices, bills, customers, accounts, journals..."
-              className="h-9 w-64 lg:w-72 xl:w-[320px] pl-8 pr-16 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-slate-50/80 hover:bg-slate-50 focus:bg-white text-slate-800 placeholder-slate-400 transition-all shadow-2xs"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3 pointer-events-none" />
-
-            {/* Clear button or Ctrl+K shortcut badge */}
-            <div className="absolute right-2 top-2 flex items-center space-x-1">
-              {searchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    searchInputRef.current?.focus();
-                  }}
-                  className="p-0.5 text-slate-400 hover:text-slate-600 rounded"
-                  title="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-white border border-slate-200 rounded shadow-2xs select-none">
-                  {isMac ? '⌘K' : 'Ctrl + K'}
-                </kbd>
-              )}
-            </div>
-          </form>
-
-          {/* Quick Search Dropdown / Navigation Menu */}
-          {isSearchFocused && (
-            <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3 py-1 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                <span>{searchQuery ? 'Matching Workspaces' : 'Quick Navigation'}</span>
-                <span>Press Enter ↵</span>
-              </div>
-              <div className="max-h-60 overflow-y-auto py-1 divide-y divide-slate-50">
-                {filteredSearch.map((item, idx) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onMouseDown={() => handleSearchSelect(item.route)}
-                      className="w-full text-left px-3 py-2 flex items-center space-x-2.5 hover:bg-[#FAF5EE] transition-colors cursor-pointer group"
-                    >
-                      <div className="p-1 rounded-md bg-slate-100 text-slate-600 group-hover:bg-[#E6B676]/20 group-hover:text-[#390003] transition-colors shrink-0">
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-slate-800 group-hover:text-[#390003] truncate">
-                          {item.title}
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">
-                          {item.subtitle}
-                        </div>
-                      </div>
-                      <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#781019] group-hover:translate-x-0.5 transition-all shrink-0" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Mobile Search Toggle Icon (Visible < md) */}
         <button
           type="button"
@@ -708,7 +724,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             setIsMobileSearchOpen(true);
             setTimeout(() => mobileSearchInputRef.current?.focus(), 50);
           }}
-          className="md:hidden h-9 w-9 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          className="md:hidden h-9 w-9 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
           title="Search"
           aria-label="Search"
         >
@@ -716,7 +732,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </button>
 
         {/* 5. NEW TRANSACTION DROPDOWN (Burgundy button with gold plus & downward chevron) */}
-        <div className="relative" ref={newTxRef} onKeyDown={handleNewTxKeyDown}>
+        <div className="relative shrink-0" ref={newTxRef} onKeyDown={handleNewTxKeyDown}>
           <button 
             type="button"
             onClick={() => {
@@ -727,7 +743,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               setIsFYOpen(false);
               setIsNotifOpen(false);
             }}
-            className="h-9 px-2.5 sm:px-3 bg-[#390003] hover:bg-[#55080E] active:bg-[#260002] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-[#E6B676]/50"
+            className="h-9 px-2.5 sm:px-3 bg-[#390003] hover:bg-[#55080E] active:bg-[#260002] text-white text-xs font-semibold rounded-lg shadow-sm border border-[#781019] flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#E6B676]/50"
             aria-expanded={isNewTxOpen}
             aria-haspopup="true"
           >
@@ -839,7 +855,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* 6. NOTIFICATIONS BELL */}
-        <div className="relative" ref={notifRef}>
+        <div className="relative shrink-0" ref={notifRef}>
           <button 
             type="button"
             aria-label="Notifications"
@@ -850,7 +866,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               setIsFYOpen(false);
               setIsNewTxOpen(false);
             }}
-            className="h-9 w-9 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-300"
+            className="h-9 w-9 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors relative cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-300 shrink-0"
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -968,11 +984,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </div>
 
         {/* 7. USER PROFILE TRIGGER & DROPDOWN (Preserved exactly as specified) */}
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           <UserProfileDropdown onOpenNotifications={() => setIsNotifOpen(true)} />
         </div>
 
       </div>
+
 
       {/* ============================================================== */}
       {/* MOBILE SEARCH OVERLAY (Visible only when mobile search active) */}
