@@ -1978,70 +1978,77 @@ export const recordVendorPayment = async (data: VendorPaymentCreateData): Promis
 // EXPENSES MODULE (PHASE 3)
 // ==========================================
 export interface ExpenseCategory {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  _id?: string;
+  entity_id: number | string;
   code: string;
   name: string;
   description?: string;
-  default_account_id?: number;
+  default_account_id?: number | string;
   tax_rate_percent: number;
   is_active: boolean;
 }
 
 export interface Expense {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  _id?: string;
+  entity_id: number | string;
   expense_number: string;
   title: string;
-  category_id?: number;
+  category_id?: number | string;
   category_name?: string;
   expense_date: string;
-  expense_account_id: number;
+  expense_account_id: number | string;
   expense_account_name?: string;
-  payment_account_id?: number;
+  payment_account_id?: number | string;
   payment_account_name?: string;
-  bank_account_id?: number;
+  bank_account_id?: number | string;
   payment_method: string;
   subtotal: number | string;
   tax_amount: number | string;
   total_amount: number | string;
+  gst_rate?: number;
   currency: string;
   merchant_name?: string;
   reference_number?: string;
   description?: string;
+  notes?: string;
   receipt_url?: string;
   is_reimbursable: boolean;
   is_billable: boolean;
-  customer_id?: number;
+  customer_id?: number | string;
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'PAID';
   submitter_name?: string;
-  approved_by_id?: number;
+  approved_by_id?: number | string;
   approved_at?: string;
   rejection_reason?: string;
-  journal_entry_id?: number;
-  reimbursement_journal_id?: number;
+  journal_entry_id?: number | string;
+  reimbursement_journal_id?: number | string;
   created_at: string;
   updated_at: string;
 }
 
 export interface ExpenseCreateData {
-  entity_id: number;
+  entity_id: number | string;
   title: string;
-  category_id?: number;
+  category_id?: number | string;
   expense_date: string;
-  expense_account_id: number;
-  payment_account_id?: number;
-  bank_account_id?: number;
+  expense_account_id: number | string;
+  payment_account_id?: number | string;
+  bank_account_id?: number | string;
   payment_method: string;
   subtotal: number;
   tax_amount?: number;
+  gst_rate?: number;
   currency?: string;
   merchant_name?: string;
   reference_number?: string;
   description?: string;
+  notes?: string;
+  receipt_url?: string;
   is_reimbursable?: boolean;
   is_billable?: boolean;
-  customer_id?: number;
+  customer_id?: number | string;
 }
 
 export interface ExpenseSummary {
@@ -2049,14 +2056,14 @@ export interface ExpenseSummary {
   pending_approvals_count: number;
   reimbursable_claims_total: number;
   posted_expenses_total: number;
-  category_breakdown: { category: string; amount: number }[];
+  category_breakdown?: { category: string; amount: number }[];
 }
 
-export const getExpenseCategories = async (entityId: number): Promise<ExpenseCategory[]> => {
-  return apiRequest<ExpenseCategory[]>(`/expenses/categories?entity_id=${entityId}`);
+export const getExpenseCategories = async (entityId: number | string): Promise<ExpenseCategory[]> => {
+  return apiRequest<ExpenseCategory[]>(`/expenses/categories?entity_id=`);
 };
 
-export const createExpenseCategory = async (data: Partial<ExpenseCategory> & { entity_id: number; code: string; name: string }): Promise<ExpenseCategory> => {
+export const createExpenseCategory = async (data: Partial<ExpenseCategory> & { entity_id: number | string; code: string; name: string }): Promise<ExpenseCategory> => {
   return apiRequest<ExpenseCategory>('/expenses/categories', {
     method: 'POST',
     body: JSON.stringify(data)
@@ -2064,70 +2071,106 @@ export const createExpenseCategory = async (data: Partial<ExpenseCategory> & { e
 };
 
 export const getExpenses = async (
-  entityId: number, 
-  filters?: { status?: string; category_id?: number; is_reimbursable?: boolean; search?: string }
+  entityId: number | string,
+  filters?: { status?: string; category_id?: number | string; is_reimbursable?: boolean; search?: string }
 ): Promise<Expense[]> => {
   const params = new URLSearchParams();
   params.append('entity_id', entityId.toString());
-  if (filters?.status) params.append('status_filter', filters.status);
-  if (filters?.category_id) params.append('category_id', filters.category_id.toString());
+  if (filters?.status && filters.status !== 'ALL') {
+    params.append('status', filters.status);
+    params.append('status_filter', filters.status);
+  }
+  if (filters?.category_id && filters.category_id !== 'ALL') params.append('category_id', filters.category_id.toString());
   if (filters?.is_reimbursable !== undefined) params.append('is_reimbursable', filters.is_reimbursable.toString());
   if (filters?.search) params.append('search', filters.search);
   params.append('paginate', 'false');
-  const res = await apiRequest<Expense[] | PaginatedResponse<Expense>>(`/expenses/expenses?${params.toString()}`);
+  const res = await apiRequest<Expense[] | PaginatedResponse<Expense>>(`/expenses?`);
   return extractItems(res);
 };
 
 export const getExpensesPaginated = async (
-  entityId: number, 
-  filters?: { status?: string; category_id?: number; is_reimbursable?: boolean; search?: string },
+  entityId: number | string,
+  filters?: { status?: string; category_id?: number | string; is_reimbursable?: boolean; search?: string },
   page: number = 1,
   pageSize: number = 20
 ): Promise<PaginatedResponse<Expense>> => {
   const params = new URLSearchParams();
   params.append('entity_id', entityId.toString());
-  if (filters?.status && filters.status !== 'ALL') params.append('status_filter', filters.status);
-  if (filters?.category_id) params.append('category_id', filters.category_id.toString());
+  if (filters?.status && filters.status !== 'ALL') {
+    params.append('status', filters.status);
+    params.append('status_filter', filters.status);
+  }
+  if (filters?.category_id && filters.category_id !== 'ALL') params.append('category_id', filters.category_id.toString());
   if (filters?.is_reimbursable !== undefined) params.append('is_reimbursable', filters.is_reimbursable.toString());
   if (filters?.search) params.append('search', filters.search);
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
   params.append('paginate', 'true');
-  return apiRequest<PaginatedResponse<Expense>>(`/expenses/expenses?${params.toString()}`);
+  const res = await apiRequest<any>(`/expenses?`);
+  if (res && Array.isArray(res.items)) {
+    return res;
+  }
+  if (Array.isArray(res)) {
+    return {
+      items: res,
+      total: res.length,
+      page: 1,
+      page_size: pageSize,
+      total_pages: 1
+    };
+  }
+  return { items: [], total: 0, page: 1, page_size: pageSize, total_pages: 1 };
 };
 
 export const createExpense = async (data: ExpenseCreateData, autoPost: boolean = false): Promise<Expense> => {
-  return apiRequest<Expense>(`/expenses/expenses?auto_post=${autoPost}`, {
+  return apiRequest<Expense>(`/expenses?auto_post=`, {
     method: 'POST',
     body: JSON.stringify(data)
   });
 };
 
-export const actionExpense = async (id: number, action: 'APPROVE' | 'REJECT', rejectionReason?: string): Promise<Expense> => {
-  return apiRequest<Expense>(`/expenses/expenses/${id}/action`, {
+export const submitExpense = async (id: number | string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//submit`, {
+    method: 'POST'
+  });
+};
+
+export const approveExpense = async (id: number | string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//approve`, {
+    method: 'POST'
+  });
+};
+
+export const rejectExpense = async (id: number | string, rejectionReason?: string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//reject`, {
+    method: 'POST',
+    body: JSON.stringify({ rejection_reason: rejectionReason })
+  });
+};
+
+export const actionExpense = async (id: number | string, action: 'APPROVE' | 'REJECT', rejectionReason?: string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//action`, {
     method: 'POST',
     body: JSON.stringify({ action, rejection_reason: rejectionReason })
   });
 };
 
-export const postExpense = async (id: number): Promise<Expense> => {
-  return apiRequest<Expense>(`/expenses/expenses/${id}/post`, {
+export const postExpense = async (id: number | string): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//post`, {
     method: 'POST'
   });
 };
 
-export const reimburseExpense = async (id: number, data: { payment_account_id: number; bank_account_id?: number; reference_number?: string }): Promise<Expense> => {
-  return apiRequest<Expense>(`/expenses/expenses/${id}/reimburse`, {
+export const reimburseExpense = async (id: number | string, data: { payment_account_id: number | string; bank_account_id?: number | string; reference_number?: string }): Promise<Expense> => {
+  return apiRequest<Expense>(`/expenses//reimburse`, {
     method: 'POST',
     body: JSON.stringify(data)
   });
 };
 
-export const getExpenseSummary = async (entityId: number): Promise<ExpenseSummary> => {
-  return apiRequest<ExpenseSummary>(`/expenses/expenses-summary?entity_id=${entityId}`);
+export const getExpenseSummary = async (entityId: number | string): Promise<ExpenseSummary> => {
+  return apiRequest<ExpenseSummary>(`/expenses/summary?entity_id=`);
 };
-
-
 // ==========================================
 // BANKING MODULE (PHASE 3)
 // ==========================================

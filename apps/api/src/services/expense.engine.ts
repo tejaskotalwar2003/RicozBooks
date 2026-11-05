@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Expense, IExpense } from '../models/Expense';
+import { Expense, IExpense, ExpenseCategory } from '../models/Expense';
 import { Account } from '../models/Account';
 import { AccountingEngine } from './accounting.engine';
 import { AccountType, NormalBalance, JournalStatus } from '@ricozbooks/shared';
@@ -9,6 +9,45 @@ export class ExpenseEngine {
     const count = await Expense.countDocuments({ entity_id: entityId });
     const num = (count + 1).toString().padStart(5, '0');
     return `EXP-${num}`;
+  }
+
+  public static async initializeStandardCategories(entityId: mongoose.Types.ObjectId | string): Promise<void> {
+    const existing = await ExpenseCategory.countDocuments({ entity_id: entityId });
+    if (existing > 0) return;
+
+    // Standard accounts mapping
+    const rentAcct = await AccountingEngine.getOrCreateAccount(entityId, '5100', 'Office Rent Expense', AccountType.EXPENSE, NormalBalance.DEBIT, 'Office lease and commercial rent');
+    const salaryAcct = await AccountingEngine.getOrCreateAccount(entityId, '5000', 'Salary & Payroll Expense', AccountType.EXPENSE, NormalBalance.DEBIT, 'Employee wages and salaries');
+    const travelAcct = await AccountingEngine.getOrCreateAccount(entityId, '5300', 'Travel & Conveyance Expense', AccountType.EXPENSE, NormalBalance.DEBIT, 'Business travel and conveyance');
+    const utilityAcct = await AccountingEngine.getOrCreateAccount(entityId, '5200', 'Utilities & Software Expense', AccountType.EXPENSE, NormalBalance.DEBIT, 'Cloud infrastructure, internet, and utilities');
+    const suppliesAcct = await AccountingEngine.getOrCreateAccount(entityId, '5400', 'Office Supplies & Stationery', AccountType.EXPENSE, NormalBalance.DEBIT, 'Office consumables and stationery');
+    const marketingAcct = await AccountingEngine.getOrCreateAccount(entityId, '5500', 'Marketing & Advertising Expense', AccountType.EXPENSE, NormalBalance.DEBIT, 'Promotions and marketing campaigns');
+    const profAcct = await AccountingEngine.getOrCreateAccount(entityId, '5600', 'Professional & Legal Fees', AccountType.EXPENSE, NormalBalance.DEBIT, 'Legal, audit, and consulting fees');
+    const generalAcct = await AccountingEngine.getOrCreateAccount(entityId, '5800', 'Other Operating Expenses', AccountType.EXPENSE, NormalBalance.DEBIT, 'General operating expenses');
+
+    const canonicalCategories = [
+      { code: 'RENT', name: 'Office Rent', default_account_id: rentAcct._id, description: 'Commercial office and facility leases', tax_rate_percent: 18.0 },
+      { code: 'SALARY', name: 'Employee Salaries', default_account_id: salaryAcct._id, description: 'Staff payroll and allowances', tax_rate_percent: 0.0 },
+      { code: 'TRAVEL', name: 'Travel & Conveyance', default_account_id: travelAcct._id, description: 'Cab, train, flight, and lodging claims', tax_rate_percent: 5.0 },
+      { code: 'IT_CLOUD', name: 'Internet & Cloud Software', default_account_id: utilityAcct._id, description: 'Cloud infrastructure (AWS/GCP), SaaS tools, internet', tax_rate_percent: 18.0 },
+      { code: 'SUPPLIES', name: 'Office Supplies', default_account_id: suppliesAcct._id, description: 'Stationery, printing, pantry, and office assets', tax_rate_percent: 12.0 },
+      { code: 'MARKETING', name: 'Marketing & Advertising', default_account_id: marketingAcct._id, description: 'Paid ad campaigns, sponsorships, and collateral', tax_rate_percent: 18.0 },
+      { code: 'UTILITIES', name: 'Utilities & Electricity', default_account_id: utilityAcct._id, description: 'Power, water, and facility utilities', tax_rate_percent: 18.0 },
+      { code: 'PROFESSIONAL', name: 'Professional Fees', default_account_id: profAcct._id, description: 'Legal counsel, accounting, and advisory retainers', tax_rate_percent: 18.0 },
+      { code: 'GENERAL', name: 'Other Operating Expenses', default_account_id: generalAcct._id, description: 'Miscellaneous routine operational expenses', tax_rate_percent: 18.0 },
+    ];
+
+    for (const cat of canonicalCategories) {
+      await ExpenseCategory.create({
+        entity_id: entityId,
+        code: cat.code,
+        name: cat.name,
+        default_account_id: cat.default_account_id,
+        description: cat.description,
+        tax_rate_percent: cat.tax_rate_percent,
+        is_active: true,
+      });
+    }
   }
 
   public static async postExpenseToGL(expenseId: string | mongoose.Types.ObjectId, userId: string | mongoose.Types.ObjectId): Promise<IExpense> {
@@ -85,8 +124,8 @@ export class ExpenseEngine {
       if (!creditAccountId) {
         const cashAcct = await AccountingEngine.getOrCreateAccount(
           expense.entity_id,
-          '1010',
-          'Operating Bank / Cash Account',
+          '1100',
+          'Operating Bank Account',
           AccountType.ASSET,
           NormalBalance.DEBIT,
           'Primary cash/bank account'
@@ -115,7 +154,7 @@ export class ExpenseEngine {
     await AccountingEngine.postJournalToLedger(journal._id, userId, true);
 
     expense.journal_entry_id = journal._id;
-    expense.status = expense.is_reimbursable ? 'APPROVED' : 'POSTED';
+    expense.status = 'POSTED';
     await expense.save();
 
     return expense;

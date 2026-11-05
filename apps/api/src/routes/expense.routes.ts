@@ -15,16 +15,26 @@ router.put('/categories/:id', ExpenseController.updateCategory);
 router.delete('/categories/:id', ExpenseController.deleteCategory);
 
 // Summary metrics
+router.get('/summary', ExpenseController.getSummary);
 router.get('/expenses-summary', ExpenseController.getSummary);
 
-// Expenses endpoints (nested under /expenses/expenses as called by some clients)
+// Expenses endpoints (nested under /expenses/expenses as called by legacy or specific clients)
+router.get('/expenses/summary', ExpenseController.getSummary);
+router.get('/expenses/expenses-summary', ExpenseController.getSummary);
+router.get('/expenses/categories', ExpenseController.getCategories);
+router.post('/expenses/categories', ExpenseController.createCategory);
+
 router.get('/expenses', ExpenseController.listExpenses);
 router.post('/expenses', ExpenseController.createExpense);
 router.get('/expenses/:id', ExpenseController.getExpense);
 router.put('/expenses/:id', ExpenseController.updateExpense);
 router.delete('/expenses/:id', ExpenseController.deleteExpense);
+router.post('/expenses/:id/submit', ExpenseController.submitExpense);
+router.post('/expenses/:id/approve', ExpenseController.approveExpense);
+router.post('/expenses/:id/reject', ExpenseController.rejectExpense);
 router.post('/expenses/:id/action', ExpenseController.actionExpense);
 router.post('/expenses/:id/post', ExpenseController.postExpense);
+router.post('/expenses/:id/payment', ExpenseController.reimburseExpense);
 router.post('/expenses/:id/reimburse', ExpenseController.reimburseExpense);
 
 // Direct endpoints on router root (e.g. GET /expenses?entity_id=...)
@@ -33,8 +43,12 @@ router.post('/', ExpenseController.createExpense);
 router.get('/:id', ExpenseController.getExpense);
 router.put('/:id', ExpenseController.updateExpense);
 router.delete('/:id', ExpenseController.deleteExpense);
+router.post('/:id/submit', ExpenseController.submitExpense);
+router.post('/:id/approve', ExpenseController.approveExpense);
+router.post('/:id/reject', ExpenseController.rejectExpense);
 router.post('/:id/action', ExpenseController.actionExpense);
 router.post('/:id/post', ExpenseController.postExpense);
+router.post('/:id/payment', ExpenseController.reimburseExpense);
 router.post('/:id/reimburse', ExpenseController.reimburseExpense);
 
 export default router;

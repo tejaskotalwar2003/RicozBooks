@@ -22,7 +22,11 @@ const ExpenseCategorySchema = new Schema<IExpenseCategory>(
     tax_rate_percent: { type: Schema.Types.Decimal128, default: 0.0 },
     is_active: { type: Boolean, default: true },
   },
-  { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
+  { 
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
 
 ExpenseCategorySchema.index({ entity_id: 1, code: 1 }, { unique: true });
@@ -31,7 +35,7 @@ export interface IExpense extends Document {
   entity_id: mongoose.Types.ObjectId;
   expense_number: string;
   title: string;
-  category_id: mongoose.Types.ObjectId;
+  category_id?: mongoose.Types.ObjectId;
   user_id: mongoose.Types.ObjectId;
   expense_date: Date;
   expense_account_id: mongoose.Types.ObjectId;
@@ -41,10 +45,12 @@ export interface IExpense extends Document {
   subtotal: mongoose.Types.Decimal128;
   tax_amount: mongoose.Types.Decimal128;
   total_amount: mongoose.Types.Decimal128;
+  gst_rate?: number;
   currency: string;
   merchant_name?: string;
   reference_number?: string;
   description?: string;
+  notes?: string;
   receipt_url?: string;
   is_reimbursable: boolean;
   is_billable: boolean;
@@ -64,7 +70,7 @@ const ExpenseSchema = new Schema<IExpense>(
     entity_id: { type: Schema.Types.ObjectId, ref: 'Entity', required: true, index: true },
     expense_number: { type: String, required: true },
     title: { type: String, required: true, trim: true },
-    category_id: { type: Schema.Types.ObjectId, ref: 'ExpenseCategory', required: true },
+    category_id: { type: Schema.Types.ObjectId, ref: 'ExpenseCategory', default: null },
     user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     expense_date: { type: Date, default: Date.now },
     expense_account_id: { type: Schema.Types.ObjectId, ref: 'Account', required: true },
@@ -74,10 +80,12 @@ const ExpenseSchema = new Schema<IExpense>(
     subtotal: { type: Schema.Types.Decimal128, default: 0.0 },
     tax_amount: { type: Schema.Types.Decimal128, default: 0.0 },
     total_amount: { type: Schema.Types.Decimal128, default: 0.0 },
+    gst_rate: { type: Number, default: 0 },
     currency: { type: String, default: 'INR' },
     merchant_name: { type: String, default: null },
     reference_number: { type: String, default: null },
     description: { type: String, default: null },
+    notes: { type: String, default: null },
     receipt_url: { type: String, default: null },
     is_reimbursable: { type: Boolean, default: false },
     is_billable: { type: Boolean, default: false },
@@ -94,7 +102,11 @@ const ExpenseSchema = new Schema<IExpense>(
     journal_entry_id: { type: Schema.Types.ObjectId, ref: 'JournalEntry', default: null },
     reimbursement_journal_id: { type: Schema.Types.ObjectId, ref: 'JournalEntry', default: null },
   },
-  { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
+  { 
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
 
 ExpenseSchema.index({ entity_id: 1, expense_number: 1 }, { unique: true });

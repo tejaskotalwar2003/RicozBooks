@@ -88,16 +88,52 @@ export class SubscriptionController {
         // Return default growth or starter for dev
         res.json({
           plan_tier: 'GROWTH',
-          billing_cycle: 'MONTHLY',
+          billing_cycle: 'ANNUALLY',
           status: 'ACTIVE',
-          current_period_start: new Date(),
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          company_name: 'Primary Organization',
+          current_period_start: new Date().toISOString().split('T')[0],
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           cancel_at_period_end: false,
+          plan: {
+            id: 'growth-tier',
+            tier: 'GROWTH',
+            name: 'Growth Enterprise',
+            description: 'Scale multi-entity enterprise operations',
+            monthly_price: 99,
+            annual_price: 950,
+          },
+          entities_used: 1,
+          entities_limit: 5,
+          users_used: 1,
+          users_limit: 10,
         });
         return;
       }
 
-      res.json(sub);
+      const planDoc = await SubscriptionPlan.findOne({ tier: sub.plan_tier || 'GROWTH' });
+      res.json({
+        ...sub.toObject(),
+        company_name: 'Primary Organization',
+        plan: planDoc ? {
+          id: String(planDoc._id),
+          tier: planDoc.tier,
+          name: planDoc.name,
+          description: planDoc.description,
+          monthly_price: Number(planDoc.monthly_price || 99),
+          annual_price: Number(planDoc.annual_price || 950),
+        } : {
+          id: 'growth-tier',
+          tier: 'GROWTH',
+          name: 'Growth Enterprise',
+          description: 'Scale multi-entity enterprise operations',
+          monthly_price: 99,
+          annual_price: 950,
+        },
+        entities_used: 1,
+        entities_limit: 5,
+        users_used: 1,
+        users_limit: 10,
+      });
     } catch (err) {
       next(err);
     }

@@ -157,7 +157,7 @@ export const SubscriptionPage: React.FC = () => {
               <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
                 <span className="text-xs uppercase tracking-wider font-bold text-slate-500">Current Plan</span>
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 font-mono">
-                  {currentSub.plan.name}
+                  {currentSub.plan?.name || (currentSub as any).plan_tier || 'Growth Plan'}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -178,13 +178,13 @@ export const SubscriptionPage: React.FC = () => {
                     <span>Legal Entities</span>
                   </span>
                   <span className="font-mono font-bold text-slate-900">
-                    {currentSub.entities_used} / {currentSub.entities_limit}
+                    {currentSub.entities_used ?? 1} / {currentSub.entities_limit ?? 5}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (currentSub.entities_used / currentSub.entities_limit) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (((currentSub.entities_used ?? 1) / (currentSub.entities_limit ?? 5)) * 100))}%` }}
                   />
                 </div>
               </div>
@@ -196,13 +196,13 @@ export const SubscriptionPage: React.FC = () => {
                     <span>User Seats</span>
                   </span>
                   <span className="font-mono font-bold text-slate-900">
-                    {currentSub.users_used} / {currentSub.users_limit}
+                    {currentSub.users_used ?? 1} / {currentSub.users_limit ?? 10}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                   <div 
                     className="bg-blue-600 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (currentSub.users_used / currentSub.users_limit) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (((currentSub.users_used ?? 1) / (currentSub.users_limit ?? 10)) * 100))}%` }}
                   />
                 </div>
               </div>
