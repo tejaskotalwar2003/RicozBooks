@@ -7,9 +7,9 @@ interface AuthContextType {
   entities: Entity[];
   companies: Company[];
   isLoading: boolean;
-  login: (email: string, password: string, entityId?: number | string) => Promise<void>;
-  setSession: (token: string, user: UserAuthSummary) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string, entityId?: number | string, rememberMe?: boolean) => Promise<void>;
+  setSession: (token: string, user: UserAuthSummary, refreshToken?: string) => Promise<void>;
+  logout: () => Promise<void>;
   switchEntity: (entityId: number | string) => void;
   updateUser: (updated: Partial<UserAuthSummary> | UserAuthSummary) => void;
 }
@@ -48,8 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize session from localStorage and verify with backend
   useEffect(() => {
     async function initAuth() {
-      const token = localStorage.getItem('ricozbooks_token');
-      if (!token) {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('ricozbooks_token') : null;
+      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('ricozbooks_refresh_token') : null;
+
+      if (!token && !refreshToken) {
         setIsLoading(false);
         return;
       }
@@ -72,9 +74,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveEntity(match);
         saveActiveEntityId(match);
       } catch (err) {
-        console.error('Session verification failed:', err);
-        localStorage.removeItem('ricozbooks_token');
+        console.warn('Session verification failed, clearing stale session credentials:', err);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('ricozbooks_token');
+          localStorage.removeItem('ricozbooks_refresh_token');
+          localStorage.removeItem('ricozbooks_active_entity_id');
+        }
         setUser(null);
+        setActiveEntity(null);
+        setEntities([]);
+        setCompanies([]);
       } finally {
         setIsLoading(false);
       }
@@ -83,11 +92,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string, entityId?: number | string) => {
+  const login = async (
+    email: string, 
+    password: string, 
+    entityId?: number | string, 
+    rememberMe?: boolean
+  ) => {
     setIsLoading(true);
     try {
-      const res = await api.login({ email, password, entity_id: entityId });
-      localStorage.setItem('ricozbooks_token', res.access_token);
+      const res = await api.login({ 
+        email, 
+        password, 
+        entity_id: entityId, 
+        remember_me: rememberMe 
+      });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ricozbooks_token', res.access_token);
+        if (res.refresh_token) {
+          localStorage.setItem('ricozbooks_refresh_token', res.refresh_token);
+        } else {
+          localStorage.removeItem('ricozbooks_refresh_token');
+        }
+      }
+
       setUser(res.user);
 
       // Load entities & companies
@@ -107,10 +135,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const setSession = async (token: string, userSummary: UserAuthSummary) => {
+  const setSession = async (token: string, userSummary: UserAuthSummary, refreshToken?: string) => {
     setIsLoading(true);
     try {
-      localStorage.setItem('ricozbooks_token', token);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ricozbooks_token', token);
+        if (refreshToken) {
+          localStorage.setItem('ricozbooks_refresh_token', refreshToken);
+        }
+      }
       setUser(userSummary);
 
       let userEntities: Entity[] = [];
@@ -139,12 +172,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('ricozbooks_token');
-    localStorage.removeItem('ricozbooks_active_entity_id');
+  const logout = async () => {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('ricozbooks_refresh_token') : null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ricozbooks_token');
+      localStorage.removeItem('ricozbooks_refresh_token');
+      localStorage.removeItem('ricozbooks_active_entity_id');
+    }
     setUser(null);
     setActiveEntity(null);
     setEntities([]);
+    setCompanies([]);
+
+    try {
+      await api.logout(refreshToken || undefined);
+    } catch (err) {
+      console.warn('Backend logout notification failed (safe to ignore if session expired):', err);
+    }
   };
 
   const switchEntity = (entityId: number | string) => {

@@ -11,8 +11,14 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!isLoading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +30,7 @@ export const Login: React.FC = () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password, undefined, rememberMe);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid credentials. Please verify your email and password.');

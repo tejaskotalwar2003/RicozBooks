@@ -30,7 +30,7 @@ export const DeveloperLogin: React.FC = () => {
         password,
       });
 
-      await setSession(res.access_token, res.user);
+      await setSession(res.access_token, res.user, res.refresh_token);
 
       const target = (location.state as any)?.from?.pathname || '/developer/dashboard';
       navigate(target, { replace: true });

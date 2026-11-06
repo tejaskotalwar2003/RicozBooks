@@ -4,7 +4,7 @@ import { User, UserSession } from '../models/User';
 import { Organization, Entity } from '../models/Organization';
 import { Role } from '../models/Role';
 import { DemoRequest } from '../models/DemoAdminUser';
-import { hashPassword, verifyPassword, generateToken } from '../utils/security';
+import { hashPassword, verifyPassword, generateToken, generateRefreshToken } from '../utils/security';
 import { AuditService } from '../services/audit.service';
 import { TenantController } from './tenant.controller';
 
@@ -31,22 +31,30 @@ export class AuthController {
 
     // Create session tracking record
     const sessionToken = crypto.randomBytes(32).toString('hex');
-    const userAgent = req.headers['user-agent'] || 'Web Browser';
-    const ip = req.ip || req.headers['x-forwarded-for'] as string || '127.0.0.1';
+    const refreshToken = generateRefreshToken();
+    const userAgent = (req.headers['user-agent'] as string) || 'Web Browser';
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1';
+
+    const remember = Boolean(remember_me);
+    const refreshDays = remember ? 30 : 1;
+    const expiresAt = new Date(Date.now() + refreshDays * 24 * 60 * 60 * 1000);
 
     await UserSession.create({
       user_id: user._id,
       session_token: sessionToken,
+      refresh_token: refreshToken,
       browser: userAgent.includes('Chrome') ? 'Google Chrome' : userAgent.includes('Firefox') ? 'Mozilla Firefox' : 'Web Browser',
       device: userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop PC',
       os: userAgent.includes('Windows') ? 'Windows' : userAgent.includes('Mac') ? 'macOS' : 'Linux',
       ip_address: ip,
       is_active: true,
+      remember_me: remember,
+      expires_at: expiresAt,
       last_active_at: new Date(),
     });
 
-    const expiresIn = remember_me ? '30d' : '24h';
-    const token = generateToken({
+    // Access token is short-lived (1 hour); refresh token grants persistent session
+    const accessToken = generateToken({
       sub: String(user._id),
       email: user.email,
       role: user.role,
@@ -54,7 +62,7 @@ export class AuthController {
       company_id: user.default_company_id ? String(user.default_company_id) : null,
       entity_id: user.default_entity_id ? String(user.default_entity_id) : null,
       department_id: user.department_id ? String(user.department_id) : null,
-    }, expiresIn);
+    }, '1h');
 
     await AuditService.logEvent({
       req,
@@ -63,7 +71,7 @@ export class AuthController {
       action: 'USER_LOGIN',
       recordType: 'USER',
       recordId: String(user._id),
-      details: { role: user.role, remember_me: !!remember_me },
+      details: { role: user.role, remember_me: remember },
     });
 
     const nameParts = (user.full_name || '').split(' ');
@@ -71,9 +79,10 @@ export class AuthController {
     const lastName = nameParts.slice(1).join(' ') || '';
 
     return res.json({
-      access_token: token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       token_type: 'bearer',
-      expires_in: remember_me ? 2592000 : 86400,
+      expires_in: 3600,
       user: {
         id: user._id,
         email: user.email,
@@ -115,13 +124,32 @@ export class AuthController {
       return res.status(403).json({ detail: 'Super Administrator account is deactivated' });
     }
 
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const refreshToken = generateRefreshToken();
+    const userAgent = (req.headers['user-agent'] as string) || 'Web Browser';
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1';
+
+    await UserSession.create({
+      user_id: user._id,
+      session_token: sessionToken,
+      refresh_token: refreshToken,
+      browser: userAgent.includes('Chrome') ? 'Google Chrome' : userAgent.includes('Firefox') ? 'Mozilla Firefox' : 'Web Browser',
+      device: userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop PC',
+      os: userAgent.includes('Windows') ? 'Windows' : userAgent.includes('Mac') ? 'macOS' : 'Linux',
+      ip_address: ip,
+      is_active: true,
+      remember_me: false,
+      expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000), // 12 hours for admin console
+      last_active_at: new Date(),
+    });
+
     const token = generateToken({
       sub: String(user._id),
       email: user.email,
       role: 'SUPER_ADMIN',
       is_superuser: true,
       department_id: user.department_id ? String(user.department_id) : null,
-    }, '12h');
+    }, '1h');
 
     await AuditService.logEvent({
       req,
@@ -139,7 +167,9 @@ export class AuthController {
 
     return res.json({
       access_token: token,
+      refresh_token: refreshToken,
       token_type: 'bearer',
+      expires_in: 3600,
       user: {
         id: user._id,
         email: user.email,
@@ -285,6 +315,110 @@ export class AuthController {
       reference_code: demoReq.reference_code,
       message: 'Demo request received. Our coordinator will contact you shortly.',
     });
+  }
+
+  static async refreshToken(req: Request, res: Response) {
+    const refreshToken = req.body?.refresh_token || (req.headers['x-refresh-token'] as string);
+    if (!refreshToken) {
+      return res.status(400).json({ detail: 'Refresh token is required' });
+    }
+
+    const session = await UserSession.findOne({
+      refresh_token: refreshToken,
+      is_active: true,
+    });
+
+    if (!session) {
+      return res.status(401).json({ detail: 'Session expired or invalid. Please sign in again.' });
+    }
+
+    if (session.expires_at && session.expires_at < new Date()) {
+      session.is_active = false;
+      await session.save();
+      return res.status(401).json({ detail: 'Session expired. Please sign in again.' });
+    }
+
+    const user = await User.findById(session.user_id);
+    if (!user || !user.is_active) {
+      session.is_active = false;
+      await session.save();
+      return res.status(401).json({ detail: 'Account is deactivated or no longer exists' });
+    }
+
+    // Refresh-token rotation: issue new access token and rotated refresh token
+    const newAccessToken = generateToken({
+      sub: String(user._id),
+      email: user.email,
+      role: user.role,
+      is_superuser: user.is_superuser,
+      company_id: user.default_company_id ? String(user.default_company_id) : null,
+      entity_id: user.default_entity_id ? String(user.default_entity_id) : null,
+      department_id: user.department_id ? String(user.department_id) : null,
+    }, '1h');
+
+    const newRefreshToken = generateRefreshToken();
+    const refreshDays = session.remember_me ? 30 : 1;
+    session.refresh_token = newRefreshToken;
+    session.last_active_at = new Date();
+    session.expires_at = new Date(Date.now() + refreshDays * 24 * 60 * 60 * 1000);
+    await session.save();
+
+    const nameParts = (user.full_name || '').split(' ');
+    const firstName = nameParts[0] || user.email.split('@')[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    return res.json({
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+      token_type: 'bearer',
+      expires_in: 3600,
+      user: {
+        id: user._id,
+        email: user.email,
+        full_name: user.full_name,
+        first_name: firstName,
+        last_name: lastName,
+        role: user.role,
+        roles: [user.role],
+        job_title: user.job_title || 'Finance Team',
+        profile_photo_url: user.profile_photo_url || null,
+        is_superuser: user.is_superuser,
+        default_company_id: user.default_company_id,
+        default_entity_id: user.default_entity_id,
+      },
+    });
+  }
+
+  static async logout(req: Request, res: Response) {
+    const refreshToken = req.body?.refresh_token || (req.headers['x-refresh-token'] as string);
+    if (refreshToken) {
+      await UserSession.updateOne(
+        { refresh_token: refreshToken },
+        { $set: { is_active: false } }
+      );
+    }
+
+    const userIdToRevoke = req.user?._id || req.tokenPayload?.sub;
+    if (userIdToRevoke) {
+      await UserSession.updateMany(
+        { user_id: userIdToRevoke, is_active: true },
+        { $set: { is_active: false } }
+      );
+    }
+
+    if (req.user) {
+      await AuditService.logEvent({
+        req,
+        userId: req.user._id,
+        userEmail: req.user.email,
+        action: 'USER_LOGOUT',
+        recordType: 'USER',
+        recordId: String(req.user._id),
+        details: { manual: true },
+      });
+    }
+
+    return res.json({ message: 'Logged out successfully' });
   }
 }
 

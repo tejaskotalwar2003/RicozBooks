@@ -46,12 +46,15 @@ export const User = mongoose.model<IUser>('User', UserSchema);
 export interface IUserSession extends Document {
   user_id: mongoose.Types.ObjectId;
   session_token: string;
+  refresh_token?: string | null;
   device: string;
   browser: string;
   os: string;
   ip_address?: string;
   location?: string;
   is_active: boolean;
+  remember_me?: boolean;
+  expires_at?: Date | null;
   created_at: Date;
   last_active_at: Date;
 }
@@ -60,16 +63,21 @@ const UserSessionSchema = new Schema<IUserSession>(
   {
     user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     session_token: { type: String, required: true, unique: true, index: true },
+    refresh_token: { type: String, default: null, index: true },
     device: { type: String, default: 'Desktop PC' },
     browser: { type: String, default: 'Web Browser' },
     os: { type: String, default: 'Operating System' },
     ip_address: { type: String, default: null },
     location: { type: String, default: 'Current Location' },
     is_active: { type: Boolean, default: true, index: true },
+    remember_me: { type: Boolean, default: false },
+    expires_at: { type: Date, default: null, index: true },
     last_active_at: { type: Date, default: Date.now },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: false },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 

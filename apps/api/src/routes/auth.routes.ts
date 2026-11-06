@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, optionalAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -9,6 +9,8 @@ router.post('/login', AuthController.login);
 router.post('/register-company', AuthController.registerCompany);
 router.post('/developer/login', AuthController.developerLogin);
 router.post('/demo-request', AuthController.requestDemo);
+router.post('/refresh', AuthController.refreshToken);
+router.post('/logout', optionalAuth, AuthController.logout);
 
 // Protected routes
 router.get('/me', requireAuth, AuthController.getMe);

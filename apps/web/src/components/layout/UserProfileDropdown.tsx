@@ -146,9 +146,9 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onOpen
     };
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsOpen(false);
-    logout();
+    await logout();
     navigate('/login');
   };
 

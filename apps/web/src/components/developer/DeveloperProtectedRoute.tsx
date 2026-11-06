@@ -52,8 +52,8 @@ export const DeveloperProtectedRoute: React.FC = () => {
             </Link>
 
             <button
-              onClick={() => {
-                logout();
+              onClick={async () => {
+                await logout();
               }}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-sm font-medium transition-colors border border-amber-500/40"
             >

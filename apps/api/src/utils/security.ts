@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 
@@ -23,6 +24,10 @@ export interface TokenPayload {
 
 export function generateToken(payload: TokenPayload, expiresIn: string = config.jwtExpiresIn): string {
   return jwt.sign(payload, config.jwtSecret, { expiresIn: expiresIn as any });
+}
+
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(40).toString('hex');
 }
 
 export function verifyToken(token: string): TokenPayload {

@@ -74,7 +74,9 @@ export interface UserAuthSummary {
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
+  expires_in?: number;
   user: UserAuthSummary;
 }
 
@@ -146,10 +148,60 @@ export interface LoginActivityItem {
 }
 
 
+// Global in-flight refresh promise mutex to prevent concurrent refresh storms
+let refreshPromise: Promise<string | null> | null = null;
+
+async function performTokenRefresh(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const rToken = localStorage.getItem('ricozbooks_refresh_token');
+    if (!rToken) return null;
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rToken }),
+      });
+
+      if (!res.ok) {
+        localStorage.removeItem('ricozbooks_token');
+        localStorage.removeItem('ricozbooks_refresh_token');
+        return null;
+      }
+
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem('ricozbooks_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('ricozbooks_refresh_token', data.refresh_token);
+        }
+        return data.access_token as string;
+      }
+      return null;
+    } catch (err) {
+      console.error('Silent token refresh failed:', err);
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
 export async function apiRequest<T>(
   endpoint: string, 
   options: RequestInit = {}
 ): Promise<T> {
+  const isAuthEndpoint = 
+    endpoint.startsWith('/auth/login') || 
+    endpoint.startsWith('/auth/developer/login') ||
+    endpoint.startsWith('/auth/register-company') ||
+    endpoint.startsWith('/auth/demo-request') ||
+    endpoint.startsWith('/auth/refresh');
+
   const token = localStorage.getItem('ricozbooks_token');
   
   const headers: Record<string, string> = {
@@ -157,7 +209,8 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  if (token) {
+  // Only inject Authorization header on protected endpoints (never stale on login endpoints)
+  if (token && !isAuthEndpoint) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -177,10 +230,54 @@ export async function apiRequest<T>(
     );
   }
 
+  // 1. If 401 on an authentication endpoint (login, developer login, refresh):
+  // NEVER throw "Your session has expired". Pass through the actual server validation message!
+  if (response.status === 401 && isAuthEndpoint) {
+    const errorBody = await response.json().catch(() => ({ detail: 'Invalid credentials' }));
+    const errorMessage = errorBody.detail || errorBody.message || 'Invalid email or password. Please verify your credentials.';
+    const error = new Error(errorMessage);
+    (error as any).status = 401;
+    (error as any).data = errorBody;
+    throw error;
+  }
+
+  // 2. If 401 on protected endpoint:
   if (response.status === 401) {
-    // Session expired or invalid
+    // Attempt silent refresh using refresh token if available
+    const newAccessToken = await performTokenRefresh();
+    if (newAccessToken) {
+      // Retry the original request with the freshly rotated access token
+      const retryHeaders = {
+        ...headers,
+        Authorization: `Bearer ${newAccessToken}`,
+      };
+      const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers: retryHeaders,
+      });
+
+      if (retryResponse.ok) {
+        return retryResponse.json();
+      }
+
+      // If retry response failed with non-401, throw its specific error
+      if (retryResponse.status !== 401) {
+        const errorBody = await retryResponse.json().catch(() => ({ detail: retryResponse.statusText }));
+        const errorMessage = errorBody.detail || errorBody.error || errorBody.message || `Server error (${retryResponse.status})`;
+        const error = new Error(errorMessage);
+        (error as any).status = retryResponse.status;
+        (error as any).data = errorBody;
+        throw error;
+      }
+    }
+
+    // Refresh failed or no refresh token was available: clean up stale tokens
     localStorage.removeItem('ricozbooks_token');
+    localStorage.removeItem('ricozbooks_refresh_token');
+    localStorage.removeItem('ricozbooks_active_entity_id');
+
     if (
+      typeof window !== 'undefined' &&
       !window.location.pathname.includes('/login') &&
       !window.location.pathname.includes('/invite') &&
       !window.location.pathname.includes('/register') &&
@@ -189,7 +286,17 @@ export async function apiRequest<T>(
     ) {
       window.location.href = '/login';
     }
-    throw new Error('Your session has expired or is unauthorized. Please sign in again.');
+    throw new Error('Your session has expired. Please sign in again.');
+  }
+
+  // 3. If 403 Forbidden: Do NOT log out user! Surface access denied message cleanly
+  if (response.status === 403) {
+    const errorBody = await response.json().catch(() => ({ detail: 'Access denied' }));
+    const errorMessage = errorBody.detail || errorBody.message || 'Access denied: You do not have permission to perform this action.';
+    const error = new Error(errorMessage);
+    (error as any).status = 403;
+    (error as any).data = errorBody;
+    throw error;
   }
 
   if (!response.ok) {
@@ -205,11 +312,23 @@ export async function apiRequest<T>(
 }
 
 export const api = {
-  login: (data: { email: string; password: string; entity_id?: number | string }) => 
+  login: (data: { email: string; password: string; entity_id?: number | string; remember_me?: boolean }) => 
     apiRequest<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  refreshToken: (refreshToken: string) =>
+    apiRequest<LoginResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }),
+
+  logout: (refreshToken?: string) =>
+    apiRequest<{ message: string }>('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('ricozbooks_refresh_token') : null) }),
+    }).catch(() => ({ message: 'Logged out locally' })),
     
   getMe: () => apiRequest<UserAuthSummary>('/auth/me'),
 

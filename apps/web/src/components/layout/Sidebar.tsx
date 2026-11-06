@@ -113,9 +113,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     { to: '/settings', label: 'Settings', icon: Settings },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (onClose) onClose();
-    logout();
+    await logout();
     navigate('/login');
   };
 
