@@ -16,8 +16,10 @@ services:
     plan: free
     region: oregon
     autoDeploy: true
-    buildCommand: "npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api"
-    startCommand: "node apps/api/dist/server.js"
+    branch: main
+    rootDir: .
+    buildCommand: "npm install && npm run build:api"
+    startCommand: "npm run start:api"
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
@@ -33,7 +35,9 @@ services:
       - key: MONGODB_URI
         sync: false # Set securely in Render dashboard pointing to MongoDB Atlas cluster
       - key: CORS_ORIGIN
-        value: https://ricozbooks-web.onrender.com,https://ricozbooks.onrender.com,http://localhost:3000
+        value: https://ricozbooks-web.onrender.com,https://ricozbooks.onrender.com
+      - key: FRONTEND_URL
+        value: https://ricozbooks-web.onrender.com
       - key: SUPERADMIN_EMAIL
         value: admin@ricoz.in
       - key: SUPERADMIN_PASSWORD
@@ -48,8 +52,10 @@ services:
     plan: free
     region: oregon
     autoDeploy: true
-    buildCommand: "npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/web"
-    startCommand: "npm run start --workspace=apps/web"
+    branch: main
+    rootDir: .
+    buildCommand: "npm install && npm run build:web"
+    startCommand: "npm run start:web"
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
