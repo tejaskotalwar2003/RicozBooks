@@ -20,9 +20,17 @@ const getApiBase = (): string => {
     }
   }
 
-  // 3. Fallback: if empty, relative, or legacy port 8000, use same-origin '/api/v1' proxy
+  // 3. Fallback: if empty, relative, or legacy port 8000
   if (!raw || raw === '/api/v1' || raw.includes(':8000')) {
-    return '/api/v1';
+    // In browser client, use relative same-origin reverse proxy
+    if (typeof window !== 'undefined') {
+      return '/api/v1';
+    }
+    // On server (SSR), Node.js fetch requires an absolute URL
+    const isProd = typeof process !== 'undefined' && process.env?.NODE_ENV === 'production';
+    const serverTarget = (typeof process !== 'undefined' && process.env?.API_URL ? process.env.API_URL : '') || 
+      (isProd ? 'https://ricozbooks-api.onrender.com' : 'http://localhost:5000');
+    return serverTarget.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '') + '/api/v1';
   }
 
   // Strip trailing /api/v1 or /api/v1/ if present

@@ -22,6 +22,8 @@ services:
     startCommand: "npm run start:api"
     healthCheckPath: /api/v1/health
     envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
       - key: NODE_ENV
         value: production
       - key: API_PREFIX
@@ -58,6 +60,8 @@ services:
     startCommand: "npm run start:web"
     healthCheckPath: /
     envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
       - key: NODE_ENV
         value: production
       - key: API_URL
