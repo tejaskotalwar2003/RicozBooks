@@ -1,6 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
-const { ensureDatabase, stopDatabase } = require('./ensure-db');
+const { ensureDatabase, stopDatabase, checkPort } = require('./ensure-db');
 
 async function main() {
   console.log('===========================================================');
@@ -8,6 +8,19 @@ async function main() {
   console.log('   - Express Backend API: http://localhost:5000/api/v1');
   console.log('   - Next.js Web Frontend: http://localhost:3000');
   console.log('===========================================================\n');
+
+  // Pre-flight port check
+  const port3000InUse = await checkPort(3000);
+  if (port3000InUse) {
+    console.warn('\x1b[33m[WARN] Port 3000 is already occupied by an existing process.\x1b[0m');
+    console.warn('       If Next.js is already running, open http://localhost:3000 in your browser.');
+    console.warn('       To restart cleanly, stop existing node processes first.\n');
+  }
+
+  const port5000InUse = await checkPort(5000);
+  if (port5000InUse) {
+    console.warn('\x1b[33m[WARN] Port 5000 is already occupied by an existing process.\x1b[0m\n');
+  }
 
   // 1. Ensure Database (Atlas, existing local daemon, or embedded Replica Set)
   let replSet = null;
@@ -40,7 +53,7 @@ async function main() {
   // 3. Start Next.js Web
   const webProc = spawn('node', [`"${nextBin}"`, 'start', 'apps/web', '-p', '3000'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: '3000', API_URL: 'http://localhost:5000/api/v1', NEXT_PUBLIC_API_URL: '/api/v1' },
+    env: { ...process.env, PORT: '3000', API_URL: 'http://127.0.0.1:5000/api/v1', NEXT_PUBLIC_API_URL: '/api/v1' },
     shell: true,
     stdio: ['inherit', 'pipe', 'pipe'],
   });

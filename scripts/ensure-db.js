@@ -1,5 +1,4 @@
 const net = require('net');
-const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 function checkPort(port, host = '127.0.0.1', timeoutMs = 1500) {
   return new Promise((resolve) => {
@@ -35,6 +34,13 @@ async function ensureDatabase() {
   }
 
   console.log(`[DB] No active MongoDB daemon detected on port 27017.`);
+  let MongoMemoryReplSet;
+  try {
+    MongoMemoryReplSet = require('mongodb-memory-server').MongoMemoryReplSet;
+  } catch (err) {
+    console.warn(`[DB] mongodb-memory-server not installed. Falling back to default URI: ${uriFromEnv || 'mongodb://127.0.0.1:27017/ricozbooks_dev'}`);
+    return { uri: uriFromEnv || 'mongodb://127.0.0.1:27017/ricozbooks_dev', replSet: null };
+  }
   console.log(`[DB] Initializing embedded MongoDB Replica Set with WiredTiger transactions...`);
   
   const replSet = await MongoMemoryReplSet.create({

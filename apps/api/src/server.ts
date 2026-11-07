@@ -46,6 +46,7 @@ async function startServer() {
       console.error(`[FATAL] Failed to connect to MongoDB Atlas at startup: ${err}. Terminating process.`);
       process.exit(1);
     } else {
+      mongoose.set('bufferCommands', false);
       console.warn(`[WARN] MongoDB connection notice: ${err}. Starting server in offline DB mode for local development...`);
     }
   }

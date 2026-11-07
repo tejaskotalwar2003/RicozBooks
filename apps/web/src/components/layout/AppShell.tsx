@@ -3,6 +3,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuth } from '../../context/AuthContext';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 export const AppShell: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -45,7 +46,9 @@ export const AppShell: React.FC = () => {
         <Header onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)} />
         
         <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-x-hidden">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

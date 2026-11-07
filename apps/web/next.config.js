@@ -4,8 +4,8 @@ if (!backendUrl && process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_AP
   backendUrl = process.env.NEXT_PUBLIC_API_URL;
 }
 const isProd = process.env.NODE_ENV === 'production';
-const defaultTarget = isProd ? 'https://ricozbooks-api.onrender.com' : 'http://localhost:5000';
-const backendTarget = (backendUrl || defaultTarget).replace(/\/api\/v1\/?$/, '');
+const defaultTarget = isProd ? 'https://ricozbooks-api.onrender.com' : 'http://127.0.0.1:5000';
+const backendTarget = (backendUrl || defaultTarget).replace(/\/api\/v1\/?$/, '').replace('localhost', '127.0.0.1');
 
 const nextConfig = {
   reactStrictMode: true,
