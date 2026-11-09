@@ -153,7 +153,7 @@ export const InternalSettings: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60">
               <span className="text-slate-400 font-medium block">Active Database</span>
-              <span className="font-semibold text-slate-800 block mt-1">PostgreSQL on Render Cloud</span>
+              <span className="font-semibold text-slate-800 block mt-1">MongoDB Atlas on Cloud</span>
               <span className="text-[11px] text-emerald-600 font-medium inline-flex items-center space-x-1 mt-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Connected & Healthy</span>

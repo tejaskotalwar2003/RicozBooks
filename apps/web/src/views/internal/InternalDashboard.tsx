@@ -132,7 +132,7 @@ export const InternalDashboard: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
               Internal Portal
             </span>
-            <span className="text-xs text-slate-400 font-mono">Live PostgreSQL Store</span>
+            <span className="text-xs text-slate-400 font-mono">Live MongoDB Atlas Store</span>
           </div>
           <h1 className="mt-1.5 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             Demo Management Dashboard

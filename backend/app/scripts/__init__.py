@@ -1,2 +1,0 @@
-# RicozBooks Administrative Scripts
-

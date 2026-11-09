@@ -447,7 +447,7 @@ export const InternalDemosList: React.FC = () => {
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-600 mb-2" />
-                    <span>Loading demo requests from PostgreSQL...</span>
+                    <span>Loading demo requests from MongoDB Atlas...</span>
                   </td>
                 </tr>
               ) : demos.length === 0 ? (

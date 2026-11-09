@@ -302,7 +302,7 @@ export const DeveloperDashboard: React.FC = () => {
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Database Engine:</span>
-              <span className="font-semibold text-slate-200">PostgreSQL (Production)</span>
+              <span className="font-semibold text-slate-200">MongoDB Atlas (Production)</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">RBAC Security Policy:</span>

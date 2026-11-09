@@ -4,28 +4,24 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*",
-    "packages/shared",
-    "apps/api",
-    "apps/web"
+    "apps/*"
   ],
   "engines": {
     "node": ">=18.18.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
     "build:shared": "npm run build --workspace=@ricozbooks/shared",
-    "build:api": "npm run build --workspace=@ricozbooks/shared && npm run build --workspace=@ricozbooks/api",
-    "build:web": "npm run build --workspace=@ricozbooks/shared && npm run build --workspace=@ricozbooks/web",
+    "build:api": "npm run build:shared && npm run build --workspace=@ricozbooks/api",
+    "build:web": "npm run build:shared && npm run build --workspace=@ricozbooks/web",
     "start:api": "node apps/api/dist/server.js",
     "start:web": "npm run start --workspace=@ricozbooks/web",
-    "test": "npm run test --workspaces --if-present",
-    "test:api": "npm test --workspace=@ricozbooks/api",
     "dev:api": "npm run dev --workspace=@ricozbooks/api",
     "dev:web": "npm run dev --workspace=@ricozbooks/web",
+    "test": "npm run test:api",
+    "test:api": "npm test --workspace=@ricozbooks/api",
     "start": "node scripts/start-all.js",
     "dev": "node scripts/dev-all.js"
   }
 }
-

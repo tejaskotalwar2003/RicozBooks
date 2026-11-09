@@ -29,10 +29,10 @@ export const ModulePlaceholder: React.FC<Props> = ({ moduleName, description, ph
         <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 max-w-lg mx-auto text-left space-y-2">
           <div className="flex items-center space-x-2 text-[#781019] font-bold">
             <ShieldAlert className="w-4 h-4" />
-            <span>Database Schema Ready in PostgreSQL</span>
+            <span>Database Schema Ready in MongoDB Atlas</span>
           </div>
           <p className="text-slate-600 text-[11px] leading-relaxed">
-            The underlying database tables for <strong>{moduleName}</strong> in <strong>{activeEntity?.name}</strong> are created and populated in PostgreSQL (`ricozbooks_db`). Complete UI workflows and CRUD APIs are scheduled for immediate activation in <strong>Phase {phase}</strong> per the incremental implementation roadmap.
+            The underlying database collections for <strong>{moduleName}</strong> in <strong>{activeEntity?.name}</strong> are created and managed in MongoDB Atlas (`ricozbooks_prod`). Complete UI workflows and CRUD APIs are active across the unified Node.js and Express backend.
           </p>
         </div>
       </div>

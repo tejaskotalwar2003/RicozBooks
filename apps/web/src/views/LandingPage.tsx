@@ -2038,19 +2038,19 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-10 text-xs font-mono font-bold">
             <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 shadow-2xs">
-              Frontend: React 18
+              Frontend: Next.js 14
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400" />
             <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 shadow-2xs">
-              Backend: FastAPI
+              Backend: Node.js + Express API
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400" />
             <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 shadow-2xs">
-              Logic: SQLAlchemy + Rules
+              Logic: GAAP/IFRS Rules + RBAC
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400" />
             <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 shadow-2xs">
-              Database: PostgreSQL
+              Database: MongoDB Atlas
             </div>
           </div>
 
