@@ -48,7 +48,7 @@ export const BankingPage: React.FC = () => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [glAccounts, setGlAccounts] = useState<Account[]>([]);
   const [summary, setSummary] = useState<BankingSummary | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | number | null>(null);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [transfers, setTransfers] = useState<BankTransfer[]>([]);
   
@@ -73,7 +73,7 @@ export const BankingPage: React.FC = () => {
     account_type: string;
     ifsc_code: string;
     branch_name: string;
-    gl_account_id: number | '';
+    gl_account_id: string;
     opening_balance: number;
   }>({
     bank_name: '',
@@ -88,8 +88,8 @@ export const BankingPage: React.FC = () => {
 
   // Transfer Form State
   const [transferFormData, setTransferFormData] = useState<{
-    from_bank_account_id: number | '';
-    to_bank_account_id: number | '';
+    from_bank_account_id: string;
+    to_bank_account_id: string;
     transfer_date: string;
     amount: number;
     fee_amount: number;
@@ -107,7 +107,7 @@ export const BankingPage: React.FC = () => {
 
   // New Reconciliation Form State
   const [reconFormData, setReconFormData] = useState<{
-    bank_account_id: number | '';
+    bank_account_id: string;
     statement_date: string;
     statement_balance: number;
     notes: string;
@@ -123,19 +123,44 @@ export const BankingPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [accountsData, summaryData, allGlAccounts, transfersData] = await Promise.all([
+      const [accountsRes, summaryRes, glRes, transfersRes] = await Promise.allSettled([
         getBankAccounts(activeEntity.id),
         getBankingSummary(activeEntity.id),
         getAccounts(activeEntity.id),
         getBankTransfers(activeEntity.id)
       ]);
-      setBankAccounts(accountsData);
-      setSummary(summaryData);
-      setGlAccounts(allGlAccounts);
-      setTransfers(transfersData);
 
-      if (accountsData.length > 0 && !selectedAccountId) {
-        setSelectedAccountId(accountsData[0].id);
+      let accountsData: BankAccount[] = [];
+      if (accountsRes.status === 'fulfilled') {
+        accountsData = accountsRes.value || [];
+        setBankAccounts(accountsData);
+        if (accountsData.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(accountsData[0].id || (accountsData[0] as any)._id);
+        }
+      } else {
+        console.warn('Bank accounts fetch warning:', accountsRes.reason);
+      }
+
+      if (summaryRes.status === 'fulfilled') {
+        setSummary(summaryRes.value);
+      } else {
+        console.warn('Banking summary fetch warning:', summaryRes.reason);
+      }
+
+      if (glRes.status === 'fulfilled') {
+        setGlAccounts(glRes.value || []);
+      } else {
+        console.warn('GL accounts fetch warning:', glRes.reason);
+      }
+
+      if (transfersRes.status === 'fulfilled') {
+        setTransfers(transfersRes.value || []);
+      } else {
+        console.warn('Bank transfers fetch warning:', transfersRes.reason);
+      }
+
+      if (accountsRes.status === 'rejected' && glRes.status === 'rejected') {
+        setError('Failed to connect to banking services.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load banking data');
@@ -144,7 +169,7 @@ export const BankingPage: React.FC = () => {
     }
   };
 
-  const loadTransactions = async (accId: number) => {
+  const loadTransactions = async (accId: string | number) => {
     try {
       const txData = await getBankTransactions(accId);
       setTransactions(txData);
@@ -169,20 +194,20 @@ export const BankingPage: React.FC = () => {
     setError(null);
 
     if (!accountFormData.bank_name || !accountFormData.account_number || !accountFormData.gl_account_id) {
-      setError('Please fill in all required fields');
+      setError('Please fill in all required fields (Bank Name, Account Number, and Linked GL Asset Account)');
       return;
     }
 
     try {
       const payload: BankAccountCreateData = {
         entity_id: activeEntity.id,
-        bank_name: accountFormData.bank_name,
-        account_name: accountFormData.account_name || `${accountFormData.bank_name} Operating`,
-        account_number: accountFormData.account_number,
+        bank_name: accountFormData.bank_name.trim(),
+        account_name: accountFormData.account_name.trim() || `${accountFormData.bank_name.trim()} Operating`,
+        account_number: accountFormData.account_number.trim(),
         account_type: accountFormData.account_type,
-        ifsc_code: accountFormData.ifsc_code || undefined,
-        branch_name: accountFormData.branch_name || undefined,
-        gl_account_id: Number(accountFormData.gl_account_id),
+        ifsc_code: accountFormData.ifsc_code ? accountFormData.ifsc_code.trim() : undefined,
+        branch_name: accountFormData.branch_name ? accountFormData.branch_name.trim() : undefined,
+        gl_account_id: accountFormData.gl_account_id,
         opening_balance: Number(accountFormData.opening_balance || 0)
       };
 
@@ -214,7 +239,7 @@ export const BankingPage: React.FC = () => {
       setError('Please select both source and destination accounts');
       return;
     }
-    if (transferFormData.from_bank_account_id === transferFormData.to_bank_account_id) {
+    if (String(transferFormData.from_bank_account_id) === String(transferFormData.to_bank_account_id)) {
       setError('Source and destination accounts must be different');
       return;
     }
@@ -226,8 +251,8 @@ export const BankingPage: React.FC = () => {
     try {
       const payload: BankTransferCreateData = {
         entity_id: activeEntity.id,
-        from_bank_account_id: Number(transferFormData.from_bank_account_id),
-        to_bank_account_id: Number(transferFormData.to_bank_account_id),
+        from_bank_account_id: transferFormData.from_bank_account_id,
+        to_bank_account_id: transferFormData.to_bank_account_id,
         transfer_date: transferFormData.transfer_date,
         amount: Number(transferFormData.amount),
         fee_amount: Number(transferFormData.fee_amount || 0),
@@ -250,7 +275,7 @@ export const BankingPage: React.FC = () => {
     if (!reconFormData.bank_account_id) return;
     try {
       const recon = await createBankReconciliation({
-        bank_account_id: Number(reconFormData.bank_account_id),
+        bank_account_id: reconFormData.bank_account_id,
         statement_date: reconFormData.statement_date,
         statement_balance: Number(reconFormData.statement_balance),
         notes: reconFormData.notes || undefined
@@ -283,7 +308,7 @@ export const BankingPage: React.FC = () => {
     }
   };
 
-  const handleManualMatch = async (stmtLineId: number, txId: number) => {
+  const handleManualMatch = async (stmtLineId: number | string, txId: number | string) => {
     if (!activeReconciliation) return;
     try {
       await matchBankTx(activeReconciliation.id, stmtLineId, txId);
@@ -317,7 +342,7 @@ export const BankingPage: React.FC = () => {
     }).format(num);
   };
 
-  const activeAccount = bankAccounts.find(a => a.id === selectedAccountId);
+  const activeAccount = bankAccounts.find(a => String(a.id || (a as any)._id) === String(selectedAccountId));
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -442,79 +467,99 @@ export const BankingPage: React.FC = () => {
         <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
           Company Bank Accounts
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bankAccounts.map((acc) => {
-            const isSelected = acc.id === selectedAccountId;
-            return (
-              <div
-                key={acc.id}
-                onClick={() => setSelectedAccountId(acc.id)}
-                className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
-                  isSelected
-                    ? 'bg-gradient-to-br from-[#390003] to-[#200002] text-white border-[#C58B3E]/60 shadow-lg ring-2 ring-[#C58B3E]/30'
-                    : 'bg-white text-slate-900 border-slate-200 hover:border-slate-300 shadow-xs'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className={`text-xs font-medium uppercase tracking-wider ${isSelected ? 'text-[#E6B676]' : 'text-slate-500'}`}>
-                      {acc.bank_name}
-                    </div>
-                    <div className="text-base font-bold mt-0.5">{acc.account_name}</div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                    isSelected ? 'bg-white/10 text-white border border-white/20' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {acc.account_type}
-                  </span>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-white/10">
-                  <div className="flex items-baseline justify-between">
+        {bankAccounts.length === 0 ? (
+          <div className="p-8 bg-white border border-dashed border-slate-300 rounded-2xl text-center">
+            <div className="w-12 h-12 bg-[#390003]/10 text-[#390003] rounded-full flex items-center justify-center mx-auto mb-3">
+              <Landmark className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-900">No bank accounts configured yet</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              Add your company bank account and link it to an Asset account from your Chart of Accounts to begin tracking transactions and performing reconciliations.
+            </p>
+            <button
+              onClick={() => setIsAddAccountModalOpen(true)}
+              className="mt-4 inline-flex items-center space-x-2 bg-[#390003] hover:bg-[#55080E] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer border border-[#C58B3E]/40"
+            >
+              <Plus className="w-4 h-4 text-[#E6B676]" />
+              <span>Add Bank Account</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bankAccounts.map((acc) => {
+              const accId = String(acc.id || (acc as any)._id);
+              const isSelected = accId === String(selectedAccountId);
+              return (
+                <div
+                  key={accId}
+                  onClick={() => setSelectedAccountId(accId)}
+                  className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                    isSelected
+                      ? 'bg-gradient-to-br from-[#390003] to-[#200002] text-white border-[#C58B3E]/60 shadow-lg ring-2 ring-[#C58B3E]/30'
+                      : 'bg-white text-slate-900 border-slate-200 hover:border-slate-300 shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
                     <div>
-                      <div className={`text-[10px] font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                        A/C: •••• {acc.account_number.slice(-4)}
+                      <div className={`text-xs font-medium uppercase tracking-wider ${isSelected ? 'text-[#E6B676]' : 'text-slate-500'}`}>
+                        {acc.bank_name}
                       </div>
-                      {acc.ifsc_code && (
-                        <div className={`text-[10px] font-mono ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
-                          IFSC: {acc.ifsc_code}
-                        </div>
-                      )}
+                      <div className="text-base font-bold mt-0.5">{acc.account_name}</div>
                     </div>
-                    <div className="text-right">
-                      <div className={`text-[10px] uppercase tracking-wider ${isSelected ? 'text-[#EEC68B]' : 'text-slate-400'}`}>
-                        Book Balance
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                      isSelected ? 'bg-white/10 text-white border border-white/20' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {acc.account_type}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className={`text-[10px] font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                          A/C: •••• {acc.account_number ? acc.account_number.slice(-4) : '••••'}
+                        </div>
+                        {acc.ifsc_code && (
+                          <div className={`text-[10px] font-mono ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
+                            IFSC: {acc.ifsc_code}
+                          </div>
+                        )}
                       </div>
-                      <div className={`text-lg font-bold font-mono ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                        {formatCurrency(acc.current_balance)}
+                      <div className="text-right">
+                        <div className={`text-[10px] uppercase tracking-wider ${isSelected ? 'text-[#EEC68B]' : 'text-slate-400'}`}>
+                          Book Balance
+                        </div>
+                        <div className={`text-lg font-bold font-mono ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                          {formatCurrency(acc.current_balance)}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-3 pt-2 flex items-center justify-between border-t border-white/10">
-                  <span className={`text-[10px] ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                    GL: {acc.gl_account_name || '1100 Bank'}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setReconFormData({ ...reconFormData, bank_account_id: acc.id });
-                      setIsNewReconModalOpen(true);
-                    }}
-                    className={`text-[11px] font-semibold px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#C58B3E] hover:bg-[#D89B4E] text-[#200002]'
-                        : 'bg-[#390003] hover:bg-[#55080E] text-white'
-                    }`}
-                  >
-                    Reconcile
-                  </button>
+                  <div className="mt-3 pt-2 flex items-center justify-between border-t border-white/10">
+                    <span className={`text-[10px] ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                      GL: {acc.gl_account_name || acc.gl_account_code || '1100 Bank'}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReconFormData({ ...reconFormData, bank_account_id: accId });
+                        setIsNewReconModalOpen(true);
+                      }}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#C58B3E] hover:bg-[#D89B4E] text-[#200002]'
+                          : 'bg-[#390003] hover:bg-[#55080E] text-white'
+                      }`}
+                    >
+                      Reconcile
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* TABS NAVIGATION */}
@@ -667,16 +712,19 @@ export const BankingPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  transfers.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-slate-900">{t.transfer_number}</td>
-                      <td className="py-3 px-4 text-slate-600 font-mono">{t.transfer_date}</td>
-                      <td className="py-3 px-4 text-slate-800 font-medium">
-                        {bankAccounts.find(a => a.id === t.from_bank_account_id)?.bank_name || 'Bank A'}
-                      </td>
-                      <td className="py-3 px-4 text-slate-800 font-medium">
-                        {bankAccounts.find(a => a.id === t.to_bank_account_id)?.bank_name || 'Bank B'}
-                      </td>
+                  transfers.map((t) => {
+                    const fromAcc = bankAccounts.find(a => String(a.id || (a as any)._id) === String(t.from_bank_account_id));
+                    const toAcc = bankAccounts.find(a => String(a.id || (a as any)._id) === String(t.to_bank_account_id));
+                    return (
+                      <tr key={String(t.id || (t as any)._id)} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4 font-mono font-medium text-slate-900">{t.transfer_number}</td>
+                        <td className="py-3 px-4 text-slate-600 font-mono">{t.transfer_date}</td>
+                        <td className="py-3 px-4 text-slate-800 font-medium">
+                          {fromAcc?.bank_name || 'Source Account'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-800 font-medium">
+                          {toAcc?.bank_name || 'Destination Account'}
+                        </td>
                       <td className="py-3 px-4 font-mono text-slate-500">{t.reference_number || '—'}</td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                         {formatCurrency(t.amount)}
@@ -691,7 +739,8 @@ export const BankingPage: React.FC = () => {
                         </span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -728,7 +777,7 @@ export const BankingPage: React.FC = () => {
                   <div>
                     <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Active Session</div>
                     <h2 className="text-lg font-bold text-slate-900">
-                      Reconciling {bankAccounts.find(b => b.id === activeReconciliation.bank_account_id)?.bank_name} as of {activeReconciliation.statement_date}
+                      Reconciling {bankAccounts.find(b => String(b.id || (b as any)._id) === String(activeReconciliation.bank_account_id))?.bank_name || 'Bank Account'} as of {activeReconciliation.statement_date}
                     </h2>
                   </div>
 
@@ -861,16 +910,19 @@ export const BankingPage: React.FC = () => {
                                 <select
                                   aria-label="Match with system transaction"
                                   onChange={(e) => {
-                                    if (e.target.value) handleManualMatch(line.id, Number(e.target.value));
+                                    if (e.target.value) handleManualMatch(line.id, e.target.value);
                                   }}
                                   className="px-2 py-1 text-[11px] border border-slate-300 rounded bg-white"
                                 >
                                   <option value="">Manual Match...</option>
-                                  {transactions.filter(t => t.status === 'UNRECONCILED').map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.transaction_date} - {formatCurrency(t.amount)} ({t.counterparty || t.description})
-                                    </option>
-                                  ))}
+                                  {transactions.filter(t => t.status === 'UNRECONCILED').map((t) => {
+                                    const tId = String(t.id || (t as any)._id);
+                                    return (
+                                      <option key={tId} value={tId}>
+                                        {t.transaction_date} - {formatCurrency(t.amount)} ({t.counterparty || t.description})
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               )}
                             </td>
@@ -981,19 +1033,38 @@ export const BankingPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Linked General Ledger Asset Account *</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Linked General Ledger Asset Account *
+                </label>
                 <select
                   aria-label="Linked General Ledger Asset Account"
                   required
                   value={accountFormData.gl_account_id}
-                  onChange={(e) => setAccountFormData({ ...accountFormData, gl_account_id: Number(e.target.value) })}
+                  onChange={(e) => setAccountFormData({ ...accountFormData, gl_account_id: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                 >
                   <option value="">Select Asset Account...</option>
-                  {glAccounts.filter(a => a.account_type === 'ASSET').map((a) => (
-                    <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
-                  ))}
+                  {glAccounts
+                    .filter((a) => (a.account_type === 'ASSET' || (a as any).type === 'ASSET') && a.is_active !== false)
+                    .map((a) => {
+                      const accId = String(a.id || (a as any)._id);
+                      return (
+                        <option key={accId} value={accId}>
+                          {a.code} - {a.name} ({a.currency || activeEntity?.base_currency || 'INR'})
+                        </option>
+                      );
+                    })}
                 </select>
+                {glAccounts.filter((a) => (a.account_type === 'ASSET' || (a as any).type === 'ASSET') && a.is_active !== false).length === 0 ? (
+                  <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1 bg-amber-50 p-2 rounded border border-amber-200">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>No active Asset accounts found in Chart of Accounts. Please create a Bank/Cash asset account under Chart of Accounts first.</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Select an eligible Bank or Liquid Cash asset account (e.g. 1000 Cash on Hand, 1100 Operating Bank Account) to mirror this account's entries.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
@@ -1040,13 +1111,16 @@ export const BankingPage: React.FC = () => {
                     aria-label="From Bank Account"
                     required
                     value={transferFormData.from_bank_account_id}
-                    onChange={(e) => setTransferFormData({ ...transferFormData, from_bank_account_id: Number(e.target.value) })}
+                    onChange={(e) => setTransferFormData({ ...transferFormData, from_bank_account_id: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                   >
                     <option value="">Select Source Account...</option>
-                    {bankAccounts.map((b) => (
-                      <option key={b.id} value={b.id}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
-                    ))}
+                    {bankAccounts.map((b) => {
+                      const bId = String(b.id || (b as any)._id);
+                      return (
+                        <option key={bId} value={bId}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1056,13 +1130,16 @@ export const BankingPage: React.FC = () => {
                     aria-label="To Bank Account"
                     required
                     value={transferFormData.to_bank_account_id}
-                    onChange={(e) => setTransferFormData({ ...transferFormData, to_bank_account_id: Number(e.target.value) })}
+                    onChange={(e) => setTransferFormData({ ...transferFormData, to_bank_account_id: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                   >
                     <option value="">Select Target Account...</option>
-                    {bankAccounts.map((b) => (
-                      <option key={b.id} value={b.id}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
-                    ))}
+                    {bankAccounts.map((b) => {
+                      const bId = String(b.id || (b as any)._id);
+                      return (
+                        <option key={bId} value={bId}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -1176,13 +1253,16 @@ export const BankingPage: React.FC = () => {
                   aria-label="Bank Account"
                   required
                   value={reconFormData.bank_account_id}
-                  onChange={(e) => setReconFormData({ ...reconFormData, bank_account_id: Number(e.target.value) })}
+                  onChange={(e) => setReconFormData({ ...reconFormData, bank_account_id: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                 >
                   <option value="">Select Account...</option>
-                  {bankAccounts.map((b) => (
-                    <option key={b.id} value={b.id}>{b.bank_name} - {b.account_name} ({formatCurrency(b.current_balance)})</option>
-                  ))}
+                  {bankAccounts.map((b) => {
+                    const bId = String(b.id || (b as any)._id);
+                    return (
+                      <option key={bId} value={bId}>{b.bank_name} - {b.account_name} ({formatCurrency(b.current_balance)})</option>
+                    );
+                  })}
                 </select>
               </div>
 

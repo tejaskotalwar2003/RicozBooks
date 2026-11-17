@@ -2175,8 +2175,9 @@ export const getExpenseSummary = async (entityId: number | string): Promise<Expe
 // BANKING MODULE (PHASE 3)
 // ==========================================
 export interface BankAccount {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  _id?: string;
+  entity_id: number | string;
   bank_name: string;
   account_name: string;
   account_number: string;
@@ -2185,7 +2186,7 @@ export interface BankAccount {
   swift_bic?: string;
   branch_name?: string;
   currency: string;
-  gl_account_id: number;
+  gl_account_id: number | string;
   gl_account_code?: string;
   gl_account_name?: string;
   opening_balance: number | string;
@@ -2196,7 +2197,7 @@ export interface BankAccount {
 }
 
 export interface BankAccountCreateData {
-  entity_id: number;
+  entity_id: number | string;
   bank_name: string;
   account_name: string;
   account_number: string;
@@ -2204,13 +2205,14 @@ export interface BankAccountCreateData {
   ifsc_code?: string;
   branch_name?: string;
   currency?: string;
-  gl_account_id: number;
+  gl_account_id: number | string;
   opening_balance: number;
 }
 
 export interface BankTransaction {
-  id: number;
-  bank_account_id: number;
+  id: number | string;
+  _id?: string;
+  bank_account_id: number | string;
   transaction_type: string;
   transaction_date: string;
   amount: number | string;
@@ -2221,15 +2223,15 @@ export interface BankTransaction {
   description?: string;
   status: 'UNRECONCILED' | 'RECONCILED' | 'EXCLUDED';
   reconciled_at?: string;
-  reconciliation_id?: number;
-  journal_entry_id?: number;
+  reconciliation_id?: number | string;
+  journal_entry_id?: number | string;
   created_at: string;
 }
 
 export interface BankTransferCreateData {
-  entity_id: number;
-  from_bank_account_id: number;
-  to_bank_account_id: number;
+  entity_id: number | string;
+  from_bank_account_id: number | string;
+  to_bank_account_id: number | string;
   transfer_date: string;
   amount: number;
   fee_amount?: number;
@@ -2238,11 +2240,12 @@ export interface BankTransferCreateData {
 }
 
 export interface BankTransfer {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  _id?: string;
+  entity_id: number | string;
   transfer_number: string;
-  from_bank_account_id: number;
-  to_bank_account_id: number;
+  from_bank_account_id: number | string;
+  to_bank_account_id: number | string;
   transfer_date: string;
   amount: number | string;
   fee_amount: number | string;
@@ -2253,8 +2256,9 @@ export interface BankTransfer {
 }
 
 export interface BankStatementLine {
-  id: number;
-  reconciliation_id: number;
+  id: number | string;
+  _id?: string;
+  reconciliation_id: number | string;
   transaction_date: string;
   description: string;
   reference?: string;
@@ -2262,13 +2266,14 @@ export interface BankStatementLine {
   is_credit: boolean;
   balance_after?: number | string;
   is_matched: boolean;
-  matched_transaction_id?: number;
+  matched_transaction_id?: number | string;
   created_at: string;
 }
 
 export interface BankReconciliation {
-  id: number;
-  bank_account_id: number;
+  id: number | string;
+  _id?: string;
+  bank_account_id: number | string;
   statement_date: string;
   statement_balance: number | string;
   book_balance: number | string;
@@ -2276,7 +2281,7 @@ export interface BankReconciliation {
   difference: number | string;
   status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED';
   notes?: string;
-  reconciled_by_id?: number;
+  reconciled_by_id?: number | string;
   completed_at?: string;
   created_at: string;
   statement_lines?: BankStatementLine[];
@@ -2287,7 +2292,7 @@ export interface BankingSummary {
   active_bank_accounts_count: number;
   unreconciled_transactions_count: number;
   accounts_summary: {
-    id: number;
+    id: number | string;
     bank_name: string;
     account_name: string;
     account_number: string;
@@ -2296,21 +2301,23 @@ export interface BankingSummary {
   }[];
 }
 
-export const getBankAccounts = async (entityId: number, isActive?: boolean): Promise<BankAccount[]> => {
+export const getBankAccounts = async (entityId: number | string, isActive?: boolean): Promise<BankAccount[]> => {
   const params = new URLSearchParams();
   params.append('entity_id', entityId.toString());
   if (isActive !== undefined) params.append('is_active', isActive.toString());
-  return apiRequest<BankAccount[]>(`/banking/accounts?${params.toString()}`);
+  const res = await apiRequest<any>(`/banking/accounts?${params.toString()}`);
+  return extractItems(res);
 };
 
 export const createBankAccount = async (data: BankAccountCreateData): Promise<BankAccount> => {
-  return apiRequest<BankAccount>('/banking/accounts', {
+  const res = await apiRequest<any>('/banking/accounts', {
     method: 'POST',
     body: JSON.stringify(data)
   });
+  return res?.data || res;
 };
 
-export const getBankTransactions = async (bankAccountId: number, status?: string): Promise<BankTransaction[]> => {
+export const getBankTransactions = async (bankAccountId: number | string, status?: string): Promise<BankTransaction[]> => {
   const params = new URLSearchParams();
   params.append('bank_account_id', bankAccountId.toString());
   if (status) params.append('status_filter', status);
@@ -2320,7 +2327,7 @@ export const getBankTransactions = async (bankAccountId: number, status?: string
 };
 
 export const getBankTransactionsPaginated = async (
-  bankAccountId: number,
+  bankAccountId: number | string,
   status?: string,
   page: number = 1,
   pageSize: number = 20
@@ -2335,37 +2342,40 @@ export const getBankTransactionsPaginated = async (
 };
 
 export const createBankTransfer = async (data: BankTransferCreateData): Promise<BankTransfer> => {
-  return apiRequest<BankTransfer>('/banking/transfers', {
+  const res = await apiRequest<any>('/banking/transfers', {
     method: 'POST',
     body: JSON.stringify(data)
   });
+  return res?.data || res;
 };
 
-export const getBankTransfers = async (entityId: number): Promise<BankTransfer[]> => {
+export const getBankTransfers = async (entityId: number | string): Promise<BankTransfer[]> => {
   const res = await apiRequest<BankTransfer[] | PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&paginate=false`);
   return extractItems(res);
 };
 
 export const getBankTransfersPaginated = async (
-  entityId: number,
+  entityId: number | string,
   page: number = 1,
   pageSize: number = 20
 ): Promise<PaginatedResponse<BankTransfer>> => {
   return apiRequest<PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&page=${page}&page_size=${pageSize}&paginate=true`);
 };
 
-export const createBankReconciliation = async (data: { bank_account_id: number; statement_date: string; statement_balance: number; notes?: string }): Promise<BankReconciliation> => {
-  return apiRequest<BankReconciliation>('/banking/reconciliations', {
+export const createBankReconciliation = async (data: { bank_account_id: number | string; statement_date: string; statement_balance: number; notes?: string }): Promise<BankReconciliation> => {
+  const res = await apiRequest<any>('/banking/reconciliations', {
     method: 'POST',
     body: JSON.stringify(data)
   });
+  return res?.data || res;
 };
 
-export const getBankReconciliationDetail = async (id: number): Promise<BankReconciliation> => {
-  return apiRequest<BankReconciliation>(`/banking/reconciliations/${id}`);
+export const getBankReconciliationDetail = async (id: number | string): Promise<BankReconciliation> => {
+  const res = await apiRequest<any>(`/banking/reconciliations/${id}`);
+  return res?.data || res;
 };
 
-export const uploadStatementCsv = async (id: number, file: File): Promise<{ message: string; lines_imported: number; difference: number }> => {
+export const uploadStatementCsv = async (id: number | string, file: File): Promise<{ message: string; lines_imported: number; difference: number }> => {
   const token = localStorage.getItem('token');
   const formData = new FormData();
   formData.append('file', file);
@@ -2385,21 +2395,23 @@ export const uploadStatementCsv = async (id: number, file: File): Promise<{ mess
   return res.json();
 };
 
-export const matchBankTx = async (id: number, statementLineId: number, transactionId: number): Promise<{ message: string; difference: number }> => {
+export const matchBankTx = async (id: number | string, statementLineId: number | string, transactionId: number | string): Promise<{ message: string; difference: number }> => {
   return apiRequest<{ message: string; difference: number }>(`/banking/reconciliations/${id}/match`, {
     method: 'POST',
     body: JSON.stringify({ statement_line_id: statementLineId, transaction_id: transactionId })
   });
 };
 
-export const completeBankReconciliation = async (id: number): Promise<BankReconciliation> => {
-  return apiRequest<BankReconciliation>(`/banking/reconciliations/${id}/complete`, {
+export const completeBankReconciliation = async (id: number | string): Promise<BankReconciliation> => {
+  const res = await apiRequest<any>(`/banking/reconciliations/${id}/complete`, {
     method: 'POST'
   });
+  return res?.data || res;
 };
 
-export const getBankingSummary = async (entityId: number): Promise<BankingSummary> => {
-  return apiRequest<BankingSummary>(`/banking/banking-summary?entity_id=${entityId}`);
+export const getBankingSummary = async (entityId: number | string): Promise<BankingSummary> => {
+  const res = await apiRequest<any>(`/banking/banking-summary?entity_id=${entityId}`);
+  return res?.data || res;
 };
 
 // ==========================================
@@ -2636,13 +2648,13 @@ export const getGstr3b = async (entityId: number, period: string): Promise<GSTR3
   return apiRequest<GSTR3BSummary>(`/gst/gstr3b?entity_id=${entityId}&period=${period}`);
 };
 
-export const settleGstReturn = async (data: { entity_id: number; return_period: string; payment_bank_account_id?: number; reference_number?: string }): Promise<{
+export const settleGstReturn = async (data: { entity_id: number | string; return_period: string; payment_bank_account_id?: number | string; reference_number?: string }): Promise<{
   message: string;
   return_period: string;
   total_output_liability: number;
   itc_utilized: number;
   cash_paid: number;
-  settlement_journal_id: number;
+  settlement_journal_id: number | string;
   arn_number: string;
 }> => {
   return apiRequest('/gst/settle', {

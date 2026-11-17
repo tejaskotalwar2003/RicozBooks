@@ -45,7 +45,7 @@ export const GstCenterPage: React.FC = () => {
 
   // Settlement modal state
   const [isSettleModalOpen, setIsSettleModalOpen] = useState<boolean>(false);
-  const [settleBankId, setSettleBankId] = useState<number | ''>('');
+  const [settleBankId, setSettleBankId] = useState<string | number | ''>('');
   const [settleReference, setSettleReference] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -110,7 +110,7 @@ export const GstCenterPage: React.FC = () => {
       const result = await settleGstReturn({
         entity_id: activeEntity.id,
         return_period: selectedPeriod,
-        payment_bank_account_id: settleBankId ? Number(settleBankId) : undefined,
+        payment_bank_account_id: settleBankId ? settleBankId : undefined,
         reference_number: settleReference
       });
 
@@ -741,7 +741,7 @@ export const GstCenterPage: React.FC = () => {
                   </label>
                   <select
                     value={settleBankId}
-                    onChange={(e) => setSettleBankId(Number(e.target.value))}
+                    onChange={(e) => setSettleBankId(e.target.value)}
                     required
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >

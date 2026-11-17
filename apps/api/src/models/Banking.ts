@@ -157,3 +157,45 @@ const BankStatementLineSchema = new Schema<IBankStatementLine>(
 
 export const BankStatementLine = mongoose.model<IBankStatementLine>('BankStatementLine', BankStatementLineSchema);
 
+export interface IBankTransfer extends Document {
+  entity_id: mongoose.Types.ObjectId;
+  transfer_number: string;
+  from_bank_account_id: mongoose.Types.ObjectId;
+  to_bank_account_id: mongoose.Types.ObjectId;
+  transfer_date: Date;
+  amount: mongoose.Types.Decimal128;
+  fee_amount: mongoose.Types.Decimal128;
+  currency: string;
+  reference_number?: string;
+  notes?: string;
+  journal_entry_id?: mongoose.Types.ObjectId | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+const BankTransferSchema = new Schema<IBankTransfer>(
+  {
+    entity_id: { type: Schema.Types.ObjectId, ref: 'Entity', required: true, index: true },
+    transfer_number: { type: String, required: true },
+    from_bank_account_id: { type: Schema.Types.ObjectId, ref: 'BankAccount', required: true, index: true },
+    to_bank_account_id: { type: Schema.Types.ObjectId, ref: 'BankAccount', required: true, index: true },
+    transfer_date: { type: Date, required: true, index: true },
+    amount: { type: Schema.Types.Decimal128, required: true },
+    fee_amount: { type: Schema.Types.Decimal128, default: 0.0 },
+    currency: { type: String, default: 'INR' },
+    reference_number: { type: String, default: '' },
+    notes: { type: String, default: '' },
+    journal_entry_id: { type: Schema.Types.ObjectId, ref: 'JournalEntry', default: null },
+  },
+  {
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+BankTransferSchema.index({ entity_id: 1, transfer_date: -1 });
+
+export const BankTransfer = mongoose.model<IBankTransfer>('BankTransfer', BankTransferSchema);
+
+
