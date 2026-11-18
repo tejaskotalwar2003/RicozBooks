@@ -39,9 +39,22 @@ import {
   BankTransfer, 
   BankTransferCreateData, 
   BankReconciliation, 
+  BankStatementLine,
   BankingSummary,
   Account
 } from '../services/accountingApi';
+
+const ensureArray = <T,>(val: any): T[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (Array.isArray(val.data)) return val.data;
+  if (Array.isArray(val.items)) return val.items;
+  if (Array.isArray(val.accounts)) return val.accounts;
+  if (Array.isArray(val.transactions)) return val.transactions;
+  if (Array.isArray(val.transfers)) return val.transfers;
+  if (Array.isArray(val.statement_lines)) return val.statement_lines;
+  return [];
+};
 
 export const BankingPage: React.FC = () => {
   const { activeEntity } = useAuth();
@@ -132,31 +145,36 @@ export const BankingPage: React.FC = () => {
 
       let accountsData: BankAccount[] = [];
       if (accountsRes.status === 'fulfilled') {
-        accountsData = accountsRes.value || [];
+        accountsData = ensureArray<BankAccount>(accountsRes.value);
         setBankAccounts(accountsData);
         if (accountsData.length > 0 && !selectedAccountId) {
           setSelectedAccountId(accountsData[0].id || (accountsData[0] as any)._id);
         }
       } else {
         console.warn('Bank accounts fetch warning:', accountsRes.reason);
+        setBankAccounts([]);
       }
 
       if (summaryRes.status === 'fulfilled') {
-        setSummary(summaryRes.value);
+        const sumVal = summaryRes.value as any;
+        setSummary(sumVal?.data || sumVal || null);
       } else {
         console.warn('Banking summary fetch warning:', summaryRes.reason);
+        setSummary(null);
       }
 
       if (glRes.status === 'fulfilled') {
-        setGlAccounts(glRes.value || []);
+        setGlAccounts(ensureArray<Account>(glRes.value));
       } else {
         console.warn('GL accounts fetch warning:', glRes.reason);
+        setGlAccounts([]);
       }
 
       if (transfersRes.status === 'fulfilled') {
-        setTransfers(transfersRes.value || []);
+        setTransfers(ensureArray<BankTransfer>(transfersRes.value));
       } else {
         console.warn('Bank transfers fetch warning:', transfersRes.reason);
+        setTransfers([]);
       }
 
       if (accountsRes.status === 'rejected' && glRes.status === 'rejected') {
@@ -172,8 +190,10 @@ export const BankingPage: React.FC = () => {
   const loadTransactions = async (accId: string | number) => {
     try {
       const txData = await getBankTransactions(accId);
-      setTransactions(txData);
+      setTransactions(ensureArray<BankTransaction>(txData));
     } catch (err: any) {
+      console.warn('Transactions fetch warning:', err);
+      setTransactions([]);
       setError(err.message || 'Failed to load transactions');
     }
   };
@@ -342,7 +362,13 @@ export const BankingPage: React.FC = () => {
     }).format(num);
   };
 
-  const activeAccount = bankAccounts.find(a => String(a.id || (a as any)._id) === String(selectedAccountId));
+  const safeBankAccounts = ensureArray<BankAccount>(bankAccounts);
+  const safeGlAccounts = ensureArray<Account>(glAccounts);
+  const safeTransactions = ensureArray<BankTransaction>(transactions);
+  const safeTransfers = ensureArray<BankTransfer>(transfers);
+  const safeStatementLines = ensureArray<BankStatementLine>(activeReconciliation?.statement_lines);
+
+  const activeAccount = safeBankAccounts.find(a => String(a.id || (a as any)._id) === String(selectedAccountId));
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -453,7 +479,7 @@ export const BankingPage: React.FC = () => {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="text-slate-500 text-xs font-medium uppercase tracking-wider">Internal Transfers</div>
           <div className="text-2xl font-bold text-blue-600 mt-2">
-            {transfers.length}
+            {safeTransfers.length}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
             <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
@@ -467,7 +493,7 @@ export const BankingPage: React.FC = () => {
         <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
           Company Bank Accounts
         </div>
-        {bankAccounts.length === 0 ? (
+        {safeBankAccounts.length === 0 ? (
           <div className="p-8 bg-white border border-dashed border-slate-300 rounded-2xl text-center">
             <div className="w-12 h-12 bg-[#390003]/10 text-[#390003] rounded-full flex items-center justify-center mx-auto mb-3">
               <Landmark className="w-6 h-6" />
@@ -486,7 +512,7 @@ export const BankingPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bankAccounts.map((acc) => {
+            {safeBankAccounts.map((acc) => {
               const accId = String(acc.id || (acc as any)._id);
               const isSelected = accId === String(selectedAccountId);
               return (
@@ -573,7 +599,7 @@ export const BankingPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            Bank Transactions ({transactions.length})
+            Bank Transactions ({safeTransactions.length})
           </button>
           <button
             onClick={() => setActiveTab('TRANSFERS')}
@@ -583,7 +609,7 @@ export const BankingPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            Internal Transfers ({transfers.length})
+            Internal Transfers ({safeTransfers.length})
           </button>
           <button
             onClick={() => setActiveTab('RECONCILIATION')}
@@ -625,14 +651,14 @@ export const BankingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {transactions.length === 0 ? (
+                {safeTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-slate-400">
                       No transactions recorded for this bank account yet.
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((tx) => (
+                  safeTransactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 text-slate-600 font-mono">{tx.transaction_date}</td>
                       <td className="py-3 px-4">
@@ -705,16 +731,16 @@ export const BankingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {transfers.length === 0 ? (
+                {safeTransfers.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-400">
                       No internal bank transfers recorded yet.
                     </td>
                   </tr>
                 ) : (
-                  transfers.map((t) => {
-                    const fromAcc = bankAccounts.find(a => String(a.id || (a as any)._id) === String(t.from_bank_account_id));
-                    const toAcc = bankAccounts.find(a => String(a.id || (a as any)._id) === String(t.to_bank_account_id));
+                  safeTransfers.map((t) => {
+                    const fromAcc = safeBankAccounts.find(a => String(a.id || (a as any)._id) === String(t.from_bank_account_id));
+                    const toAcc = safeBankAccounts.find(a => String(a.id || (a as any)._id) === String(t.to_bank_account_id));
                     return (
                       <tr key={String(t.id || (t as any)._id)} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4 font-mono font-medium text-slate-900">{t.transfer_number}</td>
@@ -777,7 +803,7 @@ export const BankingPage: React.FC = () => {
                   <div>
                     <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Active Session</div>
                     <h2 className="text-lg font-bold text-slate-900">
-                      Reconciling {bankAccounts.find(b => String(b.id || (b as any)._id) === String(activeReconciliation.bank_account_id))?.bank_name || 'Bank Account'} as of {activeReconciliation.statement_date}
+                      Reconciling {safeBankAccounts.find(b => String(b.id || (b as any)._id) === String(activeReconciliation.bank_account_id))?.bank_name || 'Bank Account'} as of {activeReconciliation.statement_date}
                     </h2>
                   </div>
 
@@ -856,7 +882,7 @@ export const BankingPage: React.FC = () => {
               {/* STATEMENT LINES LIST */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 font-semibold text-xs text-slate-800">
-                  Bank Statement Lines from CSV ({activeReconciliation.statement_lines?.length || 0})
+                  Bank Statement Lines from CSV ({safeStatementLines.length})
                 </div>
 
                 <div className="overflow-x-auto">
@@ -873,14 +899,14 @@ export const BankingPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {!activeReconciliation.statement_lines || activeReconciliation.statement_lines.length === 0 ? (
+                      {safeStatementLines.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-slate-400">
                             No statement lines uploaded yet. Upload a CSV statement using the button above.
                           </td>
                         </tr>
                       ) : (
-                        activeReconciliation.statement_lines.map((line) => (
+                        safeStatementLines.map((line) => (
                           <tr key={line.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4 text-slate-600 font-mono">{line.transaction_date}</td>
                             <td className="py-3 px-4 text-slate-900 font-medium">{line.description}</td>
@@ -915,7 +941,7 @@ export const BankingPage: React.FC = () => {
                                   className="px-2 py-1 text-[11px] border border-slate-300 rounded bg-white"
                                 >
                                   <option value="">Manual Match...</option>
-                                  {transactions.filter(t => t.status === 'UNRECONCILED').map((t) => {
+                                  {safeTransactions.filter(t => t.status === 'UNRECONCILED').map((t) => {
                                     const tId = String(t.id || (t as any)._id);
                                     return (
                                       <option key={tId} value={tId}>
@@ -1044,7 +1070,7 @@ export const BankingPage: React.FC = () => {
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                 >
                   <option value="">Select Asset Account...</option>
-                  {glAccounts
+                  {safeGlAccounts
                     .filter((a) => (a.account_type === 'ASSET' || (a as any).type === 'ASSET') && a.is_active !== false)
                     .map((a) => {
                       const accId = String(a.id || (a as any)._id);
@@ -1055,7 +1081,7 @@ export const BankingPage: React.FC = () => {
                       );
                     })}
                 </select>
-                {glAccounts.filter((a) => (a.account_type === 'ASSET' || (a as any).type === 'ASSET') && a.is_active !== false).length === 0 ? (
+                {safeGlAccounts.filter((a) => (a.account_type === 'ASSET' || (a as any).type === 'ASSET') && a.is_active !== false).length === 0 ? (
                   <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1 bg-amber-50 p-2 rounded border border-amber-200">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>No active Asset accounts found in Chart of Accounts. Please create a Bank/Cash asset account under Chart of Accounts first.</span>
@@ -1115,7 +1141,7 @@ export const BankingPage: React.FC = () => {
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                   >
                     <option value="">Select Source Account...</option>
-                    {bankAccounts.map((b) => {
+                    {safeBankAccounts.map((b) => {
                       const bId = String(b.id || (b as any)._id);
                       return (
                         <option key={bId} value={bId}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
@@ -1134,7 +1160,7 @@ export const BankingPage: React.FC = () => {
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                   >
                     <option value="">Select Target Account...</option>
-                    {bankAccounts.map((b) => {
+                    {safeBankAccounts.map((b) => {
                       const bId = String(b.id || (b as any)._id);
                       return (
                         <option key={bId} value={bId}>{b.bank_name} - {formatCurrency(b.current_balance)}</option>
@@ -1257,7 +1283,7 @@ export const BankingPage: React.FC = () => {
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#390003]"
                 >
                   <option value="">Select Account...</option>
-                  {bankAccounts.map((b) => {
+                  {safeBankAccounts.map((b) => {
                     const bId = String(b.id || (b as any)._id);
                     return (
                       <option key={bId} value={bId}>{b.bank_name} - {b.account_name} ({formatCurrency(b.current_balance)})</option>

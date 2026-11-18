@@ -47,7 +47,7 @@ export class BankingController {
         };
       });
 
-      res.status(200).json({ success: true, count: result.length, data: result });
+      res.status(200).json({ success: true, count: result.length, data: result, accounts: result, items: result });
     } catch (err) {
       next(err);
     }
@@ -187,7 +187,7 @@ export class BankingController {
         created_at: t.created_at,
       }));
 
-      res.status(200).json({ success: true, count: result.length, data: result });
+      res.status(200).json({ success: true, count: result.length, data: result, transfers: result, items: result });
     } catch (err: any) {
       if (err.statusCode) {
         res.status(err.statusCode).json({ success: false, detail: err.message });
@@ -281,7 +281,7 @@ export class BankingController {
         created_at: t.created_at,
       }));
 
-      res.status(200).json({ success: true, count: result.length, data: result });
+      res.status(200).json({ success: true, count: result.length, data: result, transactions: result, items: result });
     } catch (err) {
       next(err);
     }

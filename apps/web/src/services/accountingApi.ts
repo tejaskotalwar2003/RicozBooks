@@ -2325,6 +2325,10 @@ export const getBankAccounts = async (entityId: number | string, isActive?: bool
   params.append('entity_id', entityId.toString());
   if (isActive !== undefined) params.append('is_active', isActive.toString());
   const res = await apiRequest<any>(`/banking/accounts?${params.toString()}`);
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.accounts)) return res.accounts;
+  if (Array.isArray(res?.items)) return res.items;
   return extractItems(res);
 };
 
@@ -2339,9 +2343,13 @@ export const createBankAccount = async (data: BankAccountCreateData): Promise<Ba
 export const getBankTransactions = async (bankAccountId: number | string, status?: string): Promise<BankTransaction[]> => {
   const params = new URLSearchParams();
   params.append('bank_account_id', bankAccountId.toString());
-  if (status) params.append('status_filter', status);
+  if (status && status !== 'ALL') params.append('status_filter', status);
   params.append('paginate', 'false');
-  const res = await apiRequest<BankTransaction[] | PaginatedResponse<BankTransaction>>(`/banking/transactions?${params.toString()}`);
+  const res = await apiRequest<any>(`/banking/transactions?${params.toString()}`);
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.transactions)) return res.transactions;
+  if (Array.isArray(res?.items)) return res.items;
   return extractItems(res);
 };
 
@@ -2357,7 +2365,18 @@ export const getBankTransactionsPaginated = async (
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
   params.append('paginate', 'true');
-  return apiRequest<PaginatedResponse<BankTransaction>>(`/banking/transactions?${params.toString()}`);
+  const res = await apiRequest<any>(`/banking/transactions?${params.toString()}`);
+  if (res && Array.isArray(res.items)) return res;
+  const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.items) ? res.items : (Array.isArray(res?.transactions) ? res.transactions : [])));
+  const total = res?.total ?? res?.count ?? items.length;
+  const size = res?.page_size ?? pageSize;
+  return {
+    items,
+    total,
+    page: res?.page ?? page,
+    page_size: size,
+    total_pages: res?.total_pages ?? Math.max(1, Math.ceil(total / size))
+  };
 };
 
 export const createBankTransfer = async (data: BankTransferCreateData): Promise<BankTransfer> => {
@@ -2369,7 +2388,11 @@ export const createBankTransfer = async (data: BankTransferCreateData): Promise<
 };
 
 export const getBankTransfers = async (entityId: number | string): Promise<BankTransfer[]> => {
-  const res = await apiRequest<BankTransfer[] | PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&paginate=false`);
+  const res = await apiRequest<any>(`/banking/transfers?entity_id=${entityId}&paginate=false`);
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.transfers)) return res.transfers;
+  if (Array.isArray(res?.items)) return res.items;
   return extractItems(res);
 };
 
@@ -2378,7 +2401,18 @@ export const getBankTransfersPaginated = async (
   page: number = 1,
   pageSize: number = 20
 ): Promise<PaginatedResponse<BankTransfer>> => {
-  return apiRequest<PaginatedResponse<BankTransfer>>(`/banking/transfers?entity_id=${entityId}&page=${page}&page_size=${pageSize}&paginate=true`);
+  const res = await apiRequest<any>(`/banking/transfers?entity_id=${entityId}&page=${page}&page_size=${pageSize}&paginate=true`);
+  if (res && Array.isArray(res.items)) return res;
+  const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.items) ? res.items : (Array.isArray(res?.transfers) ? res.transfers : [])));
+  const total = res?.total ?? res?.count ?? items.length;
+  const size = res?.page_size ?? pageSize;
+  return {
+    items,
+    total,
+    page: res?.page ?? page,
+    page_size: size,
+    total_pages: res?.total_pages ?? Math.max(1, Math.ceil(total / size))
+  };
 };
 
 export const createBankReconciliation = async (data: { bank_account_id: number | string; statement_date: string; statement_balance: number; notes?: string }): Promise<BankReconciliation> => {
@@ -2391,11 +2425,15 @@ export const createBankReconciliation = async (data: { bank_account_id: number |
 
 export const getBankReconciliationDetail = async (id: number | string): Promise<BankReconciliation> => {
   const res = await apiRequest<any>(`/banking/reconciliations/${id}`);
-  return res?.data || res;
+  const recon = res?.data || res;
+  if (recon && !Array.isArray(recon.statement_lines)) {
+    recon.statement_lines = [];
+  }
+  return recon;
 };
 
 export const uploadStatementCsv = async (id: number | string, file: File): Promise<{ message: string; lines_imported: number; difference: number }> => {
-  const token = localStorage.getItem('token');
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('ricozbooks_token') || localStorage.getItem('token')) : null;
   const formData = new FormData();
   formData.append('file', file);
 
@@ -2411,14 +2449,16 @@ export const uploadStatementCsv = async (id: number | string, file: File): Promi
     const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
     throw new Error(err.detail || 'Failed to upload CSV statement');
   }
-  return res.json();
+  const result = await res.json();
+  return result?.data || result;
 };
 
 export const matchBankTx = async (id: number | string, statementLineId: number | string, transactionId: number | string): Promise<{ message: string; difference: number }> => {
-  return apiRequest<{ message: string; difference: number }>(`/banking/reconciliations/${id}/match`, {
+  const res = await apiRequest<any>(`/banking/reconciliations/${id}/match`, {
     method: 'POST',
     body: JSON.stringify({ statement_line_id: statementLineId, transaction_id: transactionId })
   });
+  return res?.data || res;
 };
 
 export const completeBankReconciliation = async (id: number | string): Promise<BankReconciliation> => {
@@ -2430,7 +2470,13 @@ export const completeBankReconciliation = async (id: number | string): Promise<B
 
 export const getBankingSummary = async (entityId: number | string): Promise<BankingSummary> => {
   const res = await apiRequest<any>(`/banking/banking-summary?entity_id=${entityId}`);
-  return res?.data || res;
+  const summaryObj = res?.data || res || {};
+  return {
+    total_liquid_cash: Number(summaryObj.total_liquid_cash || 0),
+    active_bank_accounts_count: Number(summaryObj.active_bank_accounts_count || 0),
+    unreconciled_transactions_count: Number(summaryObj.unreconciled_transactions_count || 0),
+    accounts_summary: Array.isArray(summaryObj.accounts_summary) ? summaryObj.accounts_summary : []
+  };
 };
 
 // ==========================================

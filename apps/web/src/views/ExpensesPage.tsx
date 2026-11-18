@@ -140,10 +140,10 @@ export const ExpensesPage: React.FC = () => {
       setExpenses(itemsList);
       setTotalRecords(expData?.total ?? itemsList.length);
       setTotalPages(expData?.total_pages ?? (Math.ceil(itemsList.length / size) || 1));
-      setCategories(catData || []);
-      setBankAccounts(bankData || []);
+      setCategories(Array.isArray(catData) ? catData : ((catData as any)?.data || (catData as any)?.items || []));
+      setBankAccounts(Array.isArray(bankData) ? bankData : ((bankData as any)?.data || (bankData as any)?.accounts || []));
       setSummary(sumData || null);
-      setGlAccounts(accData || []);
+      setGlAccounts(Array.isArray(accData) ? accData : ((accData as any)?.data || (accData as any)?.items || []));
     } catch (err: any) {
       console.error('Failed to load expenses data:', err);
       setError(err.message || 'Failed to load expenses');

@@ -79,9 +79,10 @@ export const GstCenterPage: React.FC = () => {
       setMetrics(metRes);
       setGstr1Data(g1Res);
       setGstr3bData(g3bRes);
-      setBankAccounts(banksRes);
-      if (banksRes.length > 0 && !settleBankId) {
-        setSettleBankId(banksRes[0].id);
+      const safeBanks = Array.isArray(banksRes) ? banksRes : ((banksRes as any)?.data || (banksRes as any)?.accounts || []);
+      setBankAccounts(safeBanks);
+      if (safeBanks.length > 0 && !settleBankId) {
+        setSettleBankId(safeBanks[0].id || (safeBanks[0] as any)._id);
       }
     } catch (err: any) {
       console.error('Failed to load GST return data:', err);
