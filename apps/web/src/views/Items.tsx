@@ -83,15 +83,15 @@ export const Items: React.FC = () => {
     hsn_sac_code: '',
     description: '',
     selling_price: 0,
-    sales_account_id: undefined as number | undefined,
+    sales_account_id: undefined as number | string | undefined,
     tax_rate: 18.0,
     purchase_price: 0,
-    purchase_account_id: undefined as number | undefined,
+    purchase_account_id: undefined as number | string | undefined,
     track_inventory: true,
     opening_stock: 0,
     opening_stock_rate: 0,
     reorder_level: 0,
-    inventory_account_id: undefined as number | undefined,
+    inventory_account_id: undefined as number | string | undefined,
     warehouse_location: 'Main Warehouse'
   });
 
@@ -227,15 +227,15 @@ export const Items: React.FC = () => {
       hsn_sac_code: '',
       description: '',
       selling_price: 0,
-      sales_account_id: defaultRevenue?.id,
+      sales_account_id: defaultRevenue ? (defaultRevenue.id || (defaultRevenue as any)._id) : undefined,
       tax_rate: 18.0,
       purchase_price: 0,
-      purchase_account_id: defaultCogs?.id,
+      purchase_account_id: defaultCogs ? (defaultCogs.id || (defaultCogs as any)._id) : undefined,
       track_inventory: true,
       opening_stock: 0,
       opening_stock_rate: 0,
       reorder_level: 0,
-      inventory_account_id: defaultInventory?.id,
+      inventory_account_id: defaultInventory ? (defaultInventory.id || (defaultInventory as any)._id) : undefined,
       warehouse_location: 'Main Warehouse'
     });
     setActionError(null);
@@ -253,10 +253,10 @@ export const Items: React.FC = () => {
       hsn_sac_code: item.hsn_sac_code || '',
       description: item.description || '',
       selling_price: Number(item.selling_price) || 0,
-      sales_account_id: item.income_account_id,
+      sales_account_id: item.sales_account_id || item.income_account_id,
       tax_rate: Number(item.tax_rate) || 18.0,
       purchase_price: Number(item.purchase_price) || 0,
-      purchase_account_id: item.expense_account_id,
+      purchase_account_id: item.purchase_account_id || item.cogs_account_id || item.expense_account_id,
       track_inventory: item.product_type === 'SERVICE' ? false : Boolean(item.track_inventory),
       opening_stock: Number(item.opening_stock) || 0,
       opening_stock_rate: Number(item.opening_stock_rate) || 0,
@@ -324,7 +324,24 @@ export const Items: React.FC = () => {
         setActionSuccess(`Item '${formData.name}' updated successfully.`);
       } else {
         await createItem(payload);
-        setActionSuccess(`Item '${formData.name}' created successfully.`);
+        const isProduct = formData.product_type === 'PRODUCT';
+        const tabMismatched = (isProduct && activeTab === 'SERVICES') || (!isProduct && activeTab === 'PRODUCTS') || (activeTab === 'INACTIVE');
+        const searchMismatched = (nameSearch && !formData.name.toLowerCase().includes(nameSearch.toLowerCase())) ||
+                                 (skuSearch && formData.sku && !formData.sku.toLowerCase().includes(skuSearch.toLowerCase())) ||
+                                 (categoryFilter !== 'ALL' && formData.category !== categoryFilter);
+
+        if (tabMismatched || searchMismatched) {
+          setActiveTab('ALL');
+          setNameSearch('');
+          setSkuSearch('');
+          setTypeFilter('ALL');
+          setStatusFilter('ALL');
+          setCategoryFilter('ALL');
+          setCurrentPage(1);
+          setActionSuccess(`Item '${formData.name}' created successfully! Filters were reset to display the new item.`);
+        } else {
+          setActionSuccess(`Item '${formData.name}' created successfully.`);
+        }
       }
 
       setIsFormModalOpen(false);
@@ -1023,13 +1040,13 @@ export const Items: React.FC = () => {
                       Sales Account (Income)
                     </label>
                     <select
-                      value={formData.sales_account_id || ''}
-                      onChange={(e) => setFormData({ ...formData, sales_account_id: e.target.value ? Number(e.target.value) : undefined })}
+                      value={formData.sales_account_id ? String(formData.sales_account_id) : ''}
+                      onChange={(e) => setFormData({ ...formData, sales_account_id: e.target.value || undefined })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                     >
                       <option value="">Select Account...</option>
                       {revenueAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
+                        <option key={String(a.id || (a as any)._id)} value={String(a.id || (a as any)._id)}>
                           {a.code} - {a.name}
                         </option>
                       ))}
@@ -1084,22 +1101,22 @@ export const Items: React.FC = () => {
                       Purchase Account (Expense / COGS)
                     </label>
                     <select
-                      value={formData.purchase_account_id || ''}
-                      onChange={(e) => setFormData({ ...formData, purchase_account_id: e.target.value ? Number(e.target.value) : undefined })}
+                      value={formData.purchase_account_id ? String(formData.purchase_account_id) : ''}
+                      onChange={(e) => setFormData({ ...formData, purchase_account_id: e.target.value || undefined })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                     >
                       <option value="">Select Account...</option>
                       {formData.product_type === 'PRODUCT' ? (
                         <>
                           {cogsAccounts.map((a) => (
-                            <option key={a.id} value={a.id}>
+                            <option key={String(a.id || (a as any)._id)} value={String(a.id || (a as any)._id)}>
                               {a.code} - {a.name}
                             </option>
                           ))}
-                          {formData.purchase_account_id && !cogsAccounts.some(a => a.id === formData.purchase_account_id) && (() => {
-                            const legacyAcc = accounts.find(a => a.id === formData.purchase_account_id);
+                          {formData.purchase_account_id && !cogsAccounts.some(a => String(a.id || (a as any)._id) === String(formData.purchase_account_id)) && (() => {
+                            const legacyAcc = accounts.find(a => String(a.id || (a as any)._id) === String(formData.purchase_account_id));
                             return legacyAcc ? (
-                              <option key={legacyAcc.id} value={legacyAcc.id}>
+                              <option key={String(legacyAcc.id || (legacyAcc as any)._id)} value={String(legacyAcc.id || (legacyAcc as any)._id)}>
                                 {legacyAcc.code} - {legacyAcc.name} (Legacy Account)
                               </option>
                             ) : null;
@@ -1107,7 +1124,7 @@ export const Items: React.FC = () => {
                         </>
                       ) : (
                         expenseAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
+                          <option key={String(a.id || (a as any)._id)} value={String(a.id || (a as any)._id)}>
                             {a.code} - {a.name}
                           </option>
                         ))
@@ -1203,13 +1220,13 @@ export const Items: React.FC = () => {
                         Inventory Account (Asset)
                       </label>
                       <select
-                        value={formData.inventory_account_id || ''}
-                        onChange={(e) => setFormData({ ...formData, inventory_account_id: e.target.value ? Number(e.target.value) : undefined })}
+                        value={formData.inventory_account_id ? String(formData.inventory_account_id) : ''}
+                        onChange={(e) => setFormData({ ...formData, inventory_account_id: e.target.value || undefined })}
                         className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#781019] focus:border-[#781019] bg-white font-medium"
                       >
                         <option value="">Select Account...</option>
                         {assetAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
+                          <option key={String(a.id || (a as any)._id)} value={String(a.id || (a as any)._id)}>
                             {a.code} - {a.name}
                           </option>
                         ))}

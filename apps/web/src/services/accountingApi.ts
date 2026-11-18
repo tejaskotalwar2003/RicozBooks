@@ -7,13 +7,13 @@ export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENS
 export type NormalBalance = 'DEBIT' | 'CREDIT';
 
 export interface Account {
-  id: number;
-  entity_id: number;
+  id: any;
+  entity_id: any;
   code: string;
   name: string;
   account_type: AccountType;
   normal_balance: NormalBalance;
-  parent_id?: number;
+  parent_id?: any;
   description?: string;
   currency: string;
   is_active: boolean;
@@ -1145,8 +1145,8 @@ export interface CustomerStatement {
 }
 
 export interface Product {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  entity_id: number | string;
   name: string;
   sku?: string;
   product_type: 'GOODS' | 'PRODUCT' | 'SERVICE';
@@ -1157,11 +1157,12 @@ export interface Product {
   purchase_price: number;
   hsn_sac_code?: string;
   tax_rate: number;
-  income_account_id?: number;
-  expense_account_id?: number;
-  sales_account_id?: number;
-  purchase_account_id?: number;
-  inventory_account_id?: number;
+  income_account_id?: number | string;
+  expense_account_id?: number | string;
+  sales_account_id?: number | string;
+  purchase_account_id?: number | string;
+  cogs_account_id?: number | string;
+  inventory_account_id?: number | string;
   track_inventory: boolean;
   opening_stock: number;
   opening_stock_rate: number;
@@ -1180,7 +1181,7 @@ export interface Product {
 export type Item = Product;
 
 export interface ProductCreateData {
-  entity_id: number;
+  entity_id: number | string;
   name: string;
   sku?: string;
   product_type?: string;
@@ -1191,11 +1192,12 @@ export interface ProductCreateData {
   purchase_price?: number;
   hsn_sac_code?: string;
   tax_rate?: number;
-  income_account_id?: number;
-  expense_account_id?: number;
-  sales_account_id?: number;
-  purchase_account_id?: number;
-  inventory_account_id?: number;
+  income_account_id?: number | string;
+  expense_account_id?: number | string;
+  sales_account_id?: number | string;
+  purchase_account_id?: number | string;
+  cogs_account_id?: number | string;
+  inventory_account_id?: number | string;
   track_inventory?: boolean;
   opening_stock?: number;
   opening_stock_rate?: number;
@@ -1219,7 +1221,7 @@ export interface ItemSummary {
 }
 
 export interface ItemFilterParams {
-  entity_id?: number;
+  entity_id?: number | string;
   search?: string;
   name_search?: string;
   sku_search?: string;
@@ -1498,34 +1500,38 @@ export const getProductsPaginated = async (
 };
 
 export const createProduct = async (data: ProductCreateData): Promise<Product> => {
-  return apiRequest<Product>('/products', {
+  const res = await apiRequest<any>('/products', {
     method: 'POST',
     body: JSON.stringify(data)
   });
+  return (res?.data || res) as Product;
 };
 
 export const createItem = createProduct;
 
-export const updateProduct = async (id: number, data: Partial<ProductCreateData>): Promise<Product> => {
-  return apiRequest<Product>(`/products/${id}`, {
+export const updateProduct = async (id: number | string, data: Partial<ProductCreateData>): Promise<Product> => {
+  const res = await apiRequest<any>(`/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
+  return (res?.data || res) as Product;
 };
 
 export const updateItem = updateProduct;
 
-export const toggleProductStatus = async (id: number, isActive: boolean): Promise<Product> => {
-  return apiRequest<Product>(`/products/${id}/status`, {
+export const toggleProductStatus = async (id: number | string, isActive: boolean): Promise<Product> => {
+  const res = await apiRequest<any>(`/products/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ is_active: isActive })
   });
+  return (res?.data || res) as Product;
 };
 
 export const toggleItemStatus = toggleProductStatus;
 
-export const getItemDetail = async (id: number): Promise<Product> => {
-  return apiRequest<Product>(`/products/${id}`);
+export const getItemDetail = async (id: number | string): Promise<Product> => {
+  const res = await apiRequest<any>(`/products/${id}`);
+  return (res?.data || res) as Product;
 };
 
 export const getItems = async (params: ItemFilterParams): Promise<PaginatedResponse<Product>> => {
@@ -1540,15 +1546,28 @@ export const getItems = async (params: ItemFilterParams): Promise<PaginatedRespo
   query.append('page', (params.page || 1).toString());
   query.append('page_size', (params.page_size || 20).toString());
   query.append('paginate', params.paginate !== false ? 'true' : 'false');
-  return apiRequest<PaginatedResponse<Product>>(`/items?${query.toString()}`);
+  const res = await apiRequest<any>(`/items?${query.toString()}`);
+  if (res && Array.isArray(res.items)) return res;
+  const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.items) ? res.items : []));
+  const total = res?.total ?? res?.count ?? items.length;
+  const pageSize = res?.page_size ?? params.page_size ?? 20;
+  return {
+    items,
+    total,
+    page: res?.page ?? params.page ?? 1,
+    page_size: pageSize,
+    total_pages: res?.total_pages ?? Math.max(1, Math.ceil(total / pageSize))
+  };
 };
 
-export const getItemSummary = async (entityId: number): Promise<ItemSummary> => {
-  return apiRequest<ItemSummary>(`/items/summary?entity_id=${entityId}`);
+export const getItemSummary = async (entityId: number | string): Promise<ItemSummary> => {
+  const res = await apiRequest<any>(`/items/summary?entity_id=${entityId}`);
+  return (res?.data || res) as ItemSummary;
 };
 
-export const getItemCategories = async (entityId: number): Promise<string[]> => {
-  return apiRequest<string[]>(`/items/categories?entity_id=${entityId}`);
+export const getItemCategories = async (entityId: number | string): Promise<string[]> => {
+  const res = await apiRequest<any>(`/items/categories?entity_id=${entityId}`);
+  return Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
 };
 
 // Invoices API

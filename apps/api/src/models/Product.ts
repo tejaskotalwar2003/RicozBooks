@@ -9,6 +9,7 @@ export interface IProduct extends Document {
   product_type: ProductType;
   category?: string;
   unit: string;
+  description?: string;
   selling_price: mongoose.Types.Decimal128;
   purchase_price: mongoose.Types.Decimal128;
   hsn_sac_code?: string;
@@ -37,6 +38,7 @@ const ProductSchema = new Schema<IProduct>(
     product_type: { type: String, enum: Object.values(ProductType), default: ProductType.PRODUCT, index: true },
     category: { type: String, default: 'General' },
     unit: { type: String, default: 'PCS' },
+    description: { type: String, default: '' },
     selling_price: { type: Schema.Types.Decimal128, required: true, default: 0.0 },
     purchase_price: { type: Schema.Types.Decimal128, required: true, default: 0.0 },
     hsn_sac_code: { type: String, default: null },

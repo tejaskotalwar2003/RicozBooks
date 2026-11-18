@@ -4,11 +4,12 @@ import { Invoice, CustomerPayment } from '../models/Invoice';
 import { Customer } from '../models/Customer';
 import { Product } from '../models/Product';
 import { Estimate, SalesOrder, CreditNote, RecurringInvoice } from '../models/CommercialDocuments';
+import { InventoryMovement } from '../models/InventoryMovement';
 import { SalesEngine } from '../services/sales.engine';
 import { AccountingEngine } from '../services/accounting.engine';
 import { AuditService } from '../services/audit.service';
 import { fromDecimal, toDecimal, quantizeAmount } from '../utils/decimal';
-import { AccountType, NormalBalance } from '@ricozbooks/shared';
+import { AccountType, NormalBalance, ProductType, InventoryMovementType } from '@ricozbooks/shared';
 
 function formatCustomer(c: any) {
   const obj = c.toObject ? c.toObject() : c;
@@ -18,6 +19,50 @@ function formatCustomer(c: any) {
     _id: String(obj._id),
     opening_balance: fromDecimal(obj.opening_balance || 0),
     current_balance: fromDecimal(obj.current_balance || 0),
+  };
+}
+
+function formatProduct(p: any) {
+  const obj = p.toObject ? p.toObject() : p;
+  const salesAcc = obj.sales_account_id;
+  const cogsAcc = obj.cogs_account_id;
+  const invAcc = obj.inventory_account_id;
+
+  return {
+    ...obj,
+    id: String(obj._id),
+    _id: String(obj._id),
+    entity_id: String(obj.entity_id),
+    name: obj.name,
+    sku: obj.sku || '',
+    barcode: obj.barcode || null,
+    product_type: obj.product_type || 'PRODUCT',
+    category: obj.category || 'General',
+    unit: obj.unit || 'PCS',
+    description: obj.description || '',
+    selling_price: fromDecimal(obj.selling_price || 0),
+    purchase_price: fromDecimal(obj.purchase_price || 0),
+    hsn_sac_code: obj.hsn_sac_code || '',
+    tax_rate: fromDecimal(obj.tax_rate || 0),
+    track_inventory: obj.track_inventory ?? true,
+    opening_stock: fromDecimal(obj.opening_stock || 0),
+    current_stock: fromDecimal(obj.current_stock || 0),
+    opening_stock_rate: fromDecimal(obj.opening_stock_rate || 0),
+    reorder_level: fromDecimal(obj.reorder_level || 0),
+    min_stock_alert: fromDecimal(obj.min_stock_alert || obj.reorder_level || 0),
+    warehouse_location: obj.warehouse_location || 'Main Warehouse',
+    sales_account_id: salesAcc ? (salesAcc._id ? String(salesAcc._id) : String(salesAcc)) : null,
+    income_account_id: salesAcc ? (salesAcc._id ? String(salesAcc._id) : String(salesAcc)) : null,
+    cogs_account_id: cogsAcc ? (cogsAcc._id ? String(cogsAcc._id) : String(cogsAcc)) : null,
+    purchase_account_id: cogsAcc ? (cogsAcc._id ? String(cogsAcc._id) : String(cogsAcc)) : null,
+    expense_account_id: cogsAcc ? (cogsAcc._id ? String(cogsAcc._id) : String(cogsAcc)) : null,
+    inventory_account_id: invAcc ? (invAcc._id ? String(invAcc._id) : String(invAcc)) : null,
+    income_account_name: salesAcc?.name || undefined,
+    expense_account_name: cogsAcc?.name || undefined,
+    inventory_account_name: invAcc?.name || undefined,
+    is_active: obj.is_active ?? true,
+    created_at: obj.created_at,
+    updated_at: obj.updated_at,
   };
 }
 export class SalesController {
@@ -481,39 +526,101 @@ export class SalesController {
 
   public static async listItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { entity_id, search } = req.query;
-      const filter: any = {};
+      const {
+        entity_id,
+        search,
+        name_search,
+        sku_search,
+        type,
+        product_type,
+        status,
+        is_active,
+        category,
+        page = 1,
+        page_size = 20,
+        paginate = 'true',
+      } = req.query;
 
-      if (entity_id) {
-        filter.entity_id = new mongoose.Types.ObjectId(String(entity_id));
-      } else if (req.currentEntityId || req.user?.default_entity_id) {
-        filter.entity_id = req.currentEntityId || req.user?.default_entity_id;
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+      if (!targetEntityId) {
+        res.status(400).json({ success: false, detail: 'entity_id is required' });
+        return;
       }
 
-      if (search) {
+      const filter: any = { entity_id: new mongoose.Types.ObjectId(String(targetEntityId)) };
+
+      // Name search
+      if (name_search) {
+        filter.name = { $regex: String(name_search).trim(), $options: 'i' };
+      }
+
+      // SKU search
+      if (sku_search) {
+        filter.sku = { $regex: String(sku_search).trim(), $options: 'i' };
+      }
+
+      // General search across name, sku, description, hsn_sac_code
+      if (search && !name_search && !sku_search) {
         filter.$or = [
-          { name: { $regex: String(search), $options: 'i' } },
-          { sku: { $regex: String(search), $options: 'i' } },
+          { name: { $regex: String(search).trim(), $options: 'i' } },
+          { sku: { $regex: String(search).trim(), $options: 'i' } },
+          { description: { $regex: String(search).trim(), $options: 'i' } },
+          { hsn_sac_code: { $regex: String(search).trim(), $options: 'i' } },
         ];
       }
 
-      const products = await Product.find(filter).sort({ name: 1 });
-      const result = products.map((p) => ({
-        id: p._id,
-        name: p.name,
-        sku: p.sku,
-        product_type: p.product_type,
-        category: p.category,
-        unit: p.unit,
-        selling_price: fromDecimal(p.selling_price),
-        purchase_price: fromDecimal(p.purchase_price),
-        tax_rate: fromDecimal(p.tax_rate),
-        track_inventory: p.track_inventory,
-        current_stock: fromDecimal(p.current_stock),
-        is_active: p.is_active,
-      }));
+      // Product Type filter
+      const effectiveType = type || product_type;
+      if (effectiveType && effectiveType !== 'ALL') {
+        if (effectiveType === 'PRODUCT' || effectiveType === 'GOODS') {
+          filter.product_type = { $in: ['PRODUCT', 'GOODS'] };
+        } else {
+          filter.product_type = effectiveType;
+        }
+      }
 
-      res.status(200).json({ success: true, count: result.length, data: result });
+      // Status filter
+      if (status && status !== 'ALL') {
+        if (status === 'ACTIVE') filter.is_active = true;
+        if (status === 'INACTIVE') filter.is_active = false;
+      } else if (is_active !== undefined) {
+        filter.is_active = String(is_active) === 'true';
+      }
+
+      // Category filter
+      if (category && category !== 'ALL') {
+        filter.category = String(category);
+      }
+
+      const shouldPaginate = String(paginate) === 'true';
+      const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+      const limitNum = Math.max(1, Math.min(100, parseInt(String(page_size), 10) || 20));
+
+      const total = await Product.countDocuments(filter);
+      const queryBuilder = Product.find(filter)
+        .populate('sales_account_id', 'code name')
+        .populate('cogs_account_id', 'code name')
+        .populate('inventory_account_id', 'code name')
+        .sort({ name: 1 });
+
+      if (shouldPaginate) {
+        queryBuilder.skip((pageNum - 1) * limitNum).limit(limitNum);
+      }
+
+      const products = await queryBuilder;
+      const result = products.map(formatProduct);
+      const totalPages = Math.max(1, Math.ceil(total / limitNum));
+
+      res.status(200).json({
+        success: true,
+        items: result,
+        data: result,
+        count: total,
+        total,
+        page: pageNum,
+        page_size: limitNum,
+        total_pages: totalPages,
+      });
     } catch (err) {
       next(err);
     }
@@ -525,48 +632,132 @@ export class SalesController {
         entity_id,
         name,
         sku,
+        barcode,
         product_type,
         category,
         unit,
+        description,
         selling_price,
         purchase_price,
         tax_rate,
+        hsn_sac_code,
         track_inventory,
         opening_stock,
         opening_stock_rate,
+        reorder_level,
+        min_stock_alert,
+        warehouse_location,
+        sales_account_id,
+        income_account_id,
+        cogs_account_id,
+        purchase_account_id,
+        expense_account_id,
+        inventory_account_id,
+        is_active,
       } = req.body;
-      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
 
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
       if (!targetEntityId) {
         res.status(400).json({ success: false, detail: 'entity_id is required' });
         return;
       }
 
-      const existing = await Product.findOne({ entity_id: targetEntityId, sku: sku.trim() });
-      if (existing) {
-        res.status(409).json({ success: false, detail: `Product with SKU '${sku}' already exists.` });
+      if (!name || !name.trim()) {
+        res.status(400).json({ success: false, detail: 'Item Name is required' });
         return;
       }
 
-      const openStock = quantizeAmount(opening_stock || 0.0);
+      const effectiveType = (product_type === 'SERVICE') ? ProductType.SERVICE : ProductType.PRODUCT;
+      const isService = effectiveType === ProductType.SERVICE;
+
+      // Handle SKU
+      let itemSku = (sku && typeof sku === 'string' && sku.trim()) ? sku.trim().toUpperCase() : '';
+      if (!itemSku) {
+        const prefix = isService ? 'SRV' : 'ITM';
+        const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+        itemSku = `${prefix}-${randomSuffix}`;
+      }
+
+      // Check SKU uniqueness within entity
+      const existing = await Product.findOne({
+        entity_id: new mongoose.Types.ObjectId(String(targetEntityId)),
+        sku: itemSku,
+      });
+      if (existing) {
+        res.status(409).json({ success: false, detail: `An item with SKU '${itemSku}' already exists for this organization.` });
+        return;
+      }
+
+      const shouldTrack = isService ? false : (track_inventory !== undefined ? Boolean(track_inventory) : true);
+      const openStock = shouldTrack ? quantizeAmount(opening_stock || 0.0) : 0.0;
+      const openStockRate = shouldTrack ? quantizeAmount(opening_stock_rate || purchase_price || 0.0) : 0.0;
+      const reorderLvl = shouldTrack ? quantizeAmount(reorder_level || min_stock_alert || 0.0) : 0.0;
+
+      // Resolve account IDs
+      const salesAccId = (sales_account_id || income_account_id) ? new mongoose.Types.ObjectId(String(sales_account_id || income_account_id)) : null;
+      const cogsAccId = (cogs_account_id || purchase_account_id || expense_account_id) ? new mongoose.Types.ObjectId(String(cogs_account_id || purchase_account_id || expense_account_id)) : null;
+      const invAccId = (shouldTrack && inventory_account_id) ? new mongoose.Types.ObjectId(String(inventory_account_id)) : null;
+
       const product = await Product.create({
-        entity_id: targetEntityId,
+        entity_id: new mongoose.Types.ObjectId(String(targetEntityId)),
         name: name.trim(),
-        sku: sku.trim(),
-        product_type: product_type || 'PRODUCT',
-        category: category || 'General',
-        unit: unit || 'PCS',
+        sku: itemSku,
+        barcode: barcode ? String(barcode).trim() : null,
+        product_type: effectiveType,
+        category: category ? String(category).trim() : 'General',
+        unit: (unit ? String(unit).trim().toUpperCase() : 'PCS'),
+        description: description ? String(description).trim() : '',
         selling_price: toDecimal(selling_price || 0.0),
         purchase_price: toDecimal(purchase_price || 0.0),
+        hsn_sac_code: hsn_sac_code ? String(hsn_sac_code).trim() : null,
         tax_rate: toDecimal(tax_rate !== undefined ? tax_rate : 18.0),
-        track_inventory: track_inventory !== undefined ? track_inventory : true,
+        track_inventory: shouldTrack,
         opening_stock: toDecimal(openStock),
         current_stock: toDecimal(openStock),
-        opening_stock_rate: toDecimal(opening_stock_rate || purchase_price || 0.0),
-        is_active: true,
+        opening_stock_rate: toDecimal(openStockRate),
+        reorder_level: toDecimal(reorderLvl),
+        min_stock_alert: toDecimal(reorderLvl),
+        warehouse_location: warehouse_location ? String(warehouse_location).trim() : 'Main Warehouse',
+        sales_account_id: salesAccId,
+        cogs_account_id: cogsAccId,
+        inventory_account_id: invAccId,
+        is_active: is_active !== undefined ? Boolean(is_active) : true,
       });
 
-      res.status(201).json({ success: true, data: product });
+      // Record opening stock movement if tracked and quantity > 0
+      if (shouldTrack && openStock > 0) {
+        try {
+          await InventoryMovement.create({
+            entity_id: product.entity_id,
+            product_id: product._id,
+            movement_type: InventoryMovementType.ADJUSTMENT_IN,
+            movement_date: new Date(),
+            quantity: toDecimal(openStock),
+            unit_cost: toDecimal(openStockRate),
+            total_cost: toDecimal(openStock * openStockRate),
+            reference_type: 'OPENING_STOCK',
+            reference_id: product._id.toString(),
+            warehouse_location: product.warehouse_location,
+            notes: 'Initial opening stock entry',
+            created_by_user_id: req.user?._id || req.user?.id || null,
+          });
+        } catch (invErr) {
+          console.warn('[ITEMS] Notice: Could not record initial inventory movement:', invErr);
+        }
+      }
+
+      const populatedProduct = await Product.findById(product._id)
+        .populate('sales_account_id', 'code name')
+        .populate('cogs_account_id', 'code name')
+        .populate('inventory_account_id', 'code name');
+
+      const formatted = formatProduct(populatedProduct || product);
+
+      res.status(201).json({
+        success: true,
+        data: formatted,
+        ...formatted
+      });
     } catch (err) {
       next(err);
     }
@@ -575,26 +766,21 @@ export class SalesController {
   public static async getItem(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const product = await Product.findById(id);
+      const product = await Product.findById(id)
+        .populate('sales_account_id', 'code name')
+        .populate('cogs_account_id', 'code name')
+        .populate('inventory_account_id', 'code name');
+
       if (!product) {
-        res.status(404).json({ detail: 'Product not found' });
+        res.status(404).json({ success: false, detail: 'Product not found' });
         return;
       }
+
+      const formatted = formatProduct(product);
       res.json({
-        id: product._id,
-        _id: product._id,
-        entity_id: product.entity_id,
-        name: product.name,
-        sku: product.sku,
-        product_type: product.product_type,
-        category: product.category,
-        unit: product.unit,
-        selling_price: fromDecimal(product.selling_price),
-        purchase_price: fromDecimal(product.purchase_price),
-        tax_rate: fromDecimal(product.tax_rate),
-        current_stock: fromDecimal(product.current_stock),
-        min_stock_alert: fromDecimal(product.min_stock_alert || 0),
-        is_active: product.is_active,
+        success: true,
+        data: formatted,
+        ...formatted
       });
     } catch (err) {
       next(err);
@@ -605,16 +791,73 @@ export class SalesController {
     try {
       const { id } = req.params;
       const updateData = { ...req.body };
+
+      if (updateData.name !== undefined) updateData.name = String(updateData.name).trim();
       if (updateData.selling_price !== undefined) updateData.selling_price = toDecimal(updateData.selling_price);
       if (updateData.purchase_price !== undefined) updateData.purchase_price = toDecimal(updateData.purchase_price);
       if (updateData.tax_rate !== undefined) updateData.tax_rate = toDecimal(updateData.tax_rate);
+      if (updateData.opening_stock !== undefined) updateData.opening_stock = toDecimal(updateData.opening_stock);
+      if (updateData.current_stock !== undefined) updateData.current_stock = toDecimal(updateData.current_stock);
+      if (updateData.opening_stock_rate !== undefined) updateData.opening_stock_rate = toDecimal(updateData.opening_stock_rate);
+      if (updateData.reorder_level !== undefined) {
+        updateData.reorder_level = toDecimal(updateData.reorder_level);
+        updateData.min_stock_alert = updateData.reorder_level;
+      } else if (updateData.min_stock_alert !== undefined) {
+        updateData.min_stock_alert = toDecimal(updateData.min_stock_alert);
+        updateData.reorder_level = updateData.min_stock_alert;
+      }
 
-      const product = await Product.findByIdAndUpdate(id, updateData, { new: true });
+      // Resolve aliases
+      if (updateData.sales_account_id || updateData.income_account_id) {
+        updateData.sales_account_id = new mongoose.Types.ObjectId(String(updateData.sales_account_id || updateData.income_account_id));
+      }
+      if (updateData.cogs_account_id || updateData.purchase_account_id || updateData.expense_account_id) {
+        updateData.cogs_account_id = new mongoose.Types.ObjectId(String(updateData.cogs_account_id || updateData.purchase_account_id || updateData.expense_account_id));
+      }
+      if (updateData.inventory_account_id) {
+        updateData.inventory_account_id = new mongoose.Types.ObjectId(String(updateData.inventory_account_id));
+      }
+
+      // If SKU updated, check uniqueness within entity
+      if (updateData.sku) {
+        updateData.sku = String(updateData.sku).trim().toUpperCase();
+        const currentProd = await Product.findById(id);
+        const entityId = updateData.entity_id || currentProd?.entity_id;
+        const existing = await Product.findOne({
+          _id: { $ne: id },
+          entity_id: entityId,
+          sku: updateData.sku,
+        });
+        if (existing) {
+          res.status(409).json({ success: false, detail: `An item with SKU '${updateData.sku}' already exists.` });
+          return;
+        }
+      }
+
+      // If service, disable track_inventory
+      if (updateData.product_type === 'SERVICE') {
+        updateData.track_inventory = false;
+        updateData.current_stock = toDecimal(0);
+        updateData.opening_stock = toDecimal(0);
+        updateData.inventory_account_id = null;
+      }
+
+      const product = await Product.findByIdAndUpdate(id, updateData, { new: true })
+        .populate('sales_account_id', 'code name')
+        .populate('cogs_account_id', 'code name')
+        .populate('inventory_account_id', 'code name');
+
       if (!product) {
-        res.status(404).json({ detail: 'Product not found' });
+        res.status(404).json({ success: false, detail: 'Product not found' });
         return;
       }
-      res.json(product);
+
+      const formatted = formatProduct(product);
+      res.json({
+        success: true,
+        data: formatted,
+        ...formatted
+      });
     } catch (err) {
       next(err);
     }
@@ -624,12 +867,17 @@ export class SalesController {
     try {
       const { id } = req.params;
       const { is_active } = req.body;
-      const product = await Product.findByIdAndUpdate(id, { is_active }, { new: true });
+      const product = await Product.findByIdAndUpdate(id, { is_active: Boolean(is_active) }, { new: true });
       if (!product) {
-        res.status(404).json({ detail: 'Product not found' });
+        res.status(404).json({ success: false, detail: 'Product not found' });
         return;
       }
-      res.json(product);
+      const formatted = formatProduct(product);
+      res.json({
+        success: true,
+        data: formatted,
+        ...formatted
+      });
     } catch (err) {
       next(err);
     }
@@ -643,15 +891,35 @@ export class SalesController {
         return;
       }
 
-      const products = await Product.find({ entity_id: entityId });
+      const products = await Product.find({ entity_id: new mongoose.Types.ObjectId(String(entityId)) });
       const totalCount = products.length;
+      const productsCount = products.filter((p) => p.product_type === 'PRODUCT' || (p.product_type as any) === 'GOODS').length;
+      const servicesCount = products.filter((p) => p.product_type === 'SERVICE').length;
       const activeCount = products.filter((p) => p.is_active).length;
-      const lowStockCount = products.filter((p) => fromDecimal(p.current_stock) <= fromDecimal(p.min_stock_alert || 0)).length;
+      const inactiveCount = products.filter((p) => !p.is_active).length;
+      const inventoryTrackedCount = products.filter((p) => p.track_inventory && p.product_type !== 'SERVICE').length;
+      const lowStockCount = products.filter((p) => {
+        if (!p.track_inventory || p.product_type === 'SERVICE' || !p.is_active) return false;
+        const currentStock = fromDecimal(p.current_stock);
+        const threshold = fromDecimal(p.reorder_level || p.min_stock_alert || 0);
+        return currentStock <= threshold;
+      }).length;
+
+      const summary = {
+        total_items: totalCount,
+        products_count: productsCount,
+        services_count: servicesCount,
+        active_items: activeCount,
+        inactive_items: inactiveCount,
+        inventory_tracked: inventoryTrackedCount,
+        inventory_tracked_count: inventoryTrackedCount,
+        low_stock_items: lowStockCount,
+      };
 
       res.json({
-        total_items: totalCount,
-        active_items: activeCount,
-        low_stock_items: lowStockCount,
+        success: true,
+        data: summary,
+        ...summary,
       });
     } catch (err) {
       next(err);
@@ -662,7 +930,7 @@ export class SalesController {
     try {
       const entityId = req.query.entity_id || req.currentEntityId || req.user?.default_entity_id;
       const filter: any = {};
-      if (entityId) filter.entity_id = entityId;
+      if (entityId) filter.entity_id = new mongoose.Types.ObjectId(String(entityId));
 
       const categories = await Product.distinct('category', filter);
       res.json(categories.filter(Boolean));
