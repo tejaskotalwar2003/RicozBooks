@@ -55,7 +55,7 @@ export const ProjectsPage: React.FC = () => {
   // Form states
   const [newCode, setNewCode] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
-  const [newCustomerId, setNewCustomerId] = useState<number | ''>('');
+  const [newCustomerId, setNewCustomerId] = useState<number | string | ''>('');
   const [newBillingType, setNewBillingType] = useState<'TIME_AND_MATERIALS' | 'FIXED_COST' | 'NON_BILLABLE'>('TIME_AND_MATERIALS');
   const [newBudget, setNewBudget] = useState<number>(10000);
   const [newRate, setNewRate] = useState<number>(150);
@@ -124,7 +124,7 @@ export const ProjectsPage: React.FC = () => {
     try {
       const proj = await createProject({
         entity_id: activeEntity.id,
-        customer_id: newCustomerId ? Number(newCustomerId) : undefined,
+        customer_id: newCustomerId ? newCustomerId : undefined,
         code: newCode,
         name: newName,
         billing_type: newBillingType,
@@ -503,15 +503,18 @@ export const ProjectsPage: React.FC = () => {
                   </label>
                   <select
                     value={newCustomerId}
-                    onChange={(e) => setNewCustomerId(e.target.value ? Number(e.target.value) : '')}
+                    onChange={(e) => setNewCustomerId(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   >
                     <option value="">Internal Non-Client Project</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                    {customers.map((c) => {
+                      const cId = String(c.id || (c as any)._id);
+                      return (
+                        <option key={cId} value={cId}>
+                          {c.name}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>

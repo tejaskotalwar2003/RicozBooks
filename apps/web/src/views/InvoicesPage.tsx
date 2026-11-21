@@ -57,6 +57,65 @@ import {
   RecurringInvoice
 } from '../services/accountingApi';
 
+export const GST_STATE_CODES: Record<string, string> = {
+  '01': 'Jammu and Kashmir',
+  '02': 'Himachal Pradesh',
+  '03': 'Punjab',
+  '04': 'Chandigarh',
+  '05': 'Uttarakhand',
+  '06': 'Haryana',
+  '07': 'Delhi',
+  '08': 'Rajasthan',
+  '09': 'Uttar Pradesh',
+  '10': 'Bihar',
+  '11': 'Sikkim',
+  '12': 'Arunachal Pradesh',
+  '13': 'Nagaland',
+  '14': 'Manipur',
+  '15': 'Mizoram',
+  '16': 'Tripura',
+  '17': 'Meghalaya',
+  '18': 'Assam',
+  '19': 'West Bengal',
+  '20': 'Jharkhand',
+  '21': 'Odisha',
+  '22': 'Chhattisgarh',
+  '23': 'Madhya Pradesh',
+  '24': 'Gujarat',
+  '26': 'Dadra and Nagar Haveli and Daman and Diu',
+  '27': 'Maharashtra',
+  '29': 'Karnataka',
+  '30': 'Goa',
+  '31': 'Lakshadweep',
+  '32': 'Kerala',
+  '33': 'Tamil Nadu',
+  '34': 'Puducherry',
+  '35': 'Andaman and Nicobar Islands',
+  '36': 'Telangana',
+  '37': 'Andhra Pradesh',
+  '38': 'Ladakh',
+  '97': 'Other Territory'
+};
+
+export function getGstStateCode(input?: string | null): string {
+  if (!input) return '';
+  const trimmed = input.trim();
+  // 15-char standard GSTIN or starts with 2 digits
+  if (/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/i.test(trimmed) || /^\d{2}\b/.test(trimmed)) {
+    return trimmed.slice(0, 2);
+  }
+  const lower = trimmed.toLowerCase();
+  for (const [code, name] of Object.entries(GST_STATE_CODES)) {
+    if (name.toLowerCase() === lower) return code;
+  }
+  return trimmed.toLowerCase();
+}
+
+export function getStateNameFromGstin(input?: string | null): string {
+  const code = getGstStateCode(input);
+  return GST_STATE_CODES[code] || '';
+}
+
 export const InvoicesPage: React.FC = () => {
   const { activeEntity } = useAuth();
   const [activeTab, setActiveTab] = useState<'invoices' | 'estimates' | 'orders' | 'credit_notes' | 'recurring'>('invoices');
@@ -90,7 +149,7 @@ export const InvoicesPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // New Invoice Form State
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | ''>('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState<string>(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -99,7 +158,7 @@ export const InvoicesPage: React.FC = () => {
   const [notes, setNotes] = useState<string>('Thank you for your business. Payment is due within the stipulated terms.');
   const [terms, setTerms] = useState<string>('Interest @ 18% p.a. will be charged on all delayed payments.');
   const [lines, setLines] = useState<Array<{
-    product_id?: number;
+    product_id?: string;
     description: string;
     hsn_sac: string;
     quantity: number;
@@ -121,7 +180,7 @@ export const InvoicesPage: React.FC = () => {
   // Payment Link & UPI QR Modal State
   const [showLinkModal, setShowLinkModal] = useState<boolean>(false);
   const [paymentLinkData, setPaymentLinkData] = useState<{
-    invoice_id: number;
+    invoice_id: number | string;
     invoice_number: string;
     payment_token: string;
     payment_link: string;
@@ -191,11 +250,16 @@ export const InvoicesPage: React.FC = () => {
     fetchData(1, newSize);
   };
 
-  const handleCustomerChange = (custId: number) => {
+  const handleCustomerChange = (custId: string) => {
     setSelectedCustomerId(custId);
-    const cust = customers.find(c => c.id === custId);
+    if (!custId) {
+      setSupplyState('');
+      return;
+    }
+    const cust = customers.find(c => String(c.id || (c as any)._id) === String(custId));
     if (cust) {
-      if (cust.state) setSupplyState(cust.state);
+      const derivedState = cust.state || (cust.gstin ? getStateNameFromGstin(cust.gstin) : (activeEntity?.state || ''));
+      if (derivedState) setSupplyState(derivedState);
       const days = cust.payment_terms_days || 30;
       const d = new Date();
       d.setDate(d.getDate() + days);
@@ -207,14 +271,22 @@ export const InvoicesPage: React.FC = () => {
     const updated = [...lines];
     (updated[index] as any)[field] = value;
 
-    if (field === 'product_id' && value) {
-      const prod = products.find(p => p.id === Number(value));
-      if (prod) {
-        updated[index].description = prod.name;
-        updated[index].hsn_sac = prod.hsn_sac_code || '';
-        updated[index].unit = prod.unit || 'PCS';
-        updated[index].unit_price = Number(prod.selling_price) || 0;
-        updated[index].tax_rate = (prod.tax_rate !== undefined && prod.tax_rate !== null) ? Number(prod.tax_rate) : 18;
+    if (field === 'product_id') {
+      if (value) {
+        const prod = products.find(p => String(p.id || (p as any)._id) === String(value));
+        if (prod) {
+          updated[index].product_id = String(prod.id || (prod as any)._id);
+          updated[index].description = prod.name + (prod.description ? ` - ${prod.description}` : '');
+          updated[index].hsn_sac = prod.hsn_sac_code || (prod as any).hsn_code || '';
+          updated[index].unit = prod.unit || 'PCS';
+          updated[index].unit_price = Number(prod.selling_price) || 0;
+          const configuredTaxRate = (prod.tax_rate !== undefined && prod.tax_rate !== null)
+            ? Number(prod.tax_rate)
+            : ((prod as any).gst_rate !== undefined ? Number((prod as any).gst_rate) : 18);
+          updated[index].tax_rate = configuredTaxRate;
+        }
+      } else {
+        updated[index].product_id = undefined;
       }
     }
     setLines(updated);
@@ -234,14 +306,20 @@ export const InvoicesPage: React.FC = () => {
   };
 
   // Calculations for Create Modal
-  const isIntraState = !supplyState || !activeEntity?.city || 
-    (supplyState.trim().toLowerCase() === (activeEntity?.city || '').trim().toLowerCase()); // Or state comparison
+  const selectedCustomer = customers.find(c => String(c.id || (c as any)._id) === String(selectedCustomerId));
+  const sellerState = activeEntity?.state || (activeEntity?.gstin ? getStateNameFromGstin(activeEntity.gstin) : '');
+  const buyerState = supplyState || (selectedCustomer ? (selectedCustomer.state || (selectedCustomer.gstin ? getStateNameFromGstin(selectedCustomer.gstin) : '')) : '');
+  const sellerCode = getGstStateCode(activeEntity?.gstin || sellerState);
+  const buyerCode = getGstStateCode(buyerState);
+  const isIntraState = !buyerCode || !sellerCode || (buyerCode === sellerCode);
 
   const calculateTotals = () => {
     let subtotal = 0;
     let totalDiscount = 0;
     let taxable = 0;
-    let totalTax = 0;
+    let cgstTotal = 0;
+    let sgstTotal = 0;
+    let igstTotal = 0;
 
     lines.forEach(l => {
       const qty = Number(l.quantity) || 0;
@@ -249,27 +327,48 @@ export const InvoicesPage: React.FC = () => {
       const discPct = Number(l.discount_pct) || 0;
       const taxRate = Number(l.tax_rate) || 0;
 
-      const lineGross = qty * price;
-      const lineDisc = (lineGross * discPct) / 100;
-      const lineTaxable = lineGross - lineDisc;
-      const lineTax = (lineTaxable * taxRate) / 100;
+      const lineGross = Math.round(qty * price * 100) / 100;
+      const lineDisc = Math.round(lineGross * (discPct / 100) * 100) / 100;
+      const lineTaxable = Math.round((lineGross - lineDisc) * 100) / 100;
+
+      let cgstAmt = 0;
+      let sgstAmt = 0;
+      let igstAmt = 0;
+
+      if (isIntraState) {
+        const halfRate = taxRate / 2;
+        cgstAmt = Math.round(lineTaxable * (halfRate / 100) * 100) / 100;
+        sgstAmt = Math.round(lineTaxable * (halfRate / 100) * 100) / 100;
+      } else {
+        igstAmt = Math.round(lineTaxable * (taxRate / 100) * 100) / 100;
+      }
 
       subtotal += lineGross;
       totalDiscount += lineDisc;
       taxable += lineTaxable;
-      totalTax += lineTax;
+      cgstTotal += cgstAmt;
+      sgstTotal += sgstAmt;
+      igstTotal += igstAmt;
     });
 
-    const grandTotal = taxable + totalTax;
+    subtotal = Math.round(subtotal * 100) / 100;
+    totalDiscount = Math.round(totalDiscount * 100) / 100;
+    taxable = Math.round(taxable * 100) / 100;
+    cgstTotal = Math.round(cgstTotal * 100) / 100;
+    sgstTotal = Math.round(sgstTotal * 100) / 100;
+    igstTotal = Math.round(igstTotal * 100) / 100;
+    const totalTax = Math.round((cgstTotal + sgstTotal + igstTotal) * 100) / 100;
+    const grandTotal = Math.round((taxable + totalTax) * 100) / 100;
+
     return {
       subtotal,
       totalDiscount,
       taxable,
       totalTax,
-      grandTotal,
-      cgst: isIntraState ? totalTax / 2 : 0,
-      sgst: isIntraState ? totalTax / 2 : 0,
-      igst: !isIntraState ? totalTax : 0
+      cgst: cgstTotal,
+      sgst: sgstTotal,
+      igst: igstTotal,
+      grandTotal
     };
   };
 
@@ -292,21 +391,23 @@ export const InvoicesPage: React.FC = () => {
     try {
       const payload: InvoiceCreateData = {
         entity_id: activeEntity.id,
-        customer_id: Number(selectedCustomerId),
+        customer_id: String(selectedCustomerId),
         invoice_date: invoiceDate,
         due_date: dueDate,
+        is_interstate: !isIntraState,
         supply_state: supplyState || undefined,
         notes,
         terms,
         lines: lines.map(l => ({
-          product_id: l.product_id ? Number(l.product_id) : undefined,
+          product_id: l.product_id ? String(l.product_id) : undefined,
           description: l.description.trim(),
-          hsn_sac: l.hsn_sac.trim() || undefined,
+          hsn_sac: l.hsn_sac ? l.hsn_sac.trim() : undefined,
           quantity: Number(l.quantity),
-          unit: l.unit,
+          unit: l.unit || 'PCS',
           unit_price: Number(l.unit_price),
-          discount_pct: Number(l.discount_pct),
-          tax_rate: Number(l.tax_rate)
+          discount_pct: Number(l.discount_pct || 0),
+          discount_percentage: Number(l.discount_pct || 0),
+          tax_rate: Number(l.tax_rate || 0)
         }))
       };
 
@@ -323,7 +424,7 @@ export const InvoicesPage: React.FC = () => {
     }
   };
 
-  const handlePostToLedger = async (invId: number) => {
+  const handlePostToLedger = async (invId: number | string) => {
     if (!window.confirm('Post this invoice to General Ledger? This will lock the invoice and generate double-entry Journal Entries.')) {
       return;
     }
@@ -968,16 +1069,19 @@ export const InvoicesPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Customer *</label>
                   <select
                     value={selectedCustomerId}
-                    onChange={(e) => handleCustomerChange(Number(e.target.value))}
+                    onChange={(e) => handleCustomerChange(e.target.value)}
                     required
                     className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   >
                     <option value="">Select Customer...</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.gstin ? `(${c.gstin})` : ''}
-                      </option>
-                    ))}
+                    {customers.map((c) => {
+                      const cId = String(c.id || (c as any)._id);
+                      return (
+                        <option key={cId} value={cId}>
+                          {c.name} {c.gstin ? `(${c.gstin})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1004,28 +1108,83 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Selected Customer Details Info Card */}
+              {selectedCustomer && (
+                <div className="bg-[#FAF7F2] border border-[#EEC68B]/70 rounded-lg p-3 text-xs text-slate-700 grid grid-cols-1 md:grid-cols-3 gap-3 shadow-sm">
+                  <div>
+                    <span className="font-semibold text-slate-500 uppercase text-[10px] block">Customer / Billing Entity</span>
+                    <span className="font-bold text-[#390003] text-sm block">{selectedCustomer.name}</span>
+                    {selectedCustomer.billing_address ? (
+                      <p className="text-slate-600 text-[11px] mt-0.5 line-clamp-2">{selectedCustomer.billing_address}</p>
+                    ) : (
+                      <span className="text-slate-400 text-[11px] italic">No billing address saved</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-500 uppercase text-[10px] block">GST & State Information</span>
+                    <div className="flex items-center space-x-1.5 mt-0.5">
+                      <span className="font-mono font-medium text-slate-800">
+                        {selectedCustomer.gstin ? selectedCustomer.gstin : 'Unregistered Consumer'}
+                      </span>
+                      {selectedCustomer.gstin ? (
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-200">
+                          GST Reg
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-medium border border-slate-200">
+                          B2C
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      State: <span className="font-medium">{selectedCustomer.state || supplyState || 'Not Specified'}</span>
+                      {buyerCode ? ` (Code: ${buyerCode})` : ''}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-500 uppercase text-[10px] block">Contact & Payment Terms</span>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      {selectedCustomer.email || selectedCustomer.phone || 'No direct phone/email'}
+                    </p>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Payment Terms: <span className="font-semibold text-slate-800">{selectedCustomer.payment_terms_days || 30} Days</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Supply State & Tax Mode Notice */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Place of Supply (State)</label>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Place of Supply (State) *</label>
                   <input
                     type="text"
                     placeholder="e.g. Maharashtra, Karnataka, Delhi"
                     value={supplyState}
                     onChange={(e) => setSupplyState(e.target.value)}
+                    required
                     className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-[#C58B3E]"
                   />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Auto-populated from Customer state/GSTIN. Determines whether CGST+SGST or IGST applies.
+                  </p>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-slate-700">Tax Determination:</span>
-                    <span className="ml-1 text-slate-600">
-                      {isIntraState ? 'Intra-State (CGST + SGST applied)' : 'Inter-State (IGST applied)'}
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs flex flex-col justify-center space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-700">Tax Type:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      isIntraState
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-blue-100 text-blue-800 border border-blue-300'
+                    }`}>
+                      {isIntraState ? 'INTRA-STATE (CGST + SGST)' : 'INTER-STATE (IGST)'}
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EEC68B]/30 text-[#390003] border border-[#C58B3E]/40">
-                    GST Ready
-                  </span>
+                  <div className="text-[11px] text-slate-600">
+                    <span>Seller: <strong>{sellerState || 'Entity State'} {sellerCode ? `(${sellerCode})` : ''}</strong></span>
+                    <span className="mx-1.5">➔</span>
+                    <span>Buyer: <strong>{buyerState || 'Place of Supply'} {buyerCode ? `(${buyerCode})` : ''}</strong></span>
+                  </div>
                 </div>
               </div>
 
@@ -1070,16 +1229,23 @@ export const InvoicesPage: React.FC = () => {
                             <td className="p-2">
                               {products.length > 0 && (
                                 <select
-                                  value={line.product_id || ''}
+                                  value={line.product_id ? String(line.product_id) : ''}
                                   onChange={(e) => handleLineChange(idx, 'product_id', e.target.value)}
-                                  className="w-full text-xs border border-slate-300 rounded p-1 mb-1"
+                                  className="w-full text-xs border border-slate-300 rounded p-1 mb-1 font-medium text-slate-800"
                                 >
                                   <option value="">Select from catalog or enter below...</option>
-                                  {products.filter(p => p.is_active !== false).map(p => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name} {p.sku ? `(${p.sku})` : ''} — {currencySymbol}{p.selling_price} {p.track_inventory ? `[Stock: ${p.current_stock ?? 0} ${p.unit || 'PCS'}]` : ''}
-                                    </option>
-                                  ))}
+                                  {products.filter(p => p.is_active !== false).map(p => {
+                                    const pId = String(p.id || (p as any)._id);
+                                    const isService = (p as any).product_type === 'SERVICE' || (p as any).type === 'SERVICE';
+                                    const taxRateDisplay = (p.tax_rate !== undefined && p.tax_rate !== null)
+                                      ? p.tax_rate
+                                      : ((p as any).gst_rate !== undefined ? (p as any).gst_rate : 18);
+                                    return (
+                                      <option key={pId} value={pId}>
+                                        {p.name} {p.sku ? `(${p.sku})` : ''} — {currencySymbol}{p.selling_price} | GST: {taxRateDisplay}% {(!isService && p.track_inventory) ? `[Stock: ${p.current_stock ?? 0} ${p.unit || 'PCS'}]` : ''}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               )}
                               <input
@@ -1108,11 +1274,12 @@ export const InvoicesPage: React.FC = () => {
                                 value={line.quantity}
                                 onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)}
                                 required
-                                className="w-full text-xs border border-slate-300 rounded p-1 text-right"
+                                className="w-full text-xs border border-slate-300 rounded p-1 text-right font-medium"
                               />
                               {line.product_id && (() => {
-                                const prod = products.find(p => p.id === Number(line.product_id));
-                                if (prod && prod.track_inventory) {
+                                const prod = products.find(p => String(p.id || (p as any)._id) === String(line.product_id));
+                                const isService = (prod as any)?.product_type === 'SERVICE' || (prod as any)?.type === 'SERVICE';
+                                if (prod && !isService && prod.track_inventory) {
                                   const avail = Number(prod.current_stock ?? 0);
                                   const isOver = Number(line.quantity) > avail;
                                   return (
@@ -1153,10 +1320,15 @@ export const InvoicesPage: React.FC = () => {
                                 className="w-full text-xs border border-slate-300 rounded p-1 text-right"
                               >
                                 <option value={0}>0%</option>
+                                <option value={0.25}>0.25%</option>
+                                <option value={3}>3%</option>
                                 <option value={5}>5%</option>
                                 <option value={12}>12%</option>
                                 <option value={18}>18%</option>
                                 <option value={28}>28%</option>
+                                {![0, 0.25, 3, 5, 12, 18, 28].includes(Number(line.tax_rate)) && (
+                                  <option value={line.tax_rate}>{line.tax_rate}%</option>
+                                )}
                               </select>
                             </td>
                             <td className="p-2 text-right font-semibold text-slate-800">
@@ -1222,17 +1394,17 @@ export const InvoicesPage: React.FC = () => {
                   {isIntraState ? (
                     <>
                       <div className="flex justify-between text-slate-600">
-                        <span>CGST:</span>
+                        <span>CGST (Central Tax):</span>
                         <span className="font-mono">{currencySymbol}{totals.cgst.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-slate-600">
-                        <span>SGST:</span>
+                        <span>SGST (State Tax):</span>
                         <span className="font-mono">{currencySymbol}{totals.sgst.toFixed(2)}</span>
                       </div>
                     </>
                   ) : (
                     <div className="flex justify-between text-slate-600">
-                      <span>IGST:</span>
+                      <span>IGST (Integrated Tax):</span>
                       <span className="font-mono">{currencySymbol}{totals.igst.toFixed(2)}</span>
                     </div>
                   )}

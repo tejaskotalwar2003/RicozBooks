@@ -4,11 +4,66 @@ import { AccountType, InvoiceStatus, JournalStatus, NormalBalance, InventoryMove
 import { Invoice, IInvoice, CustomerPayment, ICustomerPayment } from '../models/Invoice';
 import { Customer } from '../models/Customer';
 import { Product } from '../models/Product';
+import { Entity } from '../models/Organization';
 import { InventoryMovement } from '../models/InventoryMovement';
 import { JournalEntry } from '../models/JournalEntry';
 import { AccountingEngine } from './accounting.engine';
 import { AuditService } from './audit.service';
 import { toDecimal, fromDecimal, quantizeAmount } from '../utils/decimal';
+
+export const GST_STATE_CODES: Record<string, string> = {
+  '01': 'Jammu and Kashmir',
+  '02': 'Himachal Pradesh',
+  '03': 'Punjab',
+  '04': 'Chandigarh',
+  '05': 'Uttarakhand',
+  '06': 'Haryana',
+  '07': 'Delhi',
+  '08': 'Rajasthan',
+  '09': 'Uttar Pradesh',
+  '10': 'Bihar',
+  '11': 'Sikkim',
+  '12': 'Arunachal Pradesh',
+  '13': 'Nagaland',
+  '14': 'Manipur',
+  '15': 'Mizoram',
+  '16': 'Tripura',
+  '17': 'Meghalaya',
+  '18': 'Assam',
+  '19': 'West Bengal',
+  '20': 'Jharkhand',
+  '21': 'Odisha',
+  '22': 'Chhattisgarh',
+  '23': 'Madhya Pradesh',
+  '24': 'Gujarat',
+  '26': 'Dadra and Nagar Haveli and Daman and Diu',
+  '27': 'Maharashtra',
+  '29': 'Karnataka',
+  '30': 'Goa',
+  '31': 'Lakshadweep',
+  '32': 'Kerala',
+  '33': 'Tamil Nadu',
+  '34': 'Puducherry',
+  '35': 'Andaman and Nicobar Islands',
+  '36': 'Telangana',
+  '37': 'Andhra Pradesh',
+  '38': 'Ladakh',
+  '97': 'Other Territory'
+};
+
+export function getGstStateCode(input?: string | null): string {
+  if (!input) return '';
+  const trimmed = input.trim();
+  // 15-char GSTIN or 2 leading digits
+  if (/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/i.test(trimmed) || /^\d{2}\b/.test(trimmed)) {
+    return trimmed.slice(0, 2);
+  }
+  const lower = trimmed.toLowerCase();
+  for (const [code, name] of Object.entries(GST_STATE_CODES)) {
+    if (name.toLowerCase() === lower) return code;
+  }
+  return trimmed.toLowerCase();
+}
 
 export class SalesEngine {
   /**
@@ -70,19 +125,34 @@ export class SalesEngine {
     issue_date: Date;
     due_date: Date;
     is_interstate?: boolean;
+    supply_state?: string;
     lines: Array<{
       product_id?: mongoose.Types.ObjectId | string | null;
       description: string;
       quantity: number;
       unit_price: number;
       discount_percentage?: number;
+      discount_pct?: number;
       tax_rate?: number;
     }>;
     created_by_user_id: mongoose.Types.ObjectId | string;
   }): Promise<IInvoice> {
+    if (!data.customer_id) {
+      const err = new Error('Customer ID is required');
+      (err as any).statusCode = 400;
+      throw err;
+    }
+
+    const customerQueryId = mongoose.Types.ObjectId.isValid(String(data.customer_id))
+      ? new mongoose.Types.ObjectId(String(data.customer_id))
+      : data.customer_id;
+    const entityQueryId = mongoose.Types.ObjectId.isValid(String(data.entity_id))
+      ? new mongoose.Types.ObjectId(String(data.entity_id))
+      : data.entity_id;
+
     const customer = await Customer.findOne({
-      _id: data.customer_id,
-      entity_id: data.entity_id,
+      _id: customerQueryId,
+      entity_id: entityQueryId,
     });
     if (!customer) {
       const err = new Error('Customer not found for this organization');
@@ -96,7 +166,22 @@ export class SalesEngine {
       throw err;
     }
 
-    const isInterstate = Boolean(data.is_interstate);
+    let isInterstate = false;
+    if (data.is_interstate !== undefined && data.is_interstate !== null) {
+      isInterstate = Boolean(data.is_interstate);
+    } else {
+      try {
+        const entity = await Entity.findById(entityQueryId);
+        const sellerStateCode = getGstStateCode(entity?.gstin || entity?.tax_identifier || entity?.state);
+        const buyerStateCode = getGstStateCode(data.supply_state || customer.gstin || customer.state);
+        if (sellerStateCode && buyerStateCode) {
+          isInterstate = sellerStateCode !== buyerStateCode;
+        }
+      } catch (_) {
+        isInterstate = false;
+      }
+    }
+
     let subtotal = 0.0;
     let cgstTotal = 0.0;
     let sgstTotal = 0.0;
@@ -108,9 +193,31 @@ export class SalesEngine {
 
     for (const line of data.lines) {
       const qty = quantizeAmount(line.quantity || 1.0);
-      const unitPrice = quantizeAmount(line.unit_price || 0.0);
-      const discountPct = quantizeAmount(line.discount_percentage || 0.0);
-      const taxRate = quantizeAmount(line.tax_rate !== undefined ? line.tax_rate : 18.0);
+      let unitPrice = quantizeAmount(line.unit_price || 0.0);
+      const discountPct = quantizeAmount(
+        line.discount_percentage !== undefined ? line.discount_percentage : (line.discount_pct || 0.0)
+      );
+      let taxRate = quantizeAmount(line.tax_rate !== undefined ? line.tax_rate : 18.0);
+      let description = line.description || '';
+
+      // If product_id is provided, check DB to autofill missing price, tax rate, or description
+      if (line.product_id) {
+        try {
+          const product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(String(line.product_id)),
+            entity_id: entityQueryId,
+          });
+          if (product) {
+            if (!description.trim()) description = product.name;
+            if (unitPrice === 0 && product.selling_price) {
+              unitPrice = quantizeAmount(fromDecimal(product.selling_price));
+            }
+            if (line.tax_rate === undefined && product.tax_rate) {
+              taxRate = quantizeAmount(fromDecimal(product.tax_rate));
+            }
+          }
+        } catch (_) {}
+      }
 
       const grossLine = quantizeAmount(qty * unitPrice);
       const discountAmt = quantizeAmount(grossLine * (discountPct / 100.0));
@@ -144,8 +251,10 @@ export class SalesEngine {
       totalAmount += lineTotal;
 
       formattedLines.push({
-        product_id: line.product_id ? new mongoose.Types.ObjectId(String(line.product_id)) : null,
-        description: line.description || '',
+        product_id: line.product_id && mongoose.Types.ObjectId.isValid(String(line.product_id))
+          ? new mongoose.Types.ObjectId(String(line.product_id))
+          : null,
+        description: description,
         quantity: toDecimal(qty),
         unit_price: toDecimal(unitPrice),
         discount_percentage: toDecimal(discountPct),
@@ -172,8 +281,8 @@ export class SalesEngine {
     const paymentToken = uuidv4();
 
     const invoice = await Invoice.create({
-      entity_id: data.entity_id,
-      customer_id: data.customer_id,
+      entity_id: entityQueryId,
+      customer_id: customerQueryId,
       invoice_number: invoiceNumber,
       issue_date: data.issue_date,
       due_date: data.due_date,

@@ -5,6 +5,7 @@ import { InvoiceStatus, PaymentMode, InventoryMovementType } from '@ricozbooks/s
 import { Invoice, CustomerPayment } from '../src/models/Invoice';
 import { Customer } from '../src/models/Customer';
 import { Product } from '../src/models/Product';
+import { Entity } from '../src/models/Organization';
 import { InventoryMovement } from '../src/models/InventoryMovement';
 import { JournalEntry } from '../src/models/JournalEntry';
 import { Account } from '../src/models/Account';
@@ -116,6 +117,198 @@ describe('Sales & COGS Engine - Financial & Inventory Workflows', () => {
       expect(createdInvoiceData.sgst_total.toString()).toBe('0.00');
       expect(createdInvoiceData.igst_total.toString()).toBe('900.00');
       expect(createdInvoiceData.total_amount.toString()).toBe('5900.00');
+    });
+
+    it('should autofill product selling price and GST rate from database when not specified in line item', async () => {
+      jest.spyOn(Customer, 'findOne').mockResolvedValueOnce({
+        _id: dummyCustomer,
+        name: 'Sprite Consumer',
+      } as any);
+
+      jest.spyOn(Product, 'findOne').mockResolvedValueOnce({
+        _id: dummyProduct,
+        name: 'Sprite',
+        sku: 'SPR-200',
+        selling_price: toDecimal(25),
+        tax_rate: toDecimal(18),
+      } as any);
+
+      jest.spyOn(Invoice, 'countDocuments').mockResolvedValueOnce(0);
+      jest.spyOn(Invoice, 'findOne').mockResolvedValueOnce(null);
+
+      let createdInvoiceData: any = null;
+      jest.spyOn(Invoice, 'create').mockImplementationOnce(async (doc: any) => {
+        createdInvoiceData = doc;
+        return { ...doc, _id: new mongoose.Types.ObjectId() } as any;
+      });
+
+      // Passing line with unit_price: 0 and tax_rate undefined, should autofill ₹25 and 18% GST
+      await SalesEngine.createInvoice({
+        entity_id: dummyEntity,
+        customer_id: dummyCustomer,
+        issue_date: new Date('2026-11-20'),
+        due_date: new Date('2026-12-20'),
+        is_interstate: false,
+        lines: [
+          {
+            product_id: dummyProduct,
+            description: '',
+            quantity: 4,
+            unit_price: 0,
+          },
+        ],
+        created_by_user_id: dummyUser,
+      });
+
+      expect(createdInvoiceData).toBeDefined();
+      // 4 * 25 = 100.00 subtotal
+      expect(createdInvoiceData.subtotal.toString()).toBe('100.00');
+      // 18% GST intra-state -> 9% CGST (9.00), 9% SGST (9.00)
+      expect(createdInvoiceData.cgst_total.toString()).toBe('9.00');
+      expect(createdInvoiceData.sgst_total.toString()).toBe('9.00');
+      expect(createdInvoiceData.igst_total.toString()).toBe('0.00');
+      expect(createdInvoiceData.total_amount.toString()).toBe('118.00');
+      expect(createdInvoiceData.lines[0].description).toBe('Sprite');
+    });
+
+    it('should automatically determine intra-state GST (CGST + SGST) from matching 2-digit GST state codes', async () => {
+      jest.spyOn(Customer, 'findOne').mockResolvedValueOnce({
+        _id: dummyCustomer,
+        name: 'Bengaluru Client',
+        gstin: '29AABCR1234F1Z5', // Karnataka code 29
+        state: 'Karnataka',
+      } as any);
+
+      jest.spyOn(Entity, 'findById').mockResolvedValueOnce({
+        _id: dummyEntity,
+        name: 'Ricoz Tech Karnataka',
+        gstin: '29AAACH1234F1Z8', // Karnataka code 29
+        state: 'Karnataka',
+      } as any);
+
+      jest.spyOn(Invoice, 'countDocuments').mockResolvedValueOnce(0);
+      jest.spyOn(Invoice, 'findOne').mockResolvedValueOnce(null);
+
+      let createdInvoiceData: any = null;
+      jest.spyOn(Invoice, 'create').mockImplementationOnce(async (doc: any) => {
+        createdInvoiceData = doc;
+        return { ...doc, _id: new mongoose.Types.ObjectId() } as any;
+      });
+
+      // is_interstate is omitted, should auto-detect intra-state from matching state codes 29
+      await SalesEngine.createInvoice({
+        entity_id: dummyEntity,
+        customer_id: dummyCustomer,
+        issue_date: new Date('2026-11-20'),
+        due_date: new Date('2026-12-20'),
+        lines: [
+          {
+            description: 'Local Web Services',
+            quantity: 1,
+            unit_price: 1000,
+            tax_rate: 18,
+          },
+        ],
+        created_by_user_id: dummyUser,
+      });
+
+      expect(createdInvoiceData).toBeDefined();
+      expect(createdInvoiceData.is_interstate).toBe(false);
+      expect(createdInvoiceData.cgst_total.toString()).toBe('90.00');
+      expect(createdInvoiceData.sgst_total.toString()).toBe('90.00');
+      expect(createdInvoiceData.igst_total.toString()).toBe('0.00');
+      expect(createdInvoiceData.total_amount.toString()).toBe('1180.00');
+    });
+
+    it('should automatically determine inter-state GST (IGST) from differing 2-digit GST state codes', async () => {
+      jest.spyOn(Customer, 'findOne').mockResolvedValueOnce({
+        _id: dummyCustomer,
+        name: 'Mumbai Client',
+        gstin: '27AABCR5678F1Z2', // Maharashtra code 27
+        state: 'Maharashtra',
+      } as any);
+
+      jest.spyOn(Entity, 'findById').mockResolvedValueOnce({
+        _id: dummyEntity,
+        name: 'Ricoz Tech Karnataka',
+        gstin: '29AAACH1234F1Z8', // Karnataka code 29
+        state: 'Karnataka',
+      } as any);
+
+      jest.spyOn(Invoice, 'countDocuments').mockResolvedValueOnce(0);
+      jest.spyOn(Invoice, 'findOne').mockResolvedValueOnce(null);
+
+      let createdInvoiceData: any = null;
+      jest.spyOn(Invoice, 'create').mockImplementationOnce(async (doc: any) => {
+        createdInvoiceData = doc;
+        return { ...doc, _id: new mongoose.Types.ObjectId() } as any;
+      });
+
+      // is_interstate is omitted, should auto-detect inter-state: 29 != 27
+      await SalesEngine.createInvoice({
+        entity_id: dummyEntity,
+        customer_id: dummyCustomer,
+        issue_date: new Date('2026-11-20'),
+        due_date: new Date('2026-12-20'),
+        lines: [
+          {
+            description: 'Interstate Consulting',
+            quantity: 1,
+            unit_price: 2000,
+            tax_rate: 18,
+          },
+        ],
+        created_by_user_id: dummyUser,
+      });
+
+      expect(createdInvoiceData).toBeDefined();
+      expect(createdInvoiceData.is_interstate).toBe(true);
+      expect(createdInvoiceData.cgst_total.toString()).toBe('0.00');
+      expect(createdInvoiceData.sgst_total.toString()).toBe('0.00');
+      expect(createdInvoiceData.igst_total.toString()).toBe('360.00');
+      expect(createdInvoiceData.total_amount.toString()).toBe('2360.00');
+    });
+
+    it('should accept string MongoDB ObjectIds for customer_id and product_id', async () => {
+      const stringEntityId = dummyEntity.toString();
+      const stringCustomerId = dummyCustomer.toString();
+      const stringProductId = dummyProduct.toString();
+
+      jest.spyOn(Customer, 'findOne').mockResolvedValueOnce({
+        _id: dummyCustomer,
+        name: 'String ID Customer',
+      } as any);
+
+      jest.spyOn(Invoice, 'countDocuments').mockResolvedValueOnce(0);
+      jest.spyOn(Invoice, 'findOne').mockResolvedValueOnce(null);
+
+      let createdInvoiceData: any = null;
+      jest.spyOn(Invoice, 'create').mockImplementationOnce(async (doc: any) => {
+        createdInvoiceData = doc;
+        return { ...doc, _id: new mongoose.Types.ObjectId() } as any;
+      });
+
+      await SalesEngine.createInvoice({
+        entity_id: stringEntityId as any,
+        customer_id: stringCustomerId as any,
+        issue_date: new Date('2026-11-20'),
+        due_date: new Date('2026-12-20'),
+        is_interstate: false,
+        lines: [
+          {
+            product_id: stringProductId,
+            description: 'Test Item with String ID',
+            quantity: 1,
+            unit_price: 500,
+            tax_rate: 18,
+          },
+        ],
+        created_by_user_id: dummyUser.toString(),
+      });
+
+      expect(createdInvoiceData).toBeDefined();
+      expect(createdInvoiceData.customer_id).toEqual(dummyCustomer);
+      expect(createdInvoiceData.lines[0].product_id).toEqual(dummyProduct);
     });
   });
 

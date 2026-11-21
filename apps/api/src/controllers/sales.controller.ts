@@ -68,7 +68,7 @@ function formatProduct(p: any) {
 export class SalesController {
   public static async listInvoices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { entity_id, customer_id, status, start_date, end_date } = req.query;
+      const { entity_id, customer_id, status, start_date, end_date, paginate, page = 1, page_size = 20, search } = req.query;
       const filter: any = {};
 
       if (entity_id) {
@@ -78,33 +78,80 @@ export class SalesController {
       }
 
       if (customer_id) filter.customer_id = new mongoose.Types.ObjectId(String(customer_id));
-      if (status) filter.status = status;
+      if (status && status !== 'ALL') filter.status = status;
       if (start_date || end_date) {
         filter.issue_date = {};
         if (start_date) filter.issue_date.$gte = new Date(String(start_date));
         if (end_date) filter.issue_date.$lte = new Date(String(end_date));
       }
 
-      const invoices = await Invoice.find(filter)
-        .populate('customer_id', 'name email phone')
-        .sort({ issue_date: -1, created_at: -1 })
-        .limit(100);
+      if (search) {
+        filter.$or = [
+          { invoice_number: { $regex: String(search), $options: 'i' } },
+        ];
+      }
 
-      const result = invoices.map((inv) => ({
-        id: inv._id,
-        invoice_number: inv.invoice_number,
-        customer: inv.customer_id,
-        issue_date: inv.issue_date,
-        due_date: inv.due_date,
-        status: inv.status,
-        total_amount: fromDecimal(inv.total_amount),
-        amount_paid: fromDecimal(inv.amount_paid),
-        balance_due: fromDecimal(inv.balance_due),
-        journal_entry_id: inv.journal_entry_id,
-        created_at: inv.created_at,
-      }));
+      const isPaginated = String(paginate) === 'true';
+      const total = await Invoice.countDocuments(filter);
 
-      res.status(200).json({ success: true, count: result.length, data: result });
+      let query = Invoice.find(filter)
+        .populate('customer_id', 'name email phone company_name gstin')
+        .sort({ issue_date: -1, created_at: -1 });
+
+      if (isPaginated) {
+        const p = Math.max(1, parseInt(String(page), 10));
+        const ps = Math.max(1, Math.min(100, parseInt(String(page_size), 10)));
+        query = query.skip((p - 1) * ps).limit(ps);
+      } else {
+        query = query.limit(200);
+      }
+
+      const invoices = await query;
+
+      const result = invoices.map((inv) => {
+        const cust = inv.customer_id as any;
+        return {
+          id: inv._id.toString(),
+          _id: inv._id.toString(),
+          invoice_number: inv.invoice_number,
+          customer: cust,
+          customer_id: cust?._id ? cust._id.toString() : (inv.customer_id ? inv.customer_id.toString() : ''),
+          customer_name: cust?.name || 'Unknown Customer',
+          issue_date: inv.issue_date,
+          due_date: inv.due_date,
+          status: inv.status,
+          subtotal: fromDecimal(inv.subtotal),
+          tax_total: fromDecimal(inv.tax_total),
+          cgst_total: fromDecimal(inv.cgst_total),
+          sgst_total: fromDecimal(inv.sgst_total),
+          igst_total: fromDecimal(inv.igst_total),
+          total_amount: fromDecimal(inv.total_amount),
+          amount_paid: fromDecimal(inv.amount_paid),
+          balance_due: fromDecimal(inv.balance_due),
+          balance_amount: fromDecimal(inv.balance_due),
+          is_interstate: inv.is_interstate,
+          journal_entry_id: inv.journal_entry_id,
+          lines: inv.lines,
+          created_at: inv.created_at,
+        };
+      });
+
+      if (isPaginated) {
+        const p = Math.max(1, parseInt(String(page), 10));
+        const ps = Math.max(1, Math.min(100, parseInt(String(page_size), 10)));
+        const totalPages = Math.ceil(total / ps) || 1;
+        res.status(200).json({
+          success: true,
+          items: result,
+          data: result,
+          total,
+          page: p,
+          page_size: ps,
+          total_pages: totalPages,
+        });
+      } else {
+        res.status(200).json({ success: true, count: result.length, data: result, items: result });
+      }
     } catch (err) {
       next(err);
     }
@@ -119,11 +166,15 @@ export class SalesController {
         return;
       }
 
+      const cust = invoice.customer_id as any;
       const formatted = {
-        id: invoice._id,
+        id: invoice._id.toString(),
+        _id: invoice._id.toString(),
         entity_id: invoice.entity_id,
         invoice_number: invoice.invoice_number,
-        customer: invoice.customer_id,
+        customer: cust,
+        customer_id: cust?._id ? cust._id.toString() : (invoice.customer_id ? invoice.customer_id.toString() : ''),
+        customer_name: cust?.name || 'Unknown Customer',
         issue_date: invoice.issue_date,
         due_date: invoice.due_date,
         status: invoice.status,
@@ -135,18 +186,20 @@ export class SalesController {
         total_amount: fromDecimal(invoice.total_amount),
         amount_paid: fromDecimal(invoice.amount_paid),
         balance_due: fromDecimal(invoice.balance_due),
+        balance_amount: fromDecimal(invoice.balance_due),
+        is_interstate: invoice.is_interstate,
         payment_token: invoice.payment_token,
         journal_entry_id: invoice.journal_entry_id,
         lines: invoice.lines.map((l) => ({
-          id: (l as any)._id,
-          product_id: l.product_id,
+          id: (l as any)._id ? (l as any)._id.toString() : undefined,
+          product_id: l.product_id ? l.product_id.toString() : null,
           description: l.description,
           quantity: fromDecimal(l.quantity),
           unit_price: fromDecimal(l.unit_price),
-          discount_percentage: fromDecimal(l.discount_percentage),
-          tax_rate: fromDecimal(l.tax_rate),
-          line_subtotal: fromDecimal(l.line_subtotal),
-          line_total: fromDecimal(l.line_total),
+          discount_percentage: fromDecimal(l.discount_percentage || 0),
+          tax_rate: fromDecimal(l.tax_rate || 0),
+          line_subtotal: fromDecimal(l.line_subtotal || 0),
+          line_total: fromDecimal(l.line_total || 0),
         })),
         created_at: invoice.created_at,
       };
@@ -194,21 +247,57 @@ export class SalesController {
 
   public static async createInvoice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { entity_id, customer_id, issue_date, due_date, is_interstate, items, lines } = req.body;
-      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
+      const {
+        entity_id,
+        customer_id,
+        customerId,
+        issue_date,
+        invoice_date,
+        due_date,
+        is_interstate,
+        supply_state,
+        notes,
+        terms,
+        items,
+        lines,
+      } = req.body;
 
+      const targetEntityId = entity_id || req.currentEntityId || req.user?.default_entity_id;
       if (!targetEntityId) {
         res.status(400).json({ success: false, detail: 'entity_id is required' });
         return;
       }
 
+      const rawCustomerId = customer_id || customerId;
+      if (!rawCustomerId) {
+        res.status(400).json({ success: false, detail: 'customer_id is required' });
+        return;
+      }
+
+      const rawLines = items || lines;
+      if (!rawLines || !Array.isArray(rawLines) || rawLines.length === 0) {
+        res.status(400).json({ success: false, detail: 'An invoice must have at least one line item' });
+        return;
+      }
+
+      const effectiveIssueDate = issue_date ? new Date(issue_date) : (invoice_date ? new Date(invoice_date) : new Date());
+      const effectiveDueDate = due_date ? new Date(due_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
       const invoice = await SalesEngine.createInvoice({
         entity_id: targetEntityId,
-        customer_id,
-        issue_date: issue_date ? new Date(issue_date) : new Date(),
-        due_date: due_date ? new Date(due_date) : new Date(),
-        is_interstate,
-        lines: items || lines,
+        customer_id: String(rawCustomerId),
+        issue_date: effectiveIssueDate,
+        due_date: effectiveDueDate,
+        is_interstate: is_interstate !== undefined ? Boolean(is_interstate) : undefined,
+        supply_state: supply_state ? String(supply_state).trim() : undefined,
+        lines: rawLines.map((l: any) => ({
+          product_id: l.product_id ? String(l.product_id) : null,
+          description: l.description || '',
+          quantity: Number(l.quantity) || 1,
+          unit_price: Number(l.unit_price) || 0,
+          discount_percentage: l.discount_percentage !== undefined ? Number(l.discount_percentage) : (l.discount_pct !== undefined ? Number(l.discount_pct) : 0),
+          tax_rate: l.tax_rate !== undefined ? Number(l.tax_rate) : undefined,
+        })),
         created_by_user_id: req.user!._id,
       });
 

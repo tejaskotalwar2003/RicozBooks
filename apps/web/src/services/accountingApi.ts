@@ -1077,8 +1077,8 @@ export const getDashboardMetrics = async (entity_id?: number): Promise<Dashboard
 // =========================================================================
 
 export interface Customer {
-  id: number;
-  entity_id: number;
+  id: number | string;
+  entity_id: number | string;
   name: string;
   company_name?: string;
   email?: string;
@@ -1101,7 +1101,7 @@ export interface Customer {
 }
 
 export interface CustomerCreateData {
-  entity_id: number;
+  entity_id: number | string;
   name: string;
   company_name?: string;
   email?: string;
@@ -1254,9 +1254,9 @@ export interface InvoiceLine {
 }
 
 export interface Invoice {
-  id: number;
-  entity_id: number;
-  customer_id: number;
+  id: number | string;
+  entity_id: number | string;
+  customer_id: number | string;
   customer_name?: string;
   invoice_number: string;
   invoice_date: string;
@@ -1276,7 +1276,7 @@ export interface Invoice {
   currency: string;
   notes?: string;
   terms?: string;
-  journal_entry_id?: number;
+  journal_entry_id?: number | string;
   payment_token?: string;
   created_at: string;
   lines?: InvoiceLine[];
@@ -1337,22 +1337,25 @@ export interface PublicInvoicePaymentResponse {
 }
 
 export interface InvoiceCreateData {
-  entity_id: number;
-  customer_id: number;
+  entity_id: number | string;
+  customer_id: number | string;
   invoice_number?: string;
-  invoice_date: string;
+  invoice_date?: string;
+  issue_date?: string;
   due_date: string;
+  is_interstate?: boolean;
   supply_state?: string;
   notes?: string;
   terms?: string;
   lines: {
-    product_id?: number;
+    product_id?: number | string;
     description: string;
     hsn_sac?: string;
     quantity: number;
     unit?: string;
     unit_price: number;
     discount_pct?: number;
+    discount_percentage?: number;
     tax_rate?: number;
   }[];
 }
@@ -1377,14 +1380,14 @@ export interface CustomerPayment {
 }
 
 export interface CustomerPaymentCreateData {
-  entity_id: number;
-  customer_id: number;
-  invoice_id?: number;
+  entity_id: number | string;
+  customer_id: number | string;
+  invoice_id?: number | string;
   payment_number?: string;
   payment_date: string;
   amount: number;
   payment_mode?: string;
-  deposit_account_id?: number;
+  deposit_account_id?: number | string;
   reference_number?: string;
   notes?: string;
 }
@@ -1430,7 +1433,7 @@ export interface EstimateCreateData {
 }
 
 // Customers API
-export const getCustomers = async (entityId?: number, search?: string): Promise<Customer[]> => {
+export const getCustomers = async (entityId?: number | string, search?: string): Promise<Customer[]> => {
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (search) params.append('search', search);
@@ -1441,7 +1444,7 @@ export const getCustomers = async (entityId?: number, search?: string): Promise<
 };
 
 export const getCustomersPaginated = async (
-  entityId?: number,
+  entityId?: number | string,
   search?: string,
   page: number = 1,
   pageSize: number = 20
@@ -1462,19 +1465,19 @@ export const createCustomer = async (data: CustomerCreateData): Promise<Customer
   });
 };
 
-export const updateCustomer = async (id: number, data: Partial<CustomerCreateData>): Promise<Customer> => {
+export const updateCustomer = async (id: number | string, data: Partial<CustomerCreateData>): Promise<Customer> => {
   return apiRequest<Customer>(`/customers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
 };
 
-export const getCustomerStatement = async (customerId: number): Promise<CustomerStatement> => {
+export const getCustomerStatement = async (customerId: number | string): Promise<CustomerStatement> => {
   return apiRequest<CustomerStatement>(`/customers/${customerId}/statement`);
 };
 
 // Products API
-export const getProducts = async (entityId?: number, search?: string): Promise<Product[]> => {
+export const getProducts = async (entityId?: number | string, search?: string): Promise<Product[]> => {
   const params = new URLSearchParams();
   if (entityId) params.append('entity_id', entityId.toString());
   if (search) params.append('search', search);
@@ -1485,7 +1488,7 @@ export const getProducts = async (entityId?: number, search?: string): Promise<P
 };
 
 export const getProductsPaginated = async (
-  entityId?: number,
+  entityId?: number | string,
   search?: string,
   page: number = 1,
   pageSize: number = 20
@@ -1583,8 +1586,8 @@ export const getInvoices = async (entityId?: number, customerId?: number, status
 };
 
 export const getInvoicesPaginated = async (
-  entityId?: number,
-  customerId?: number,
+  entityId?: number | string,
+  customerId?: number | string,
   status?: string,
   search?: string,
   page: number = 1,
@@ -1598,10 +1601,21 @@ export const getInvoicesPaginated = async (
   params.append('page', page.toString());
   params.append('page_size', pageSize.toString());
   params.append('paginate', 'true');
-  return apiRequest<PaginatedResponse<Invoice>>(`/invoices?${params.toString()}`);
+  const res = await apiRequest<any>(`/invoices?${params.toString()}`);
+  if (res && Array.isArray(res.items)) return res;
+  const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (Array.isArray(res?.items) ? res.items : []));
+  const total = res?.total ?? res?.count ?? items.length;
+  const size = res?.page_size ?? pageSize;
+  return {
+    items,
+    total,
+    page: res?.page ?? page,
+    page_size: size,
+    total_pages: res?.total_pages ?? Math.max(1, Math.ceil(total / size))
+  };
 };
 
-export const getInvoiceDetail = async (id: number): Promise<Invoice> => {
+export const getInvoiceDetail = async (id: number | string): Promise<Invoice> => {
   return apiRequest<Invoice>(`/invoices/${id}`);
 };
 
@@ -1612,14 +1626,14 @@ export const createInvoice = async (data: InvoiceCreateData): Promise<Invoice> =
   });
 };
 
-export const postInvoiceToLedger = async (id: number): Promise<Invoice> => {
+export const postInvoiceToLedger = async (id: number | string): Promise<Invoice> => {
   return apiRequest<Invoice>(`/invoices/${id}/post`, {
     method: 'POST'
   });
 };
 
-export const getInvoicePaymentLink = async (invoiceId: number): Promise<{
-  invoice_id: number;
+export const getInvoicePaymentLink = async (invoiceId: number | string): Promise<{
+  invoice_id: number | string;
   invoice_number: string;
   payment_token: string;
   payment_link: string;
@@ -2826,8 +2840,8 @@ export const getProjectsPaginated = async (
 };
 
 export const createProject = async (data: {
-  entity_id: number;
-  customer_id?: number;
+  entity_id: number | string;
+  customer_id?: number | string;
   name: string;
   code: string;
   description?: string;
